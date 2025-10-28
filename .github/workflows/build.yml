@@ -1,0 +1,99 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: [1.22.x]
+        node-version: [18.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      with:
+        path: ui/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('ui/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Download Go dependencies
+      run: go mod download
+
+    - name: Install UI dependencies
+      run: cd ui && npm ci
+
+    - name: Build UI
+      run: cd ui && npm run build
+
+    - name: Build Go CLI
+      run: go build -v -o bin/arrt${{ matrix.os == 'windows-latest' && '.exe' || '' }} main.go
+
+    - name: Test Go
+      run: go test -v ./...
+
+    - name: Verify binary
+      run: ./bin/arrt${{ matrix.os == 'windows-latest' && '.exe' || '' }} version
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: arrt-${{ matrix.os }}
+        path: bin/arrt${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.22.x
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+
+    - name: Install UI dependencies
+      run: cd ui && npm ci
+
+    - name: Build UI
+      run: cd ui && npm run build
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
+
+    - name: Lint UI
+      run: cd ui && npm run lint
+
