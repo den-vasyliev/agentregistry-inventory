@@ -1,0 +1,61 @@
+package api
+
+// DestiredState represents the desired set of MCPServevrs the user wishes to run locally
+type DesiredState struct {
+	MCPServers []MCPServer `json:"mcpServers"`
+}
+
+// MCPServer represents a single MCPServer configuration
+type MCPServer struct {
+	// Name is the unique name of the MCPServer
+	Name string `json:"name"`
+	// Deployment defines how to deploy the MCP server
+	Deployment MCPServerDeployment `json:"deployment"`
+	// TransportType defines the type of mcp server being run
+	TransportType TransportType `json:"transportType"`
+	// Stdio defines the configuration for a standard input/output transport.(only for TransportTypeStdio)
+	Stdio *StdioTransport `json:"stdio,omitempty"`
+	// HTTP defines the configuration for an HTTP transport.(only for TransportTypeHTTP)
+	HTTP *HTTPTransport `json:"http,omitempty"`
+}
+
+// MCPServerTransportType defines the type of transport for the MCP server.
+type TransportType string
+
+const (
+	// TransportTypeStdio indicates that the MCP server uses standard input/output for communication.
+	TransportTypeStdio TransportType = "stdio"
+
+	// TransportTypeHTTP indicates that the MCP server uses Streamable HTTP for communication.
+	TransportTypeHTTP TransportType = "http"
+)
+
+// MCPServerDeployment
+type MCPServerDeployment struct {
+	// Image defines the container image to to deploy the MCP server.
+	Image string `json:"image,omitempty"`
+
+	// Port defines the port on which the MCP server will listen.
+	Port uint16 `json:"port,omitempty"`
+
+	// Cmd defines the command to run in the container to start the mcp server.
+	Cmd string `json:"cmd,omitempty"`
+
+	// Args defines the arguments to pass to the command.
+	Args []string `json:"args,omitempty"`
+
+	// Env defines the environment variables to set in the container.
+	Env map[string]string `json:"env,omitempty"`
+}
+
+// StdioTransport defines the configuration for a standard input/output transport.
+type StdioTransport struct{}
+
+// HTTPTransport defines the configuration for a Streamable HTTP transport.
+type HTTPTransport struct {
+	// target port is the HTTP port that serves the MCP server.over HTTP
+	TargetPort uint32 `json:"targetPort,omitempty"`
+
+	// the target path where MCP is served
+	TargetPath string `json:"path,omitempty"`
+}
