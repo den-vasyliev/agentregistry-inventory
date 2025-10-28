@@ -9,6 +9,37 @@ type DesiredState struct {
 type MCPServer struct {
 	// Name is the unique name of the MCPServer
 	Name string `json:"name"`
+	// MCPServerType represents whether the MCP server is remote or local
+	MCPServerType MCPServerType `json:"mcpServerType"`
+	// Remote defines how to route to a remote MCP server
+	Remote *RemoteMCPServer `json:"remote,omitempty"`
+	// Local defines how to deploy the MCP server locally
+	Local *LocalMCPServer `json:"local,omitempty"`
+}
+
+type MCPServerType string
+
+const (
+	// MCPServerTypeRemote indicates that the MCP server is hosted remotely
+	MCPServerTypeRemote MCPServerType = "remote"
+
+	// MCPServerTypeLocal indicates that the MCP server is hosted locally
+	MCPServerTypeLocal MCPServerType = "local"
+)
+
+// RemoteMCPServer represents the configuration for connecting to a remotely hosted MCPServer
+type RemoteMCPServer struct {
+	URL     string
+	Headers []HeaderValue
+}
+
+type HeaderValue struct {
+	Name  string
+	Value string
+}
+
+// LocalMCPServer represents the configuration for running an MCPServer locally
+type LocalMCPServer struct {
 	// Deployment defines how to deploy the MCP server
 	Deployment MCPServerDeployment `json:"deployment"`
 	// TransportType defines the type of mcp server being run

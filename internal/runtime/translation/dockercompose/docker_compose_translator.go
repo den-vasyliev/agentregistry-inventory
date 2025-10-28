@@ -61,8 +61,8 @@ func (t *agentGatewayTranslator) TranslateRuntimeConfig(
 	}
 
 	for _, mcpServer := range desired.MCPServers {
-		// only need to create services for http servers
-		if mcpServer.TransportType != api.TransportTypeHTTP {
+		// only need to create services for local servers
+		if mcpServer.MCPServerType != api.MCPServerTypeLocal {
 			continue
 		}
 		// error if MCPServer name is not unique
@@ -94,6 +94,9 @@ func (t *agentGatewayTranslator) TranslateRuntimeConfig(
 	}
 
 	gwConfig, err := t.translateAgentGatewayConfig(desired.MCPServers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to translate agent gateway config: %w", err)
+	}
 
 	return &AiRuntimeConfig{
 		DockerCompose: dockerCompose,
@@ -124,11 +127,11 @@ func (t *agentGatewayTranslator) translateAgentGatewayService() (*types.ServiceC
 }
 
 func (t *agentGatewayTranslator) translateMCPServerToServiceConfig(ctx context.Context, server api.MCPServer) (*types.ServiceConfig, error) {
-	image := server.Deployment.Image
-	if image == "" && server.Deployment.Cmd == "uvx" {
+	image := server.Local.Deployment.Image
+	if image == "" && server.Local.Deployment.Cmd == "uvx" {
 		image = "ghcr.io/astral-sh/uv:debian"
 	}
-	if image == "" && server.Deployment.Cmd == "npx" {
+	if image == "" && server.Local.Deployment.Cmd == "npx" {
 		image = "node:24-alpine3.21"
 	}
 	if image == "" {
@@ -144,6 +147,10 @@ func (t *agentGatewayTranslator) translateMCPServerToServiceConfig(ctx context.C
 			Target: "/config",
 		}},
 	}, nil
+}
+
+func (t *agentGatewayTranslator) translateAgentGatewayConfig(servers []api.MCPServer) (*AgentGatewayConfig, error) {
+
 }
 
 // getAgentGatewayImage returns the agent gateway container image,
