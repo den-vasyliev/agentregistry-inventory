@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/modelcontextprotocol/registry/pkg/model"
 	"mcp-enterprise-registry/internal/runtime/translation/api"
+	"net/url"
+	"strconv"
 	"strings"
 
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
@@ -82,11 +84,18 @@ func translateRemoteMCPServer(
 		})
 	}
 
+	u, err := parseUrl(remoteInfo.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse remote server url: %v", err)
+	}
+
 	return &api.MCPServer{
 		Name:          generateInternalName(registryServer.Name),
 		MCPServerType: api.MCPServerTypeRemote,
 		Remote: &api.RemoteMCPServer{
-			URL:     remoteInfo.URL,
+			Host:    u.host,
+			Port:    u.port,
+			Path:    u.path,
 			Headers: headers,
 		},
 	}, nil
@@ -99,11 +108,7 @@ func translateLocalMCPServer(
 	argValues map[string]string,
 ) (*api.MCPServer, error) {
 	var (
-		stdioConfig *api.StdioTransport
-		httpConfig  *api.HTTPTransport
-
 		image string
-		port  uint16
 		cmd   string
 		args  []string
 	)
@@ -112,6 +117,29 @@ func translateLocalMCPServer(
 	packageInfo := registryServer.Packages[0]
 
 	cmd = packageInfo.RunTimeHint
+
+	getArgValue := func(arg model.Argument) string {
+		if v, exists := argValues[arg.Name]; exists {
+			return v
+		}
+		return arg.Value
+	}
+	addArgs := func(modelArgrs []model.Argument) {
+		for _, arg := range modelArgrs {
+			switch arg.Type {
+			case model.ArgumentTypePositional:
+				args = append(args, getArgValue(arg))
+			}
+		}
+		for _, arg := range modelArgrs {
+			switch arg.Type {
+			case model.ArgumentTypeNamed:
+				args = append(args, arg.Name, getArgValue(arg))
+			}
+		}
+	}
+
+	addArgs(packageInfo.RuntimeArguments)
 
 	switch packageInfo.RegistryType {
 	case "npm":
@@ -132,25 +160,7 @@ func translateLocalMCPServer(
 		return nil, fmt.Errorf("unsupported package registry type: %s", packageInfo.RegistryType)
 	}
 
-	getArgValue := func(arg model.Argument) string {
-		if v, exists := argValues[arg.Name]; exists {
-			return v
-		}
-		return arg.Value
-	}
-
-	for _, arg := range packageInfo.RuntimeArguments {
-		switch arg.Type {
-		case model.ArgumentTypePositional:
-			args = append(args, getArgValue(arg))
-		}
-	}
-	for _, arg := range packageInfo.RuntimeArguments {
-		switch arg.Type {
-		case model.ArgumentTypeNamed:
-			args = append(args, arg.Name, getArgValue(arg))
-		}
-	}
+	addArgs(packageInfo.PackageArguments)
 
 	for _, envVar := range packageInfo.EnvironmentVariables {
 		if _, exists := envValues[envVar.Name]; !exists {
@@ -162,11 +172,23 @@ func translateLocalMCPServer(
 		}
 	}
 
+	var (
+		transportType api.TransportType
+		httpTransport *api.HTTPTransport
+	)
 	switch packageInfo.Transport.Type {
 	case "stdio":
-		stdioConfig = &api.StdioTransport{}
+		transportType = api.TransportTypeStdio
 	default:
-		httpConfig = &api.HTTPTransport{}
+		transportType = api.TransportTypeHTTP
+		u, err := parseUrl(packageInfo.Transport.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse transport url: %v", err)
+		}
+		httpTransport = &api.HTTPTransport{
+			Port: u.port,
+			Path: u.path,
+		}
 	}
 
 	return &api.MCPServer{
@@ -175,15 +197,47 @@ func translateLocalMCPServer(
 		Local: &api.LocalMCPServer{
 			Deployment: api.MCPServerDeployment{
 				Image: image,
-				Port:  port,
 				Cmd:   cmd,
 				Args:  args,
 				Env:   envValues,
 			},
-			TransportType: "",
-			Stdio:         stdioConfig,
-			HTTP:          httpConfig,
+			TransportType: transportType,
+			HTTP:          httpTransport,
 		},
+	}, nil
+}
+
+type parsedUrl struct {
+	host string
+	port uint32
+	path string
+}
+
+func parseUrl(rawUrl string) (*parsedUrl, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse server remote url: %v", err)
+	}
+	portStr := u.Port()
+	var port uint32
+	if portStr == "" {
+		if u.Scheme == "https" {
+			port = 443
+		} else {
+			port = 80
+		}
+	} else {
+		portI, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse server remote url: %v", err)
+		}
+		port = uint32(portI)
+	}
+
+	return &parsedUrl{
+		host: u.Hostname(),
+		port: port,
+		path: u.Path,
 	}, nil
 }
 

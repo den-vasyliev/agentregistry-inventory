@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 )
 
 type DockerComposeConfig = types.Project
@@ -37,12 +38,13 @@ type Translator interface {
 
 type agentGatewayTranslator struct {
 	composeWorkingDir string
-	agentGatewayPort  uint32
+	agentGatewayPort  uint16
 }
 
-func NewAgentGatewayTranslator(composeWorkingDir string) Translator {
+func NewAgentGatewayTranslator(composeWorkingDir string, agentGatewayPort uint16) Translator {
 	return &agentGatewayTranslator{
 		composeWorkingDir: composeWorkingDir,
+		agentGatewayPort:  agentGatewayPort,
 	}
 }
 
@@ -115,7 +117,7 @@ func (t *agentGatewayTranslator) translateAgentGatewayService() (*types.ServiceC
 		Command: []string{"-f", "/config/local.yaml"},
 		Ports: []types.ServicePortConfig{{
 			Name:      "http",
-			Target:    port,
+			Target:    uint32(port),
 			Published: fmt.Sprintf("%d", port),
 		}},
 		Volumes: []types.ServiceVolumeConfig{{
@@ -150,7 +152,83 @@ func (t *agentGatewayTranslator) translateMCPServerToServiceConfig(ctx context.C
 }
 
 func (t *agentGatewayTranslator) translateAgentGatewayConfig(servers []api.MCPServer) (*AgentGatewayConfig, error) {
+	var routes []LocalRoute
 
+	for _, server := range servers {
+		pathPrefix := fmt.Sprintf("%s/mcp", server.Name)
+
+		mcpTarget := MCPTarget{
+			Name: server.Name,
+		}
+
+		switch server.MCPServerType {
+		case api.MCPServerTypeRemote:
+			mcpTarget.SSE = &SSETargetSpec{
+				Host: server.Remote.Host,
+				Port: server.Remote.Port,
+				Path: server.Remote.Path,
+			}
+		case api.MCPServerTypeLocal:
+			switch server.Local.TransportType {
+			case api.TransportTypeStdio:
+				mcpTarget.Stdio = &StdioTargetSpec{
+					Cmd:  server.Local.Deployment.Cmd,
+					Args: server.Local.Deployment.Args,
+					Env:  server.Local.Deployment.Env,
+				}
+			case api.TransportTypeHTTP:
+				httpTransportConfig := server.Local.HTTP
+				if httpTransportConfig == nil || httpTransportConfig.Port == 0 {
+					return nil, fmt.Errorf("HTTP transport requires a target port")
+				}
+				mcpTarget.SSE = &SSETargetSpec{
+					Host: server.Name,
+					Port: httpTransportConfig.Port,
+					Path: httpTransportConfig.Path,
+				}
+			default:
+				return nil, fmt.Errorf("unsupported transport type: %s", server.Local.TransportType)
+			}
+		}
+
+		routes = append(routes, LocalRoute{
+			RouteName: server.Name,
+			Matches: []RouteMatch{
+				{
+					Path: PathMatch{
+						PathPrefix: pathPrefix,
+					},
+				},
+			},
+			Backends: []RouteBackend{{
+				Weight: 100,
+				MCP: &MCPBackend{
+					Targets: []MCPTarget{mcpTarget},
+				},
+			}},
+		})
+	}
+
+	// sort for idepmpotence
+	sort.SliceStable(routes, func(i, j int) bool {
+		return routes[i].RouteName < routes[j].RouteName
+	})
+
+	return &AgentGatewayConfig{
+		Config: struct{}{},
+		Binds: []LocalBind{
+			{
+				Port: t.agentGatewayPort,
+				Listeners: []LocalListener{
+					{
+						Name:     "default",
+						Protocol: "HTTP",
+						Routes:   routes,
+					},
+				},
+			},
+		},
+	}, nil
 }
 
 // getAgentGatewayImage returns the agent gateway container image,

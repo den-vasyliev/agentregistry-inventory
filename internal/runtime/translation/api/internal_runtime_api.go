@@ -29,7 +29,9 @@ const (
 
 // RemoteMCPServer represents the configuration for connecting to a remotely hosted MCPServer
 type RemoteMCPServer struct {
-	URL     string
+	Host    string
+	Port    uint32
+	Path    string
 	Headers []HeaderValue
 }
 
@@ -44,10 +46,14 @@ type LocalMCPServer struct {
 	Deployment MCPServerDeployment `json:"deployment"`
 	// TransportType defines the type of mcp server being run
 	TransportType TransportType `json:"transportType"`
-	// Stdio defines the configuration for a standard input/output transport.(only for TransportTypeStdio)
-	Stdio *StdioTransport `json:"stdio,omitempty"`
 	// HTTP defines the configuration for an HTTP transport.(only for TransportTypeHTTP)
 	HTTP *HTTPTransport `json:"http,omitempty"`
+}
+
+// HTTPTransport defines the configuration for an HTTP transport
+type HTTPTransport struct {
+	Port uint32 `json:"port"`
+	Path string `json:"path,omitempty"`
 }
 
 // MCPServerTransportType defines the type of transport for the MCP server.
@@ -66,9 +72,6 @@ type MCPServerDeployment struct {
 	// Image defines the container image to to deploy the MCP server.
 	Image string `json:"image,omitempty"`
 
-	// Port defines the port on which the MCP server will listen.
-	Port uint16 `json:"port,omitempty"`
-
 	// Cmd defines the command to run in the container to start the mcp server.
 	Cmd string `json:"cmd,omitempty"`
 
@@ -77,16 +80,4 @@ type MCPServerDeployment struct {
 
 	// Env defines the environment variables to set in the container.
 	Env map[string]string `json:"env,omitempty"`
-}
-
-// StdioTransport defines the configuration for a standard input/output transport.
-type StdioTransport struct{}
-
-// HTTPTransport defines the configuration for a Streamable HTTP transport.
-type HTTPTransport struct {
-	// target port is the HTTP port that serves the MCP server.over HTTP
-	TargetPort uint32 `json:"targetPort,omitempty"`
-
-	// the target path where MCP is served
-	TargetPath string `json:"path,omitempty"`
 }
