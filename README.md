@@ -68,6 +68,12 @@ arctl start
 # Launches the UI
 arctl ui
 
+# Import servers into the registry database
+arctl import --source ./seed.json
+arctl import --source https://example.com/seed.json --request-header Authorization=Bearer:XXX
+arctl import --source https://example.com/v0/servers --timeout 60s
+arctl import --source https://github.com/org/registry-seed.json --github-token $GITHUB_TOKEN --update
+
 # shows the version
 arctl version
 ```
