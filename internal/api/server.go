@@ -24,12 +24,32 @@ func StartServer(port string) error {
 
 	router := gin.Default()
 
+	// CORS middleware for development
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	// API routes
 	api := router.Group("/api")
 	{
 		api.GET("/registries", getRegistries)
+		api.POST("/registries", addRegistry)
+		api.DELETE("/registries/:id", removeRegistry)
 		api.GET("/servers", getServers)
+		api.POST("/servers/:id/install", installServer)
+		api.DELETE("/servers/:id/uninstall", uninstallServer)
 		api.GET("/skills", getSkills)
+		api.GET("/agents", getAgents)
 		api.GET("/installations", getInstallations)
 		api.GET("/health", healthCheck)
 	}
@@ -91,6 +111,15 @@ func getSkills(c *gin.Context) {
 	c.JSON(http.StatusOK, skills)
 }
 
+func getAgents(c *gin.Context) {
+	agents, err := database.GetAgents()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, agents)
+}
+
 func getInstallations(c *gin.Context) {
 	installations, err := database.GetInstallations()
 	if err != nil {
@@ -98,4 +127,66 @@ func getInstallations(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, installations)
+}
+
+func addRegistry(c *gin.Context) {
+	var req struct {
+		Name string `json:"name" binding:"required"`
+		URL  string `json:"url" binding:"required"`
+		Type string `json:"type" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := database.AddRegistry(req.Name, req.URL, req.Type); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Registry added successfully"})
+}
+
+func removeRegistry(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := database.RemoveRegistryByID(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Registry removed successfully"})
+}
+
+func installServer(c *gin.Context) {
+	serverID := c.Param("id")
+
+	var req struct {
+		Config map[string]string `json:"config"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := database.InstallServer(serverID, req.Config); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Server installed successfully"})
+}
+
+func uninstallServer(c *gin.Context) {
+	serverID := c.Param("id")
+
+	if err := database.UninstallServer(serverID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Server uninstalled successfully"})
 }

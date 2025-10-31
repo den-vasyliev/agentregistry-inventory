@@ -35,8 +35,6 @@ var disconnectCmd = &cobra.Command{
 		}
 
 		fmt.Println("✓ Registry disconnected successfully")
-		fmt.Println("\nNote: Any installed MCP servers or skills from this registry remain in your client configuration.")
-		fmt.Println("      Use 'arctl uninstall' to remove them if needed.")
 	},
 }
 

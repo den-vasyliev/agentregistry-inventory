@@ -3,25 +3,18 @@ package dockercompose
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sort"
+
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
 	"github.com/compose-spec/compose-go/v2/types"
-	"log"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
 )
 
 type DockerComposeConfig = types.Project
 
 const (
-	agentGatewayRepository     = "ghcr.io/agentgateway/agentgateway"
-	defaultAgentGatewayVersion = "0.9.0"
+	customAgentGatewayImage = "arctl-agentgateway:latest"
 )
-
-// versionRegex validates that version strings contain only allowed characters
-// (alphanumeric, dots, hyphens) to prevent potential image injection attacks
-var versionRegex = regexp.MustCompile(`^[a-zA-Z0-9.\-]+$`)
 
 type AiRuntimeConfig struct {
 	DockerCompose *DockerComposeConfig
@@ -111,9 +104,13 @@ func (t *agentGatewayTranslator) translateAgentGatewayService() (*types.ServiceC
 	if port == 0 {
 		return nil, fmt.Errorf("agent gateway port must be specified")
 	}
+
+	// Use custom image with npx and uvx support for stdio MCP servers
+	image := customAgentGatewayImage
+
 	return &types.ServiceConfig{
 		Name:    "agent_gateway",
-		Image:   getAgentGatewayImage(),
+		Image:   image,
 		Command: []string{"-f", "/config/agent-gateway.yaml"},
 		Ports: []types.ServicePortConfig{{
 			Target:    uint32(port),
@@ -229,29 +226,4 @@ func (t *agentGatewayTranslator) translateAgentGatewayConfig(servers []*api.MCPS
 			},
 		},
 	}, nil
-}
-
-// getAgentGatewayImage returns the agent gateway container image,
-// using the environment variable if provided and valid, otherwise using the default
-func getAgentGatewayImage() string {
-	agentGatewayVersion := os.Getenv("TRANSPORT_ADAPTER_VERSION")
-	if agentGatewayVersion == "" {
-		return fmt.Sprintf("%s:%s-musl", agentGatewayRepository, defaultAgentGatewayVersion)
-	}
-
-	if err := validateVersion(agentGatewayVersion); err != nil {
-		log.Printf("WARN: Invalid TRANSPORT_ADAPTER_VERSION: %v, fallback to %s", err, defaultAgentGatewayVersion)
-		return fmt.Sprintf("%s:%s-musl", agentGatewayRepository, defaultAgentGatewayVersion)
-	}
-
-	return fmt.Sprintf("%s:%s-musl", agentGatewayRepository, agentGatewayVersion)
-}
-
-// validateVersion validates that a version string contains only allowed characters
-// to prevent potential image injection attacks
-func validateVersion(version string) error {
-	if !versionRegex.MatchString(version) {
-		return fmt.Errorf("invalid version format: %s (only alphanumeric characters, dots, and hyphens are allowed)", version)
-	}
-	return nil
 }
