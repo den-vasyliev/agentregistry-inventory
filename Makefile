@@ -1,24 +1,25 @@
-.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean api scraper swag fmt lint all
+.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean api scraper swag fmt lint all build-agentgateway rebuild-agentgateway
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  install-ui    - Install UI dependencies"
-	@echo "  build-ui      - Build the Next.js UI"
-	@echo "  clean-ui      - Clean UI build artifacts"
-	@echo "  build-go      - Build the Go CLI"
-	@echo "  build         - Build both UI and Go CLI"
-	@echo "  install       - Install the CLI to GOPATH/bin"
-	@echo "  dev-ui        - Run Next.js in development mode"
-	@echo "  test          - Run Go tests"
-	@echo "  clean         - Clean all build artifacts"
-	@echo "  all           - Clean and build everything"
-	@echo "  api           - Run the API"
-	@echo "  scraper       - Run the scraper"
-	@echo "  swag          - Run the Swag"
-	@echo "  fmt           - Run the formatter"
-	@echo "  lint          - Run the linter"
-	@echo "  all           - Clean and build everything"
+	@echo "  install-ui           - Install UI dependencies"
+	@echo "  build-ui             - Build the Next.js UI"
+	@echo "  clean-ui             - Clean UI build artifacts"
+	@echo "  build-go             - Build the Go CLI"
+	@echo "  build                - Build both UI and Go CLI"
+	@echo "  install              - Install the CLI to GOPATH/bin"
+	@echo "  dev-ui               - Run Next.js in development mode"
+	@echo "  test                 - Run Go tests"
+	@echo "  clean                - Clean all build artifacts"
+	@echo "  all                  - Clean and build everything"
+	@echo "  build-agentgateway   - Build custom agent gateway Docker image"
+	@echo "  rebuild-agentgateway - Force rebuild agent gateway Docker image"
+	@echo "  api                  - Run the API"
+	@echo "  scraper              - Run the scraper"
+	@echo "  swag                 - Run the Swag"
+	@echo "  fmt                  - Run the formatter"
+	@echo "  lint                 - Run the linter"
 
 # Install UI dependencies
 install-ui:
@@ -103,4 +104,19 @@ fmt:
 lint:
 	golangci-lint run --timeout=5m
 
+# Build custom agent gateway image with npx/uvx support
+build-agentgateway:
+	@echo "Building custom agent gateway image..."
+	@if docker image inspect arctl-agentgateway:latest >/dev/null 2>&1; then \
+		echo "Image arctl-agentgateway:latest already exists. Use 'make rebuild-agentgateway' to force rebuild."; \
+	else \
+		docker build -f internal/runtime/agentgateway.Dockerfile -t arctl-agentgateway:latest .; \
+		echo "✓ Agent gateway image built successfully"; \
+	fi
+
+# Force rebuild custom agent gateway image
+rebuild-agentgateway:
+	@echo "Rebuilding custom agent gateway image..."
+	docker build --no-cache -f internal/runtime/agentgateway.Dockerfile -t arctl-agentgateway:latest .
+	@echo "✓ Agent gateway image rebuilt successfully"
 

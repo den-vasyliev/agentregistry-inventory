@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/agentregistry-dev/agentregistry/internal/database"
 	"github.com/agentregistry-dev/agentregistry/internal/models"
@@ -16,14 +17,18 @@ import (
 
 var (
 	listAll      bool
+	listAllTypes bool
 	listPageSize int
+	filterType   string
+	sortBy       string
+	outputFormat string
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <resource-type>",
+	Use:   "list [resource-type]",
 	Short: "List resources from connected registries",
-	Long:  `Lists resources (mcp, skill, registry) across the connected registries.`,
-	Args:  cobra.ExactArgs(1),
+	Long:  `Lists resources (mcp, skill, registry) across the connected registries. Use -A to list all resource types.`,
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Initialize database
 		if err := database.Initialize(); err != nil {
@@ -35,6 +40,25 @@ var listCmd = &cobra.Command{
 			}
 		}()
 
+		// If -A flag is used and no resource type is specified, list all types
+		if listAllTypes && len(args) == 0 {
+			listAllResourceTypes()
+			return
+		}
+
+		// If -A is used with a resource type, treat it as -a (no pagination)
+		if listAllTypes && len(args) == 1 {
+			listAll = true
+		}
+
+		// Require resource type if -A is not used
+		if len(args) == 0 {
+			fmt.Println("Error: resource type required (or use -A to list all types)")
+			fmt.Println("Valid types: mcp, skill, registry")
+			fmt.Println("Usage: arctl list <resource-type> or arctl list -A")
+			return
+		}
+
 		resourceType := args[0]
 
 		switch resourceType {
@@ -43,24 +67,44 @@ var listCmd = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Failed to get servers: %v", err)
 			}
+
+			// Filter by type if specified
+			if filterType != "" {
+				servers = filterServersByType(servers, filterType)
+			}
+
 			if len(servers) == 0 {
-				fmt.Println("  No MCP servers available")
-				fmt.Println("  Connect a registry first: arctl connect <url> <name>")
+				if filterType != "" {
+					fmt.Printf("No MCP servers found with type '%s'\n", filterType)
+				} else {
+					fmt.Println("No MCP servers available")
+				}
 			} else {
-				displayPaginatedServers(servers, listPageSize, listAll)
+				// Handle different output formats
+				if outputFormat == "json" {
+					outputServersJSON(servers)
+				} else if outputFormat == "yaml" {
+					outputServersYAML(servers)
+				} else {
+					displayPaginatedServers(servers, listPageSize, listAll)
+				}
 			}
 		case "skill":
-			fmt.Println("Listing skills:")
 			skills, err := database.GetSkills()
 			if err != nil {
 				log.Fatalf("Failed to get skills: %v", err)
 			}
 			if len(skills) == 0 {
-				fmt.Println("  No skills available")
-				fmt.Println("  Connect a registry first: arctl connect <url> <name>")
+				fmt.Println("No skills available")
 			} else {
-				fmt.Printf("  Found %d skills total\n\n", len(skills))
-				displayPaginatedSkills(skills, listPageSize, listAll)
+				// Handle different output formats
+				if outputFormat == "json" {
+					outputSkillsJSON(skills)
+				} else if outputFormat == "yaml" {
+					outputSkillsYAML(skills)
+				} else {
+					displayPaginatedSkills(skills, listPageSize, listAll)
+				}
 			}
 		case "registry":
 			registries, err := database.GetRegistries()
@@ -69,21 +113,27 @@ var listCmd = &cobra.Command{
 			}
 			if len(registries) == 0 {
 				fmt.Println("No registries connected")
-				fmt.Println("Connect a registry: arctl connect <url> <name>")
 			} else {
-				t := printer.NewTablePrinter(os.Stdout)
-				t.SetHeaders("Name", "URL", "Type", "Age")
+				// Handle different output formats
+				if outputFormat == "json" {
+					outputRegistriesJSON(registries)
+				} else if outputFormat == "yaml" {
+					outputRegistriesYAML(registries)
+				} else {
+					t := printer.NewTablePrinter(os.Stdout)
+					t.SetHeaders("Name", "URL", "Type", "Age")
 
-				for _, r := range registries {
-					t.AddRow(
-						r.Name,
-						r.URL,
-						r.Type,
-						printer.FormatAge(r.CreatedAt),
-					)
+					for _, r := range registries {
+						t.AddRow(
+							r.Name,
+							r.URL,
+							r.Type,
+							printer.FormatAge(r.CreatedAt),
+						)
+					}
+
+					t.Render()
 				}
-
-				t.Render()
 			}
 		default:
 			fmt.Printf("Unknown resource type: %s\n", resourceType)
@@ -93,15 +143,17 @@ var listCmd = &cobra.Command{
 }
 
 func displayPaginatedServers(servers []models.ServerDetail, pageSize int, showAll bool) {
-	total := len(servers)
+	// Group servers by name to handle multiple versions
+	serverGroups := groupServersByName(servers)
+	total := len(serverGroups)
 
 	if showAll || total <= pageSize {
 		// Show all items
-		printServersTable(servers)
+		printServersTable(serverGroups)
 		return
 	}
 
-	// Paginate
+	// Simple pagination with Enter to continue
 	reader := bufio.NewReader(os.Stdin)
 	start := 0
 
@@ -112,13 +164,13 @@ func displayPaginatedServers(servers []models.ServerDetail, pageSize int, showAl
 		}
 
 		// Display current page
-		printServersTable(servers[start:end])
+		printServersTable(serverGroups[start:end])
 
 		// Check if there are more items
 		remaining := total - end
 		if remaining > 0 {
-			fmt.Printf("\nShowing %d-%d of %d. ", start+1, end, total)
-			fmt.Printf("%d more available. Show more? (y/n/all): ", remaining)
+			fmt.Printf("\nShowing %d-%d of %d servers. %d more available.\n", start+1, end, total, remaining)
+			fmt.Print("Press Enter to continue, 'a' for all, or 'q' to quit: ")
 
 			response, err := reader.ReadString('\n')
 			if err != nil {
@@ -126,28 +178,173 @@ func displayPaginatedServers(servers []models.ServerDetail, pageSize int, showAl
 				return
 			}
 
-			response = strings.ToLower(strings.TrimSpace(response))
+			response = strings.TrimSpace(strings.ToLower(response))
 
 			switch response {
-			case "all", "a":
+			case "a", "all":
 				// Show all remaining
 				fmt.Println()
-				printServersTable(servers[end:])
+				printServersTable(serverGroups[end:])
 				return
-			case "y", "yes":
-				// Continue to next page
+			case "q", "quit":
+				// Quit pagination
+				fmt.Println()
+				return
+			default:
+				// Enter or any other key continues to next page
 				start = end
 				fmt.Println()
-			default:
-				// Stop pagination
-				return
 			}
 		} else {
 			// No more items
-			fmt.Printf("\nShowing all %d items.\n", total)
+			fmt.Printf("\nShowing all %d servers.\n", total)
 			return
 		}
 	}
+}
+
+// ServerGroup represents a server with potentially multiple versions
+type ServerGroup struct {
+	Server        models.ServerDetail
+	VersionCount  int
+	LatestVersion string
+	Namespace     string
+	Name          string
+}
+
+// groupServersByName groups servers by name and picks the latest version
+func groupServersByName(servers []models.ServerDetail) []ServerGroup {
+	groups := make(map[string]*ServerGroup)
+
+	for _, s := range servers {
+		if existing, ok := groups[s.Name]; ok {
+			existing.VersionCount++
+			// Keep the latest version (assumes servers are sorted by version DESC from DB)
+			// We keep the first one we see since it should be the latest
+		} else {
+			// Split namespace and name
+			namespace, name := splitServerName(s.Name)
+
+			groups[s.Name] = &ServerGroup{
+				Server:        s,
+				VersionCount:  1,
+				LatestVersion: s.Version,
+				Namespace:     namespace,
+				Name:          name,
+			}
+		}
+	}
+
+	// Convert map to slice
+	result := make([]ServerGroup, 0, len(groups))
+	for _, group := range groups {
+		result = append(result, *group)
+	}
+
+	// Sort the results
+	sortServerGroups(result, sortBy)
+
+	return result
+}
+
+// sortServerGroups sorts server groups by the specified column
+func sortServerGroups(groups []ServerGroup, column string) {
+	column = strings.ToLower(column)
+
+	switch column {
+	case "namespace":
+		// Sort by namespace, then name
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				if groups[i].Namespace > groups[j].Namespace ||
+					(groups[i].Namespace == groups[j].Namespace && groups[i].Name > groups[j].Name) {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	case "version":
+		// Sort by version
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				if groups[i].LatestVersion > groups[j].LatestVersion {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	case "type":
+		// Sort by registry type
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				typeI := getServerType(groups[i].Server)
+				typeJ := getServerType(groups[j].Server)
+				if typeI > typeJ {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	case "status":
+		// Sort by status
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				statusI := getServerStatus(groups[i].Server)
+				statusJ := getServerStatus(groups[j].Server)
+				if statusI > statusJ {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	case "updated":
+		// Sort by updated time (most recent first)
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				timeI := getServerUpdatedTime(groups[i].Server)
+				timeJ := getServerUpdatedTime(groups[j].Server)
+				if timeI.Before(timeJ) {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	default:
+		// Default: sort by name
+		for i := 0; i < len(groups); i++ {
+			for j := i + 1; j < len(groups); j++ {
+				if groups[i].Name > groups[j].Name {
+					groups[i], groups[j] = groups[j], groups[i]
+				}
+			}
+		}
+	}
+}
+
+// Helper functions to extract server properties for sorting
+func getServerType(server models.ServerDetail) string {
+	var combinedData CombinedServerData
+	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
+		return ""
+	}
+
+	if len(combinedData.Server.Packages) > 0 {
+		return combinedData.Server.Packages[0].RegistryType
+	} else if len(combinedData.Server.Remotes) > 0 {
+		return combinedData.Server.Remotes[0].Type
+	}
+	return ""
+}
+
+func getServerStatus(server models.ServerDetail) string {
+	var combinedData CombinedServerData
+	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
+		return ""
+	}
+	return combinedData.Meta.Official.Status
+}
+
+func getServerUpdatedTime(server models.ServerDetail) time.Time {
+	var combinedData CombinedServerData
+	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
+		return time.Time{}
+	}
+	return combinedData.Meta.Official.UpdatedAt
 }
 
 func displayPaginatedSkills(skills []models.Skill, pageSize int, showAll bool) {
@@ -159,7 +356,7 @@ func displayPaginatedSkills(skills []models.Skill, pageSize int, showAll bool) {
 		return
 	}
 
-	// Paginate
+	// Simple pagination with Enter to continue
 	reader := bufio.NewReader(os.Stdin)
 	start := 0
 
@@ -175,8 +372,8 @@ func displayPaginatedSkills(skills []models.Skill, pageSize int, showAll bool) {
 		// Check if there are more items
 		remaining := total - end
 		if remaining > 0 {
-			fmt.Printf("\nShowing %d-%d of %d. ", start+1, end, total)
-			fmt.Printf("%d more available. Show more? (y/n/all): ", remaining)
+			fmt.Printf("\nShowing %d-%d of %d skills. %d more available.\n", start+1, end, total, remaining)
+			fmt.Print("Press Enter to continue, 'a' for all, or 'q' to quit: ")
 
 			response, err := reader.ReadString('\n')
 			if err != nil {
@@ -184,72 +381,86 @@ func displayPaginatedSkills(skills []models.Skill, pageSize int, showAll bool) {
 				return
 			}
 
-			response = strings.ToLower(strings.TrimSpace(response))
+			response = strings.TrimSpace(strings.ToLower(response))
 
 			switch response {
-			case "all", "a":
+			case "a", "all":
 				// Show all remaining
 				fmt.Println()
 				printSkillsTable(skills[end:])
 				return
-			case "y", "yes":
-				// Continue to next page
+			case "q", "quit":
+				// Quit pagination
+				fmt.Println()
+				return
+			default:
+				// Enter or any other key continues to next page
 				start = end
 				fmt.Println()
-			default:
-				// Stop pagination
-				return
 			}
 		} else {
 			// No more items
-			fmt.Printf("\nShowing all %d items.\n", total)
+			fmt.Printf("\nShowing all %d skills.\n", total)
 			return
 		}
 	}
 }
-
-// ServerPackage represents a package in the server data
-type ServerPackage struct {
-	RegistryType string `json:"registryType"`
-	Transport    struct {
-		Type string `json:"type"`
-	} `json:"transport"`
-}
-
-// ServerData represents the full server JSON data
-type ServerData struct {
-	Packages []ServerPackage `json:"packages"`
-}
-
-func printServersTable(servers []models.ServerDetail) {
+func printServersTable(serverGroups []ServerGroup) {
 	t := printer.NewTablePrinter(os.Stdout)
-	t.SetHeaders("Name", "Title", "Version", "Transport", "Status")
+	t.SetHeaders("Namespace", "Name", "Version", "Type", "Status", "Updated")
 
-	for _, s := range servers {
-		title := printer.EmptyValueOrDefault(s.Title, "<none>")
+	for _, group := range serverGroups {
+		s := group.Server
 
-		// Parse the server data to extract transport type
-		transport := "<none>"
-		var serverData ServerData
-		if err := json.Unmarshal([]byte(s.Data), &serverData); err == nil {
-			if len(serverData.Packages) > 0 {
-				pkg := serverData.Packages[0]
-				if pkg.Transport.Type != "" {
-					transport = pkg.Transport.Type
-				} else if pkg.RegistryType != "" {
-					transport = pkg.RegistryType
-				}
+		// Parse the stored combined data
+		var combinedData CombinedServerData
+		registryType := "<none>"
+		registryStatus := "<none>"
+		updatedAt := ""
+
+		if err := json.Unmarshal([]byte(s.Data), &combinedData); err == nil {
+			// Extract registry type from packages or remotes
+			if len(combinedData.Server.Packages) > 0 {
+				registryType = combinedData.Server.Packages[0].RegistryType
+			} else if len(combinedData.Server.Remotes) > 0 {
+				registryType = combinedData.Server.Remotes[0].Type
+			}
+
+			// Extract status from _meta
+			registryStatus = combinedData.Meta.Official.Status
+			if !combinedData.Meta.Official.UpdatedAt.IsZero() {
+				updatedAt = printer.FormatAge(combinedData.Meta.Official.UpdatedAt)
 			}
 		}
 
-		status := printer.FormatStatus(s.Installed)
+		// Use installed status if registry status is not available
+		if registryStatus == "" || registryStatus == "<none>" {
+			if s.Installed {
+				registryStatus = "installed"
+			} else {
+				registryStatus = "available"
+			}
+		}
+
+		// Format version display
+		versionDisplay := group.LatestVersion
+		if group.VersionCount > 1 {
+			versionDisplay = fmt.Sprintf("%s (+%d)", group.LatestVersion, group.VersionCount-1)
+		}
+
+		// Use empty string if no namespace
+		namespace := group.Namespace
+		if namespace == "" {
+			namespace = "<none>"
+		}
 
 		t.AddRow(
-			printer.TruncateString(s.Name, 40),
-			printer.TruncateString(title, 30),
-			s.Version,
-			transport,
-			status,
+			printer.TruncateString(namespace, 30),
+			printer.TruncateString(group.Name, 40),
+			versionDisplay,
+			registryType,
+			registryStatus,
+			updatedAt,
 		)
 	}
 
@@ -274,8 +485,142 @@ func printSkillsTable(skills []models.Skill) {
 	t.Render()
 }
 
+// filterServersByType filters servers by their registry type
+func filterServersByType(servers []models.ServerDetail, typeFilter string) []models.ServerDetail {
+	typeFilter = strings.ToLower(typeFilter)
+	var filtered []models.ServerDetail
+
+	for _, s := range servers {
+		var combinedData CombinedServerData
+		if err := json.Unmarshal([]byte(s.Data), &combinedData); err != nil {
+			continue
+		}
+
+		// Extract registry type from packages or remotes
+		serverType := ""
+		if len(combinedData.Server.Packages) > 0 {
+			serverType = strings.ToLower(combinedData.Server.Packages[0].RegistryType)
+		} else if len(combinedData.Server.Remotes) > 0 {
+			serverType = strings.ToLower(combinedData.Server.Remotes[0].Type)
+		}
+
+		if serverType == typeFilter {
+			filtered = append(filtered, s)
+		}
+	}
+
+	return filtered
+}
+
+// listAllResourceTypes lists all resource types (mcp, skill, registry)
+func listAllResourceTypes() {
+	fmt.Println("=== MCP Servers ===")
+	servers, err := database.GetServers()
+	if err != nil {
+		log.Fatalf("Failed to get servers: %v", err)
+	}
+
+	// Filter by type if specified
+	if filterType != "" {
+		servers = filterServersByType(servers, filterType)
+	}
+
+	if len(servers) == 0 {
+		if filterType != "" {
+			fmt.Printf("No MCP servers found with type '%s'\n", filterType)
+		} else {
+			fmt.Println("No MCP servers available")
+		}
+	} else {
+		displayPaginatedServers(servers, listPageSize, true) // Always show all when listing all types
+	}
+
+	fmt.Println("\n=== Skills ===")
+	skills, err := database.GetSkills()
+	if err != nil {
+		log.Fatalf("Failed to get skills: %v", err)
+	}
+	if len(skills) == 0 {
+		fmt.Println("No skills available")
+	} else {
+		displayPaginatedSkills(skills, listPageSize, true) // Always show all when listing all types
+	}
+
+	fmt.Println("\n=== Registries ===")
+	registries, err := database.GetRegistries()
+	if err != nil {
+		log.Fatalf("Failed to get registries: %v", err)
+	}
+	if len(registries) == 0 {
+		fmt.Println("No registries connected")
+	} else {
+		t := printer.NewTablePrinter(os.Stdout)
+		t.SetHeaders("Name", "URL", "Type", "Age")
+
+		for _, r := range registries {
+			t.AddRow(
+				r.Name,
+				r.URL,
+				r.Type,
+				printer.FormatAge(r.CreatedAt),
+			)
+		}
+
+		t.Render()
+	}
+}
+
+// outputServersJSON outputs servers in JSON format
+func outputServersJSON(servers []models.ServerDetail) {
+	p := printer.New(printer.OutputTypeJSON, false)
+	if err := p.PrintJSON(servers); err != nil {
+		log.Fatalf("Failed to output JSON: %v", err)
+	}
+}
+
+// outputServersYAML outputs servers in YAML format
+func outputServersYAML(servers []models.ServerDetail) {
+	// For now, YAML is not implemented, fallback to JSON
+	fmt.Println("YAML output not yet implemented, using JSON:")
+	outputServersJSON(servers)
+}
+
+// outputSkillsJSON outputs skills in JSON format
+func outputSkillsJSON(skills []models.Skill) {
+	p := printer.New(printer.OutputTypeJSON, false)
+	if err := p.PrintJSON(skills); err != nil {
+		log.Fatalf("Failed to output JSON: %v", err)
+	}
+}
+
+// outputSkillsYAML outputs skills in YAML format
+func outputSkillsYAML(skills []models.Skill) {
+	// For now, YAML is not implemented, fallback to JSON
+	fmt.Println("YAML output not yet implemented, using JSON:")
+	outputSkillsJSON(skills)
+}
+
+// outputRegistriesJSON outputs registries in JSON format
+func outputRegistriesJSON(registries []models.Registry) {
+	p := printer.New(printer.OutputTypeJSON, false)
+	if err := p.PrintJSON(registries); err != nil {
+		log.Fatalf("Failed to output JSON: %v", err)
+	}
+}
+
+// outputRegistriesYAML outputs registries in YAML format
+func outputRegistriesYAML(registries []models.Registry) {
+	// For now, YAML is not implemented, fallback to JSON
+	fmt.Println("YAML output not yet implemented, using JSON:")
+	outputRegistriesJSON(registries)
+}
+
 func init() {
 	rootCmd.AddCommand(listCmd)
-	listCmd.Flags().BoolVarP(&listAll, "all", "a", false, "Show all items without pagination")
+	listCmd.Flags().BoolVarP(&listAll, "all", "a", false, "Show all items without pagination (for specific resource type)")
+	listCmd.Flags().BoolVarP(&listAllTypes, "All", "A", false, "List all resource types (mcp, skill, registry)")
 	listCmd.Flags().IntVarP(&listPageSize, "page-size", "p", 15, "Number of items per page")
+	listCmd.Flags().StringVarP(&filterType, "type", "t", "", "Filter by registry type (e.g., npm, pypi, oci, sse, streamable-http)")
+	listCmd.Flags().StringVarP(&sortBy, "sortBy", "s", "name", "Sort by column (name, namespace, version, type, status, updated)")
+	listCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml, wide)")
 }

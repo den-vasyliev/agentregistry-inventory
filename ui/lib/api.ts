@@ -1,6 +1,6 @@
 // API client for communicating with the Go backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8888'
 
 export interface Registry {
   id: number

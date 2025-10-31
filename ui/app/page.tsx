@@ -5,13 +5,13 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MCPServerCard } from "@/components/mcp-server-card"
+import { GroupedMCPServerCard } from "@/components/grouped-mcp-server-card"
 import { ServerDetailView } from "@/components/server-detail-view"
 import { InstallDialog } from "@/components/install-dialog"
 import { AddRegistryDialog } from "@/components/add-registry-dialog"
-import { MCPServerWithStatus } from "@/lib/types"
+import { GroupedMCPServer, MCPServerWithStatus } from "@/lib/types"
 import { apiClient, Registry } from "@/lib/api"
-import { transformServerList } from "@/lib/transforms"
+import { transformServerList, groupServersByName } from "@/lib/transforms"
 import {
   Server,
   Package,
@@ -36,16 +36,17 @@ export default function Home() {
   const [resourceType, setResourceType] = useState<ResourceType>("servers")
   const [registries, setRegistries] = useState<Registry[]>([])
   const [servers, setServers] = useState<MCPServerWithStatus[]>([])
+  const [groupedServers, setGroupedServers] = useState<GroupedMCPServer[]>([])
   const [skills, setSkills] = useState<any[]>([])
   const [agents, setAgents] = useState<any[]>([])
-  const [filteredServers, setFilteredServers] = useState<MCPServerWithStatus[]>([])
+  const [filteredGroupedServers, setFilteredGroupedServers] = useState<GroupedMCPServer[]>([])
   const [filteredSkills, setFilteredSkills] = useState<any[]>([])
   const [filteredAgents, setFilteredAgents] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedServer, setSelectedServer] = useState<MCPServerWithStatus | null>(null)
   const [installDialogOpen, setInstallDialogOpen] = useState(false)
   const [addRegistryDialogOpen, setAddRegistryDialogOpen] = useState(false)
-  const [serverToInstall, setServerToInstall] = useState<MCPServerWithStatus | null>(null)
+  const [serverToInstall, setServerToInstall] = useState<GroupedMCPServer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,7 +62,9 @@ export default function Home() {
         apiClient.getAgents(),
       ])
       setRegistries(registriesData || [])
-      setServers(transformServerList(serversData || []))
+      const transformedServers = transformServerList(serversData || [])
+      setServers(transformedServers)
+      setGroupedServers(groupServersByName(transformedServers))
       setSkills(skillsData || [])
       setAgents(agentsData || [])
     } catch (err) {
@@ -77,20 +80,20 @@ export default function Home() {
 
   // Filter resources based on view mode and search query
   useEffect(() => {
-    // Filter servers
-    let filteredS = servers
+    // Filter grouped servers
+    let filteredGS = groupedServers
     if (viewMode === "installed") {
-      filteredS = servers.filter((s) => s.installed)
+      filteredGS = groupedServers.filter((gs) => gs.hasInstalledVersion)
     }
     if (searchQuery) {
-      filteredS = filteredS.filter(
-        (s) =>
-          s.server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.server.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.server.description.toLowerCase().includes(searchQuery.toLowerCase())
+      filteredGS = filteredGS.filter(
+        (gs) =>
+          gs.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          gs.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          gs.description.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
-    setFilteredServers(filteredS)
+    setFilteredGroupedServers(filteredGS)
 
     // Filter skills
     let filteredSk = skills
@@ -121,27 +124,27 @@ export default function Home() {
       )
     }
     setFilteredAgents(filteredA)
-  }, [viewMode, searchQuery, servers, skills, agents])
+  }, [viewMode, searchQuery, groupedServers, skills, agents])
 
-  const handleInstall = (server: MCPServerWithStatus) => {
-    setServerToInstall(server)
+  const handleInstall = (groupedServer: GroupedMCPServer) => {
+    setServerToInstall(groupedServer)
     setInstallDialogOpen(true)
   }
 
-  const handleInstallConfirm = async (config: Record<string, string>) => {
-    if (!serverToInstall || !serverToInstall._dbId) return
+  const handleInstallConfirm = async (server: MCPServerWithStatus, config: Record<string, string>) => {
+    if (!server._dbId) return
 
     try {
-      await apiClient.installServer(serverToInstall._dbId, config)
+      await apiClient.installServer(server._dbId, config)
       
       // Update local state
-      setServers((prev) =>
-        prev.map((s) =>
-          s._dbId === serverToInstall._dbId
-            ? { ...s, installed: true, installedAt: new Date().toISOString() }
-            : s
-        )
+      const updatedServers = servers.map((s) =>
+        s._dbId === server._dbId
+          ? { ...s, installed: true, installedAt: new Date().toISOString() }
+          : s
       )
+      setServers(updatedServers)
+      setGroupedServers(groupServersByName(updatedServers))
 
       setServerToInstall(null)
     } catch (err) {
@@ -150,20 +153,27 @@ export default function Home() {
     }
   }
 
-  const handleUninstall = async (server: MCPServerWithStatus) => {
-    if (!server._dbId) return
-
+  const handleUninstall = async (groupedServer: GroupedMCPServer) => {
+    // Find all installed versions and uninstall them
+    const installedVersions = groupedServer.versions.filter(v => v.installed)
+    
     try {
-      await apiClient.uninstallServer(server._dbId)
-      
-      // Update local state
-      setServers((prev) =>
-        prev.map((s) =>
-          s._dbId === server._dbId
-            ? { ...s, installed: false, installedAt: undefined }
-            : s
+      // Uninstall all installed versions
+      await Promise.all(
+        installedVersions.map(version => 
+          version._dbId ? apiClient.uninstallServer(version._dbId) : Promise.resolve()
         )
       )
+      
+      // Update local state
+      const updatedServers = servers.map((s) => {
+        const shouldUninstall = installedVersions.some(v => v._dbId === s._dbId)
+        return shouldUninstall
+          ? { ...s, installed: false, installedAt: undefined }
+          : s
+      })
+      setServers(updatedServers)
+      setGroupedServers(groupServersByName(updatedServers))
     } catch (err) {
       console.error("Failed to uninstall server:", err)
       alert(err instanceof Error ? err.message : "Failed to uninstall server")
@@ -188,15 +198,14 @@ export default function Home() {
     }
   }
 
-  const installedCount = servers.filter((s) => s.installed).length
+  const installedCount = groupedServers.filter((gs) => gs.hasInstalledVersion).length
+  const totalServers = groupedServers.length
 
   if (selectedServer) {
     return (
       <ServerDetailView
         server={selectedServer}
         onClose={() => setSelectedServer(null)}
-        onInstall={handleInstall}
-        onUninstall={handleUninstall}
       />
     )
   }
@@ -264,7 +273,7 @@ export default function Home() {
                   <Server className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{servers.length}</p>
+                  <p className="text-2xl font-bold">{totalServers}</p>
                   <p className="text-xs text-muted-foreground">Total Servers</p>
                 </div>
               </div>
@@ -288,7 +297,7 @@ export default function Home() {
                   <Package className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{servers.length - installedCount}</p>
+                  <p className="text-2xl font-bold">{totalServers - installedCount}</p>
                   <p className="text-xs text-muted-foreground">Available</p>
                 </div>
               </div>
@@ -410,11 +419,11 @@ export default function Home() {
           <h2 className="text-lg font-semibold mb-4">
             {viewMode === "installed" ? "Installed Servers" : "Available Servers"}
             <span className="text-muted-foreground ml-2">
-              ({filteredServers.length})
+              ({filteredGroupedServers.length})
             </span>
           </h2>
 
-          {filteredServers.length === 0 ? (
+          {filteredGroupedServers.length === 0 ? (
             <Card className="p-12">
               <div className="text-center text-muted-foreground">
                 <Server className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -434,13 +443,13 @@ export default function Home() {
             </Card>
           ) : (
             <div className="grid gap-4">
-              {filteredServers.map((server) => (
-                <MCPServerCard
-                  key={server.server.name}
-                  server={server}
+              {filteredGroupedServers.map((groupedServer) => (
+                <GroupedMCPServerCard
+                  key={groupedServer.name}
+                  groupedServer={groupedServer}
                   onInstall={handleInstall}
                   onUninstall={handleUninstall}
-                  onClick={setSelectedServer}
+                  onClick={(gs) => setSelectedServer(gs.latestVersion)}
                 />
               ))}
             </div>
@@ -453,7 +462,7 @@ export default function Home() {
         <InstallDialog
           open={installDialogOpen}
           onOpenChange={setInstallDialogOpen}
-          server={serverToInstall}
+          groupedServer={serverToInstall}
           onConfirm={handleInstallConfirm}
         />
       )}

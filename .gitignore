@@ -20,12 +20,13 @@ go.work
 # Build artifacts
 bin/
 dist/
+arctl
 
 # Database file
 *.db
 
-# arrt specific
-.arrt/
+# arctl specific
+.arctl/
 
 # IDE
 .vscode/

@@ -29,6 +29,40 @@ type ServerDetail struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// ServerMetadata represents the _meta field from registry response
+type ServerMetadata struct {
+	Official struct {
+		Status      string    `json:"status"`
+		PublishedAt time.Time `json:"publishedAt"`
+		UpdatedAt   time.Time `json:"updatedAt"`
+		IsLatest    bool      `json:"isLatest"`
+	} `json:"io.modelcontextprotocol.registry/official"`
+}
+
+// ServerPackage represents package info from server data
+type ServerPackage struct {
+	RegistryType string `json:"registryType"`
+	Identifier   string `json:"identifier"`
+	Transport    struct {
+		Type string `json:"type"`
+	} `json:"transport"`
+}
+
+// ServerRemote represents remote connection info
+type ServerRemote struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
+// ServerFullData represents the complete server JSON structure
+type ServerFullData struct {
+	Name        string          `json:"name"`
+	Version     string          `json:"version"`
+	Description string          `json:"description"`
+	Packages    []ServerPackage `json:"packages"`
+	Remotes     []ServerRemote  `json:"remotes"`
+}
+
 // Skill represents a skill from the registry
 type Skill struct {
 	ID           int       `json:"id"`

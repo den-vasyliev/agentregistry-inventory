@@ -1,7 +1,7 @@
 // Transform functions to convert backend data to frontend types
 
 import { ServerDetail } from "./api"
-import { MCPServerWithStatus, Server } from "./types"
+import { MCPServerWithStatus, Server, GroupedMCPServer } from "./types"
 
 export function transformServerDetail(serverDetail: ServerDetail): MCPServerWithStatus {
   // Parse the JSON data blob
@@ -45,5 +45,49 @@ export function transformServerDetail(serverDetail: ServerDetail): MCPServerWith
 
 export function transformServerList(servers: ServerDetail[]): MCPServerWithStatus[] {
   return servers.map(transformServerDetail)
+}
+
+// Group servers by name, combining multiple versions into one entry
+export function groupServersByName(servers: MCPServerWithStatus[]): GroupedMCPServer[] {
+  const grouped = new Map<string, MCPServerWithStatus[]>()
+  
+  // Group all versions by server name
+  servers.forEach(server => {
+    const name = server.server.name
+    if (!grouped.has(name)) {
+      grouped.set(name, [])
+    }
+    grouped.get(name)!.push(server)
+  })
+  
+  // Convert to GroupedMCPServer array
+  return Array.from(grouped.entries()).map(([name, versions]) => {
+    // Sort versions by semver (simple string comparison for now)
+    const sortedVersions = [...versions].sort((a, b) => {
+      // Try to prioritize isLatest flag first
+      const aIsLatest = a._meta?.["io.modelcontextprotocol.registry/official"]?.isLatest
+      const bIsLatest = b._meta?.["io.modelcontextprotocol.registry/official"]?.isLatest
+      if (aIsLatest && !bIsLatest) return -1
+      if (!aIsLatest && bIsLatest) return 1
+      
+      // Otherwise compare version strings (descending)
+      return b.server.version.localeCompare(a.server.version, undefined, { numeric: true })
+    })
+    
+    const latestVersion = sortedVersions[0]
+    const hasInstalledVersion = versions.some(v => v.installed)
+    
+    return {
+      name,
+      title: latestVersion.server.title,
+      description: latestVersion.server.description,
+      icon: latestVersion.server.icons?.[0]?.src,
+      websiteUrl: latestVersion.server.websiteUrl,
+      repository: latestVersion.server.repository,
+      versions: sortedVersions,
+      latestVersion,
+      hasInstalledVersion,
+    }
+  })
 }
 

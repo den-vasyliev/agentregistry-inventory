@@ -29,5 +29,5 @@ var uiCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(uiCmd)
-	uiCmd.Flags().StringVarP(&uiPort, "port", "p", "8080", "Port to run the UI server on")
+	uiCmd.Flags().StringVarP(&uiPort, "port", "p", "8888", "Port to run the UI server on")
 }

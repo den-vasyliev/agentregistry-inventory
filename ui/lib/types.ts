@@ -117,6 +117,19 @@ export interface MCPServerWithStatus extends MCPServerListItem {
   _dbId?: number // Internal database ID for API calls
 }
 
+// Grouped server type for displaying multiple versions
+export interface GroupedMCPServer {
+  name: string
+  title?: string
+  description: string
+  icon?: string
+  websiteUrl?: string
+  repository?: Repository
+  versions: MCPServerWithStatus[]
+  latestVersion: MCPServerWithStatus
+  hasInstalledVersion: boolean
+}
+
 // Tool definition for playground
 export interface MCPTool {
   name: string

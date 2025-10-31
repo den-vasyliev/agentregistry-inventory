@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,31 +13,40 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MCPServerWithStatus, Package } from "@/lib/types"
+import { GroupedMCPServer, MCPServerWithStatus, Package } from "@/lib/types"
 import { Eye, EyeOff, AlertCircle } from "lucide-react"
 
 interface InstallDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  server: MCPServerWithStatus
-  onConfirm: (config: Record<string, string>) => void
+  groupedServer: GroupedMCPServer
+  onConfirm: (server: MCPServerWithStatus, config: Record<string, string>) => void
 }
 
 export function InstallDialog({
   open,
   onOpenChange,
-  server,
+  groupedServer,
   onConfirm,
 }: InstallDialogProps) {
+  const [selectedVersionIndex, setSelectedVersionIndex] = useState(0)
   const [selectedPackage, setSelectedPackage] = useState(0)
   const [config, setConfig] = useState<Record<string, string>>({})
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
+  
+  const selectedServer = groupedServer.versions[selectedVersionIndex]
 
-  const packages = server.server.packages || []
+  const packages = selectedServer.server.packages || []
   const currentPackage = packages[selectedPackage]
+  
+  // Reset config and package selection when version changes
+  useEffect(() => {
+    setConfig({})
+    setSelectedPackage(0)
+  }, [selectedVersionIndex])
 
   const handleSubmit = () => {
-    onConfirm(config)
+    onConfirm(selectedServer, config)
     onOpenChange(false)
   }
 
@@ -57,7 +66,7 @@ export function InstallDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            Install {server.server.title || server.server.name}
+            Install {groupedServer.title || groupedServer.name}
           </DialogTitle>
           <DialogDescription>
             Configure the MCP server before installation. Fill in required
@@ -66,6 +75,26 @@ export function InstallDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Version Selection */}
+          {groupedServer.versions.length > 1 && (
+            <div>
+              <Label className="mb-2 block">Select Version</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={selectedVersionIndex}
+                onChange={(e) => setSelectedVersionIndex(parseInt(e.target.value))}
+              >
+                {groupedServer.versions.map((version, idx) => (
+                  <option key={idx} value={idx}>
+                    v{version.server.version}
+                    {version._meta?.["io.modelcontextprotocol.registry/official"]?.isLatest && " (Latest)"}
+                    {version.installed && " (Installed)"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Package Selection */}
           {packages.length > 1 && (
             <div>

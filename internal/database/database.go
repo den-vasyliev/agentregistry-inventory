@@ -609,3 +609,83 @@ func marshalConfig(config map[string]string) ([]byte, error) {
 	result += "}"
 	return []byte(result), nil
 }
+
+// MarkServerInstalled marks a server as installed or uninstalled
+func MarkServerInstalled(serverID int, installed bool) error {
+	if DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	query := `UPDATE servers SET installed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := DB.Exec(query, installed, serverID)
+	return err
+}
+
+// MarkSkillInstalled marks a skill as installed or uninstalled
+func MarkSkillInstalled(skillID int, installed bool) error {
+	if DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	query := `UPDATE skills SET installed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := DB.Exec(query, installed, skillID)
+	return err
+}
+
+// GetInstalledServers returns all installed MCP servers
+func GetInstalledServers() ([]models.ServerDetail, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	rows, err := DB.Query(`
+		SELECT s.id, s.registry_id, r.name, s.name, s.title, s.description, s.version, s.website_url, s.installed, s.data, s.created_at, s.updated_at 
+		FROM servers s
+		JOIN registries r ON s.registry_id = r.id
+		WHERE s.installed = 1
+		ORDER BY s.name, s.version DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query installed servers: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var servers []models.ServerDetail
+	for rows.Next() {
+		var s models.ServerDetail
+		if err := rows.Scan(&s.ID, &s.RegistryID, &s.RegistryName, &s.Name, &s.Title, &s.Description, &s.Version, &s.WebsiteURL, &s.Installed, &s.Data, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan server: %w", err)
+		}
+		servers = append(servers, s)
+	}
+
+	// Return empty array instead of nil if no servers found
+	if servers == nil {
+		return []models.ServerDetail{}, nil
+	}
+
+	return servers, nil
+}
+
+// GetInstallationByName returns an installation record by resource name
+func GetInstallationByName(resourceType, resourceName string) (*models.Installation, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	var i models.Installation
+	err := DB.QueryRow(`
+		SELECT id, resource_type, resource_id, resource_name, version, config, created_at, updated_at 
+		FROM installations 
+		WHERE resource_type = ? AND resource_name = ?
+	`, resourceType, resourceName).Scan(&i.ID, &i.ResourceType, &i.ResourceID, &i.ResourceName, &i.Version, &i.Config, &i.CreatedAt, &i.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to query installation: %w", err)
+	}
+
+	return &i, nil
+}
