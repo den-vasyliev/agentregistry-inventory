@@ -51,7 +51,7 @@ jobs:
       run: cd ui && npm ci
 
     - name: Build UI
-      run: cd ui && npm run build
+      run: cd ui && npm run build:export
 
     - name: Build Go CLI
       run: go build -v -o bin/arctl main.go
@@ -103,7 +103,7 @@ jobs:
       run: cd ui && npm ci
 
     - name: Build UI
-      run: cd ui && npm run build
+      run: cd ui && npm run build:export
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
