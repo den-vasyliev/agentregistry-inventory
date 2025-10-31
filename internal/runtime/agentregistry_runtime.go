@@ -3,12 +3,13 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
-	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/dockercompose"
-	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
+	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/dockercompose"
+	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -48,7 +49,7 @@ func (r *agentRegistryRuntime) ReconcileMCPServers(
 	desiredState := &api.DesiredState{}
 	for _, req := range requests {
 		mcpServer, err := r.registryTranslator.TranslateMCPServer(
-			nil,
+			context.TODO(),
 			req,
 		)
 		if err != nil {

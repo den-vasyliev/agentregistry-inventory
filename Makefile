@@ -79,7 +79,7 @@ clean: clean-ui
 	@echo "All artifacts cleaned"
 
 # Clean and build everything
-all: clean build
+all: clean build 
 	@echo "Clean build complete!"
 
 # Quick development build (skips cleaning)
