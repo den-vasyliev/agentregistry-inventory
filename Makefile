@@ -1,4 +1,4 @@
-.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean all
+.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean api scraper swag fmt lint all
 
 # Default target
 help:
@@ -12,6 +12,12 @@ help:
 	@echo "  dev-ui        - Run Next.js in development mode"
 	@echo "  test          - Run Go tests"
 	@echo "  clean         - Clean all build artifacts"
+	@echo "  all           - Clean and build everything"
+	@echo "  api           - Run the API"
+	@echo "  scraper       - Run the scraper"
+	@echo "  swag          - Run the Swag"
+	@echo "  fmt           - Run the formatter"
+	@echo "  lint          - Run the linter"
 	@echo "  all           - Clean and build everything"
 
 # Install UI dependencies
@@ -63,7 +69,7 @@ dev-ui:
 # Run Go tests
 test:
 	@echo "Running Go tests..."
-	go test -v ./...
+	go test -v ./... && go test -v -tags=integration ./...
 
 # Clean all build artifacts
 clean: clean-ui
@@ -73,7 +79,7 @@ clean: clean-ui
 	@echo "All artifacts cleaned"
 
 # Clean and build everything
-all: clean build
+all: clean build 
 	@echo "Clean build complete!"
 
 # Quick development build (skips cleaning)
@@ -81,4 +87,20 @@ dev-build: build-ui
 	@echo "Building Go CLI (development mode)..."
 	go build -o bin/arctl main.go
 	@echo "Development build complete!"
+
+api:
+	go run ./cmd/registry-api
+
+scraper:
+	go run ./cmd/scraper-cli --sources=$(SOURCES)
+
+swag:
+	swag init -g ./cmd/registry-api/main.go -o ./api
+
+fmt:
+	gofmt -s -w .
+
+lint:
+	golangci-lint run --timeout=5m
+
 
