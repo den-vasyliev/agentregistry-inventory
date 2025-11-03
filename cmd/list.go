@@ -323,7 +323,7 @@ func sortServerGroups(groups []ServerGroup, column string) {
 
 // Helper functions to extract server properties for sorting
 func getServerType(server models.ServerDetail) string {
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
 		return ""
 	}
@@ -337,7 +337,7 @@ func getServerType(server models.ServerDetail) string {
 }
 
 func getServerStatus(server models.ServerDetail) string {
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
 		return ""
 	}
@@ -345,7 +345,7 @@ func getServerStatus(server models.ServerDetail) string {
 }
 
 func getServerUpdatedTime(server models.ServerDetail) time.Time {
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
 		return time.Time{}
 	}
@@ -418,7 +418,7 @@ func printServersTable(serverGroups []ServerGroup) {
 		s := group.Server
 
 		// Parse the stored combined data
-		var combinedData CombinedServerData
+		var combinedData models.CombinedServerData
 		registryType := "<none>"
 		registryStatus := "<none>"
 		updatedAt := ""
@@ -500,7 +500,7 @@ func filterServersByType(servers []models.ServerDetail, typeFilter string) []mod
 	var filtered []models.ServerDetail
 
 	for _, s := range servers {
-		var combinedData CombinedServerData
+		var combinedData models.CombinedServerData
 		if err := json.Unmarshal([]byte(s.Data), &combinedData); err != nil {
 			continue
 		}

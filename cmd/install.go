@@ -133,7 +133,7 @@ func installMCPServer(serverName string) error {
 
 	// Parse the server data to get the full ServerJSON
 	// The Data field contains a wrapper with _meta and server fields
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	if err := json.Unmarshal([]byte(server.Data), &combinedData); err != nil {
 		return fmt.Errorf("failed to parse server data: %w", err)
 	}
@@ -263,7 +263,7 @@ func findFirstEquals(s string) int {
 // displayServerSummary displays a summary of server details for error messages
 func displayServerSummary(server *models.ServerDetail) {
 	// Parse the combined data to extract more details
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	var registryType, registryStatus string
 	var hasPackages, hasRemotes bool
 

@@ -191,7 +191,7 @@ var showCmd = &cobra.Command{
 // otherVersions is a list of other available versions (can be nil)
 func showServerDetails(server *models.ServerDetail, otherVersions []string) {
 	// Parse the stored combined data for additional details
-	var combinedData CombinedServerData
+	var combinedData models.CombinedServerData
 	var registryType, registryStatus, updatedAt string
 
 	if err := json.Unmarshal([]byte(server.Data), &combinedData); err == nil {

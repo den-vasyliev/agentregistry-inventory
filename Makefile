@@ -1,4 +1,4 @@
-.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean api scraper swag fmt lint all build-agentgateway rebuild-agentgateway
+.PHONY: help install-ui build-ui clean-ui build-go build install dev-ui test clean api scraper swag fmt lint all build-agentgateway rebuild-agentgateway postgres-start postgres-stop
 
 # Default target
 help:
@@ -20,6 +20,8 @@ help:
 	@echo "  swag                 - Run the Swag"
 	@echo "  fmt                  - Run the formatter"
 	@echo "  lint                 - Run the linter"
+	@echo "  postgres-start       - Start PostgreSQL database in Docker"
+	@echo "  postgres-stop        - Stop PostgreSQL database"
 
 # Install UI dependencies
 install-ui:
@@ -119,4 +121,27 @@ rebuild-agentgateway:
 	@echo "Rebuilding custom agent gateway image..."
 	docker build --no-cache -f internal/runtime/agentgateway.Dockerfile -t arctl-agentgateway:latest .
 	@echo "✓ Agent gateway image rebuilt successfully"
+
+# Start PostgreSQL database in Docker
+postgres-start:
+	@echo "Starting PostgreSQL database..."
+	@docker run -d \
+		--name mcp-registry-postgres \
+		-e POSTGRES_DB=mcp-registry \
+		-e POSTGRES_USER=mcpregistry \
+		-e POSTGRES_PASSWORD=mcpregistry \
+		-p 5432:5432 \
+		postgres:16-alpine || (echo "Container may already exist. Use 'make postgres-stop' first." && exit 1)
+	@echo "✓ PostgreSQL is starting on port 5432"
+	@echo "  Database: mcp-registry"
+	@echo "  User: postgres"
+	@echo "  Password: postgres"
+	@echo "  Connection string: postgres://postgres:postgres@localhost:5432/mcp-registry?sslmode=disable"
+
+# Stop PostgreSQL database
+postgres-stop:
+	@echo "Stopping PostgreSQL database..."
+	@docker stop mcp-registry-postgres 2>/dev/null || true
+	@docker rm mcp-registry-postgres 2>/dev/null || true
+	@echo "✓ PostgreSQL stopped and removed"
 

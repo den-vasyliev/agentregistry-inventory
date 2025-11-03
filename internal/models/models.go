@@ -63,6 +63,13 @@ type ServerFullData struct {
 	Remotes     []ServerRemote  `json:"remotes"`
 }
 
+// CombinedServerData represents the wrapper structure for server data
+// which includes both metadata and the actual server configuration
+type CombinedServerData struct {
+	Server ServerFullData `json:"server"`
+	Meta   ServerMetadata `json:"_meta"`
+}
+
 // Skill represents a skill from the registry
 type Skill struct {
 	ID           int       `json:"id"`

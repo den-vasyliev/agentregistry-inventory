@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/agentregistry-dev/agentregistry/internal/database"
+	"github.com/agentregistry-dev/agentregistry/internal/models"
 	"github.com/agentregistry-dev/agentregistry/internal/printer"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/dockercompose"
@@ -101,7 +102,7 @@ func uninstallMCPServer(serverName string) error {
 		}
 
 		// Parse the server data
-		var combinedData CombinedServerData
+		var combinedData models.CombinedServerData
 		if err := json.Unmarshal([]byte(s.Data), &combinedData); err != nil {
 			return fmt.Errorf("failed to parse server data for %s: %w", s.Name, err)
 		}

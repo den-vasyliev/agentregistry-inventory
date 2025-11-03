@@ -45,13 +45,6 @@ func findServersByName(searchName string) []*models.ServerDetail {
 	return matches
 }
 
-// CombinedServerData represents the wrapper structure for server data
-// which includes both metadata and the actual server configuration
-type CombinedServerData struct {
-	Server models.ServerFullData `json:"server"`
-	Meta   models.ServerMetadata `json:"_meta"`
-}
-
 // splitServerName splits a server name into namespace and name parts
 func splitServerName(fullName string) (namespace, name string) {
 	parts := strings.Split(fullName, "/")
