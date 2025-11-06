@@ -45,6 +45,9 @@ install-ui:
 build-ui: install-ui
 	@echo "Building Next.js UI for embedding..."
 	cd ui && npm run build:export
+	@echo "Copying built files to internal/registry/api/ui/dist..."
+	git clean -xdf ./internal/registry/api/ui/dist/
+	cp -r ui/out/* internal/registry/api/ui/dist/
 # best effort - bring back the gitignore so that dist folder is kept in git (won't work in docker).
 	git checkout -- internal/registry/api/ui/dist/.gitignore || :
 	@echo "UI built successfully to internal/registry/api/ui/dist/"
@@ -52,8 +55,9 @@ build-ui: install-ui
 # Clean UI build artifacts
 clean-ui:
 	@echo "Cleaning UI build artifacts..."
-	rm -rf ui/.next
 	git clean -xdf ./internal/registry/api/ui/dist/
+	git clean -xdf ./ui/out/
+	git clean -xdf ./ui/.next/
 	@echo "UI artifacts cleaned"
 
 # Build the Go CLI
