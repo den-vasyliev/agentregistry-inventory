@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	agentmodels "github.com/agentregistry-dev/agentregistry/internal/models"
 	skillmodels "github.com/agentregistry-dev/agentregistry/internal/models"
 	"github.com/jackc/pgx/v5"
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
@@ -33,6 +34,16 @@ type ServerFilter struct {
 // SkillFilter defines filtering options for skill queries (mirrors ServerFilter)
 type SkillFilter struct {
 	Name          *string    // for finding versions of same skill
+	RemoteURL     *string    // for duplicate URL detection
+	UpdatedSince  *time.Time // for incremental sync filtering
+	SubstringName *string    // for substring search on name
+	Version       *string    // for exact version matching
+	IsLatest      *bool      // for filtering latest versions only
+}
+
+// AgentFilter defines filtering options for agent queries (mirrors ServerFilter)
+type AgentFilter struct {
+	Name          *string    // for finding versions of same agent
 	RemoteURL     *string    // for duplicate URL detection
 	UpdatedSince  *time.Time // for incremental sync filtering
 	SubstringName *string    // for substring search on name
@@ -71,6 +82,30 @@ type Database interface {
 	InTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 	// Close closes the database connection
 	Close() error
+
+	// Agents API
+	// CreateAgent inserts a new agent version with official metadata
+	CreateAgent(ctx context.Context, tx pgx.Tx, agentJSON *agentmodels.AgentJSON, officialMeta *agentmodels.AgentRegistryExtensions) (*agentmodels.AgentResponse, error)
+	// UpdateAgent updates an existing agent record
+	UpdateAgent(ctx context.Context, tx pgx.Tx, agentName, version string, agentJSON *agentmodels.AgentJSON) (*agentmodels.AgentResponse, error)
+	// SetAgentStatus updates the status of a specific agent version
+	SetAgentStatus(ctx context.Context, tx pgx.Tx, agentName, version string, status string) (*agentmodels.AgentResponse, error)
+	// ListAgents retrieve agent entries with optional filtering
+	ListAgents(ctx context.Context, tx pgx.Tx, filter *AgentFilter, cursor string, limit int) ([]*agentmodels.AgentResponse, string, error)
+	// GetAgentByName retrieve a single agent by its name (latest)
+	GetAgentByName(ctx context.Context, tx pgx.Tx, agentName string) (*agentmodels.AgentResponse, error)
+	// GetAgentByNameAndVersion retrieve specific version of an agent by name and version
+	GetAgentByNameAndVersion(ctx context.Context, tx pgx.Tx, agentName string, version string) (*agentmodels.AgentResponse, error)
+	// GetAllVersionsByAgentName retrieve all versions of an agent
+	GetAllVersionsByAgentName(ctx context.Context, tx pgx.Tx, agentName string) ([]*agentmodels.AgentResponse, error)
+	// GetCurrentLatestAgentVersion retrieve current latest version of an agent
+	GetCurrentLatestAgentVersion(ctx context.Context, tx pgx.Tx, agentName string) (*agentmodels.AgentResponse, error)
+	// CountAgentVersions count the number of versions for an agent
+	CountAgentVersions(ctx context.Context, tx pgx.Tx, agentName string) (int, error)
+	// CheckAgentVersionExists check if a specific version exists for an agent
+	CheckAgentVersionExists(ctx context.Context, tx pgx.Tx, agentName, version string) (bool, error)
+	// UnmarkAgentAsLatest marks the current latest version of an agent as no longer latest
+	UnmarkAgentAsLatest(ctx context.Context, tx pgx.Tx, agentName string) error
 
 	// Skills API
 	// CreateSkill inserts a new skill version with official metadata

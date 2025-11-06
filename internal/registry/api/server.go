@@ -43,7 +43,6 @@ func TrailingSlashMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		// Only redirect if the path is not "/" and ends with a "/"
 		if r.URL.Path != "/" && strings.HasSuffix(r.URL.Path, "/") {
 			// Create a copy of the URL and remove the trailing slash
@@ -71,9 +70,6 @@ type Server struct {
 func NewServer(cfg *config.Config, registryService service.RegistryService, metrics *telemetry.Metrics, versionInfo *v0.VersionBody) *Server {
 	// Create HTTP mux and Huma API
 	mux := http.NewServeMux()
-
-	// Serve embedded UI
-	mux.Handle("/", http.FileServer(http.FS(embeddedUI)))
 
 	// Create UI handler
 	uiHandler, err := createUIHandler()
