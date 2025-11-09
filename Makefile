@@ -8,7 +8,7 @@ BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD || echo "unknown")
 VERSION ?= $(shell git describe --tags --always 2>/dev/null | grep v || echo "v0.0.0-$(GIT_COMMIT)")
 
-LDFLAGS := -s -w -X 'github.com/agentregistry-dev/agentregistry/cmd.Version=$(VERSION)' -X 'github.com/agentregistry-dev/agentregistry/cmd.GitCommit=$(GIT_COMMIT)' -X 'github.com/agentregistry-dev/agentregistry/cmd.BuildDate=$(BUILD_DATE)'
+LDFLAGS := -s -w -X 'github.com/agentregistry-dev/agentregistry/internal/version.Version=$(VERSION)' -X 'github.com/agentregistry-dev/agentregistry/internal/version.GitCommit=$(GIT_COMMIT)' -X 'github.com/agentregistry-dev/agentregistry/internal/version.BuildDate=$(BUILD_DATE)'
 
 # Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
@@ -125,20 +125,17 @@ lint:
 	golangci-lint run --timeout=5m
 
 # Build custom agent gateway image with npx/uvx support
-build-agentgateway:
+docker-agentgateway:
 	@echo "Building custom agent gateway image..."
-	@if docker image inspect $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:latest >/dev/null 2>&1; then \
-		echo "Image $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:latest already exists. Use 'make rebuild-agentgateway' to force rebuild."; \
-	else \
-		docker build -f internal/runtime/agentgateway.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:latest .; \
-		echo "✓ Agent gateway image built successfully"; \
-	fi
+	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/agentgateway.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) .
+	echo "✓ Agent gateway image built successfully";
 
-# Force rebuild custom agent gateway image
-rebuild-agentgateway:
-	@echo "Rebuilding custom agent gateway image..."
-	docker build --no-cache -f internal/runtime/agentgateway.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:latest .
-	@echo "✓ Agent gateway image rebuilt successfully"
+
+docker-server:
+	@echo "Building server Docker image..."
+	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS)  -f docker/server.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
+	@echo "✓ Docker image built successfully"
+
 
 docker-registry:
 	@echo "Building running local Docker registry..."
@@ -149,19 +146,19 @@ docker-registry:
 		-d --restart=always -p "5001:5000" --name docker-registry "docker.io/library/registry:2" ; \
 	fi
 
-docker:
-	@echo "Building Docker image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) -f Dockerfile --build-arg LDFLAGS="$(LDFLAGS)" .
-	@echo "✓ Docker image built successfully"
+docker: docker-agentgateway docker-server
 
-docker-tag-as-latest:
-	@echo "Pulling and tagging as latest..."
+docker-tag-as-dev:
+	@echo "Pulling and tagging as dev..."
 	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION)
-	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:latest
-	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:latest
+	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
+	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
+	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION)
+	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
+	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
 	@echo "✓ Docker image pulled successfully"
 
-docker-compose-up: docker docker-tag-as-latest
+docker-compose-up: docker docker-tag-as-dev
 	@echo "Starting services with Docker Compose..."
 	docker compose -p agentregistry -f internal/daemon/docker-compose.yml up -d --wait --pull always
 
