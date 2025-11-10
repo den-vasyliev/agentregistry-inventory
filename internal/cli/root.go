@@ -22,8 +22,8 @@ var rootCmd = &cobra.Command{
 			fmt.Println("agent registry uses docker compose to start the server and the agent gateway.")
 			return fmt.Errorf("docker compose is not available")
 		}
-		if !daemon.IsRunning() {
-			if err := daemon.Start(); err != nil {
+		if !daemon.IsRunning(verbose) {
+			if err := daemon.Start(verbose); err != nil {
 				return fmt.Errorf("failed to start daemon: %w", err)
 			}
 			fmt.Println("✓ Daemon started successfully")
@@ -40,8 +40,10 @@ var rootCmd = &cobra.Command{
 
 // APIClient is the shared API client used by CLI commands
 var APIClient *client.Client
+var verbose bool
 
 func Execute() {
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

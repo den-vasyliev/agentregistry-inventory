@@ -67,11 +67,6 @@ jobs:
   release:
     needs:
     - docker
-    strategy:
-      matrix:
-        image:
-          - agentgateway
-          - server
     runs-on: ubuntu-latest
     permissions:
       contents: write
