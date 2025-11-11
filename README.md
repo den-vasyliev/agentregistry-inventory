@@ -1,8 +1,8 @@
 # Agent Registry
 
-> **A comprehensive platform for discovering, deploying, and managing MCP (Model Context Protocol) servers**
+> **A comprehensive platform for discovering, deploying, and managing MCP (Model Context Protocol) servers, agents and skills**
 
-Agent Registry (`arctl`) is a unified system that combines a centralized registry, runtime management, and development tooling for MCP servers. It enables teams to publish, discover, and deploy AI agent capabilities as composable services.
+Agent Registry is a unified system that combines a centralized registry, runtime management, and development tooling for MCP servers, agents and skills. It enables teams to publish, discover, and deploy AI agent capabilities as composable services.
 
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -20,55 +20,13 @@ Agent Registry solves the challenge of managing AI agent capabilities by providi
 
 ## 🏗️ Architecture
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        CLI[arctl CLI]
-        UI[Web UI]
-        IDE[IDEs & Editors<br/>Claude Desktop, Cursor, VS Code]
-    end
-    
-    subgraph "Registry Server"
-        API[REST API<br/>:8080]
-        DB[(PostgreSQL<br/>Registry Data)]
-        SVC[Registry Service]
-        RT[Runtime Manager]
-    end
-    
-    subgraph "Runtime Layer"
-        GW[Agent Gateway<br/>:21212]
-        DC[Docker Compose<br/>Orchestration]
-        
-        subgraph "MCP Servers"
-            M1[MCP Server 1]
-            M2[MCP Server 2]
-            M3[MCP Server N]
-        end
-    end
-    
-    CLI -->|HTTP| API
-    UI -->|HTTP| API
-    IDE -->|MCP Protocol| GW
-    
-    API --> SVC
-    SVC --> DB
-    SVC --> RT
-    RT --> DC
-    
-    GW --> M1
-    GW --> M2
-    GW --> M3
-    
-    DC -.->|Manages| M1
-    DC -.->|Manages| M2
-    DC -.->|Manages| M3
-    
-    style CLI fill:#e1f5ff
-    style UI fill:#e1f5ff
-    style API fill:#fff4e1
-    style GW fill:#e8f5e9
-    style DB fill:#f3e5f5
-```
+### Operation
+
+![Architecture](img/operator-scenario.png)
+
+### Development
+
+![Architecture](img/dev-scenario.png)
 
 ## 🚀 Quick Start
 
@@ -85,34 +43,17 @@ curl -fsSL https://raw.githubusercontent.com/agentregistry-dev/agentregistry/mai
 
 # Or download binary directly from releases
 # https://github.com/agentregistry-dev/agentregistry/releases
-
-# Or build from source
-make build
 ```
 
 ### Start the Registry
 
 ```bash
-# Start the registry server and PostgreSQL
+# Start the registry server and look for available MCP servers
 arctl mcp list
 
-# This automatically starts:
-# - PostgreSQL database (port 5432)
-# - Registry server (port 12121)
-# - Imports built-in seed data
+# The first time the CLI runs it will automatically start the registry server daemon and import the built-in seed data.
 ```
 
-### Deploy Your First MCP Server
-
-```bash
-# List available MCP servers
-arctl mcp list
-
-# Deploy a server
-arctl deploy mcp filesystem --version latest
-
-# The server is now available through the Agent Gateway!
-```
 
 ### Access the Web UI
 
@@ -129,15 +70,9 @@ arctl ui
 
 MCP (Model Context Protocol) servers are services that provide tools, resources, and prompts to AI agents. They're the building blocks of agent capabilities.
 
-**Example MCP Servers:**
-- `filesystem` - File operations
-- `github` - GitHub API integration
-- `brave-search` - Web search capabilities
-- `postgres` - Database queries
-
 ### Agent Gateway
 
-The Agent Gateway (`kagent`) is a reverse proxy that provides a single MCP endpoint for all deployed servers:
+The [Agent Gateway](https://github.com/agentgateway/agentgateway) is a reverse proxy that provides a single MCP endpoint for all deployed servers:
 
 ```mermaid
 sequenceDiagram
@@ -158,46 +93,6 @@ sequenceDiagram
     GW->>GH: Forward to github
     GH-->>GW: Issue created
     GW-->>IDE: Return result
-```
-
-
-## 🛠️ CLI Commands
-
-### Registry Operations
-
-```bash
-# List available MCP servers
-arctl list mcp
-
-# Search for servers
-arctl list mcp --search github
-
-# Show server details
-arctl show mcp github
-
-# Show specific version
-arctl show mcp github --version 0.1.0
-```
-
-### Deployment Operations
-
-```bash
-# Deploy MCP server
-arctl deploy mcp <server-name> --version <version>
-
-# Deploy with environment variables
-arctl deploy mcp postgres \
-  --env DATABASE_URL=postgres://localhost/mydb \
-  --env DB_SCHEMA=public
-
-# Deploy with runtime arguments
-arctl deploy mcp custom-server \
-  --arg port=8080 \
-  --arg debug=true
-
-# Remove deployed server
-arctl remove mcp <server-name>
-
 ```
 
 ### IDE Configuration
