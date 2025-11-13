@@ -30,7 +30,7 @@ var versionCmd = &cobra.Command{
 			return
 		}
 
-		compare := semver.Compare(version.Version, serverVersion.Version)
+		compare := semver.Compare("v"+version.Version, "v"+serverVersion.Version)
 		switch compare {
 		case 1:
 			fmt.Println("\n-------------------------------")
