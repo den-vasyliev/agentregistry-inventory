@@ -727,6 +727,7 @@ type DeploymentResponse struct {
 	Config       map[string]string `json:"config"`
 	PreferRemote bool              `json:"preferRemote"`
 	ResourceType string            `json:"resourceType"`
+	Runtime      string            `json:"runtime"`
 }
 
 // DeploymentsListResponse represents the list of deployments
@@ -777,13 +778,14 @@ func (c *Client) GetDeployedServerByNameAndVersion(name string, version string) 
 }
 
 // DeployServer deploys a server with configuration
-func (c *Client) DeployServer(name, version string, config map[string]string, preferRemote bool) (*DeploymentResponse, error) {
+func (c *Client) DeployServer(name, version string, config map[string]string, preferRemote bool, runtimeTarget string) (*DeploymentResponse, error) {
 	payload := internalv0.DeploymentRequest{
 		ServerName:   name,
 		Version:      version,
 		Config:       config,
 		PreferRemote: preferRemote,
 		ResourceType: "mcp",
+		Runtime:      runtimeTarget,
 	}
 
 	var deployment DeploymentResponse
@@ -795,12 +797,13 @@ func (c *Client) DeployServer(name, version string, config map[string]string, pr
 }
 
 // DeployAgent deploys an agent with configuration
-func (c *Client) DeployAgent(name, version string, config map[string]string) (*DeploymentResponse, error) {
+func (c *Client) DeployAgent(name, version string, config map[string]string, runtimeTarget string) (*DeploymentResponse, error) {
 	payload := internalv0.DeploymentRequest{
 		ServerName:   name,
 		Version:      version,
 		Config:       config,
 		ResourceType: "agent",
+		Runtime:      runtimeTarget,
 	}
 
 	var deployment DeploymentResponse

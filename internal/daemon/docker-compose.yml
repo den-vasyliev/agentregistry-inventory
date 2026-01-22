@@ -29,6 +29,7 @@ services:
       AGENT_REGISTRY_RECONCILE_ON_STARTUP: "true"
       # Temporarily only for local development
       AGENT_REGISTRY_ENABLE_REGISTRY_VALIDATION: "false"
+      KUBECONFIG: "/root/.kube/config"
       # AGENT_REGISTRY_ENABLE_ANONYMOUS_AUTH: "false"
       # AGENT_REGISTRY_ENABLE_REGISTRY_VALIDATION: "true"
     ports:
@@ -38,6 +39,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Mount /tmp so the registry can write configs accessible to Docker on the host
       - /tmp:/tmp
+      # Mount kubeconfig so kubectl can access the local context
+      # NOTE: This might not work on MacOS with a local cluster using Docker
+      - ~/.kube/config:/root/.kube/config:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,4 +56,3 @@ volumes:
 networks:
   agentregistry-network:
     driver: bridge
-

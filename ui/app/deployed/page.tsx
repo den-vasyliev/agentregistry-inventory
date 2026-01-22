@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { adminApiClient } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
@@ -25,6 +26,7 @@ type DeploymentResponse = {
   config: Record<string, string>
   preferRemote: boolean
   resourceType: string // "mcp" or "agent"
+  runtime: string
 }
 
 export default function DeployedPage() {
@@ -74,7 +76,7 @@ export default function DeployedPage() {
     try {
       setRemoving(true)
       await adminApiClient.removeDeployment(serverToRemove.name, serverToRemove.version)
-      
+
       // Remove from local state
       setDeployments(prev => prev.filter(d => d.serverName !== serverToRemove.name || d.version !== serverToRemove.version))
       setServerToRemove(null)
@@ -86,7 +88,7 @@ export default function DeployedPage() {
   }
 
   const runningCount = deployments.length
-  
+
   return (
     <main className="min-h-screen bg-background">
       {/* Stats Section */}
@@ -251,8 +253,11 @@ export default function DeployedPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-xl font-semibold">{deployment.serverName}</h3>
+                        <Badge variant="outline">
+                          {deployment.runtime || "local"}
+                        </Badge>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="h-4 w-4" />

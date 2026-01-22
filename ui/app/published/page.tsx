@@ -4,6 +4,14 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Rocket } from "lucide-react"
 import { toast } from "sonner"
@@ -36,6 +44,7 @@ export default function PublishedPage() {
   const [error, setError] = useState<string | null>(null)
   const [unpublishing, setUnpublishing] = useState(false)
   const [deploying, setDeploying] = useState(false)
+  const [deployRuntime, setDeployRuntime] = useState<'local' | 'kubernetes'>('local')
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
 
@@ -43,50 +52,50 @@ export default function PublishedPage() {
     try {
       setLoading(true)
       setError(null)
-      
+
       // Fetch all published servers (with pagination if needed)
       const allServers: ServerResponse[] = []
       let serverCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listPublishedServers({ 
-          cursor: serverCursor, 
+        const response = await adminApiClient.listPublishedServers({
+          cursor: serverCursor,
           limit: 100,
         })
         allServers.push(...response.servers)
         serverCursor = response.metadata.nextCursor
       } while (serverCursor)
-      
+
       setServers(allServers)
 
       // Fetch all published skills (with pagination if needed)
       const allSkills: SkillResponse[] = []
       let skillCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listPublishedSkills({ 
-          cursor: skillCursor, 
+        const response = await adminApiClient.listPublishedSkills({
+          cursor: skillCursor,
           limit: 100,
         })
         allSkills.push(...response.skills)
         skillCursor = response.metadata.nextCursor
       } while (skillCursor)
-      
+
       setSkills(allSkills)
 
       // Fetch all published agents (with pagination if needed)
       const allAgents: AgentResponse[] = []
       let agentCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listPublishedAgents({ 
-          cursor: agentCursor, 
+        const response = await adminApiClient.listPublishedAgents({
+          cursor: agentCursor,
           limit: 100,
         })
         allAgents.push(...response.agents)
         agentCursor = response.metadata.nextCursor
       } while (agentCursor)
-      
+
       setAgents(allAgents)
 
       // Fetch deployments to check what's currently deployed
@@ -122,6 +131,7 @@ export default function PublishedPage() {
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
     setItemToDeploy({ name, version, type })
+    setDeployRuntime('local')
   }
 
   const confirmDeploy = async () => {
@@ -129,7 +139,7 @@ export default function PublishedPage() {
 
     try {
       setDeploying(true)
-      
+
       // Deploy server or agent
       await adminApiClient.deployServer({
         serverName: itemToDeploy.name,
@@ -137,10 +147,11 @@ export default function PublishedPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
+        runtime: deployRuntime,
       })
-      
+
       setItemToDeploy(null)
-      toast.success(`Successfully deployed ${itemToDeploy.name}!`)
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployRuntime}!`)
       // Refresh deployments to update the UI
       await fetchPublished()
     } catch (err) {
@@ -155,7 +166,7 @@ export default function PublishedPage() {
 
     try {
       setUnpublishing(true)
-      
+
       if (itemToUnpublish.type === 'server') {
         await adminApiClient.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
         setServers(prev => prev.filter(s => s.server.name !== itemToUnpublish.name || s.server.version !== itemToUnpublish.version))
@@ -166,7 +177,7 @@ export default function PublishedPage() {
         await adminApiClient.unpublishAgentStatus(itemToUnpublish.name, itemToUnpublish.version)
         setAgents(prev => prev.filter(a => a.agent.name !== itemToUnpublish.name || a.agent.version !== itemToUnpublish.version))
       }
-      
+
       setItemToUnpublish(null)
       toast.success(`Successfully unpublished ${itemToUnpublish.name}`)
       // Refresh deployments to update the UI
@@ -179,7 +190,7 @@ export default function PublishedPage() {
   }
 
   const totalPublished = servers.length + skills.length + agents.length
-  
+
   return (
     <main className="min-h-screen bg-background">
       {/* Stats Section */}
@@ -350,9 +361,9 @@ export default function PublishedPage() {
                             <div className="flex items-center gap-3 mb-3">
                               <h3 className="text-xl font-semibold">{server.name}</h3>
                             </div>
-                            
+
                             <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
-                            
+
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Package className="h-4 w-4" />
@@ -381,8 +392,7 @@ export default function PublishedPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleUnpublish(server.name, server.version, 'server')}
-                              disabled={unpublishing || deployed}
-                              title={deployed ? 'Remove from Deployed page first' : ''}
+                              disabled={unpublishing}
                             >
                               Unpublish
                             </Button>
@@ -408,9 +418,9 @@ export default function PublishedPage() {
                             <div className="flex items-center gap-3 mb-3">
                               <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
                             </div>
-                            
+
                             <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
-                            
+
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Package className="h-4 w-4" />
@@ -448,6 +458,7 @@ export default function PublishedPage() {
                   {agents.map((agentResponse) => {
                     const agent = agentResponse.agent
                     const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
+                    const deployed = isDeployed(agent.name, agent.version)
                     return (
                       <Card key={`${agent.name}-${agent.version}`} className="p-6 hover:shadow-md transition-all duration-200">
                         <div className="flex items-start justify-between">
@@ -455,9 +466,9 @@ export default function PublishedPage() {
                             <div className="flex items-center gap-3 mb-3">
                               <h3 className="text-xl font-semibold">{agent.name}</h3>
                             </div>
-                            
+
                             <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
-                            
+
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Package className="h-4 w-4" />
@@ -477,10 +488,10 @@ export default function PublishedPage() {
                               variant="default"
                               size="sm"
                               onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
-                              disabled={deploying}
+                              disabled={deploying || deployed}
                             >
                               <Rocket className="h-4 w-4 mr-2" />
-                              Deploy
+                              {deployed ? 'Already Deployed' : 'Deploy'}
                             </Button>
                             <Button
                               variant="outline"
@@ -542,9 +553,21 @@ export default function PublishedPage() {
               Deploy <strong>{itemToDeploy?.name}</strong> (version {itemToDeploy?.version})?
               <br />
               <br />
-              This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system. It will be accessible through the gateway at port 21212.
+              This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="deploy-runtime">Deployment destination</Label>
+            <Select value={deployRuntime} onValueChange={(value) => setDeployRuntime(value as 'local' | 'kubernetes')}>
+              <SelectTrigger id="deploy-runtime">
+                <SelectValue placeholder="Select destination" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">Local (Docker Compose)</SelectItem>
+                <SelectItem value="kubernetes">Kubernetes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"

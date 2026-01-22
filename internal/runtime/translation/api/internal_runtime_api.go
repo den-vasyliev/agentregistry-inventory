@@ -1,5 +1,11 @@
 package api
 
+import (
+	v1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
+	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+)
+
 // DesiredState represents the desired set of MCPServevrs the user wishes to run locally
 type DesiredState struct {
 	MCPServers []*MCPServer `json:"mcpServers"`
@@ -11,7 +17,17 @@ type Agent struct {
 	Name       string          `json:"name"`
 	Version    string          `json:"version"`
 	Deployment AgentDeployment `json:"deployment"`
-	// TODO: We'll need references to MCPServers here (or in AgentDeployment) as well
+	// ResolvedMCPServers contains the MCP server connection info for this agent
+	// Used to generate ConfigMap for Kubernetes deployments
+	ResolvedMCPServers []ResolvedMCPServerConfig `json:"resolvedMCPServers,omitempty"`
+}
+
+// This gets saved into the mcp-servers.json file for each agent
+type ResolvedMCPServerConfig struct {
+	Name    string            `json:"name"`
+	Type    string            `json:"type"` // "command" or "remote"
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 // MCPServer represents a single MCPServer configuration
@@ -112,5 +128,8 @@ const (
 )
 
 type KubernetesRuntimeConfig struct {
-	// TODO: add k8s config here
+	Agents           []*v1alpha2.Agent           `json:"agents"`
+	RemoteMCPServers []*v1alpha2.RemoteMCPServer `json:"remoteMCPServers"`
+	MCPServers       []*kmcpv1alpha1.MCPServer   `json:"mcpServers"`
+	ConfigMaps       []*corev1.ConfigMap         `json:"configMaps,omitempty"`
 }

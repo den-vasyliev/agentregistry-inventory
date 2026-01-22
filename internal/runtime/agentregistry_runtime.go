@@ -11,10 +11,73 @@ import (
 
 	"github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/common"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
+	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
-
+	v1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
+	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 	"go.yaml.in/yaml/v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
+
+// fieldManager identifies agentregistry as the field owner for server-side apply.
+const fieldManager = "agentregistry"
+
+// scheme contains the API types for controller-runtime client.
+var scheme = runtime.NewScheme()
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(kmcpv1alpha1.AddToScheme(scheme))
+}
+
+// newClient creates a controller-runtime client with the kagent scheme.
+func newClient() (client.Client, error) {
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes config: %w", err)
+	}
+
+	c, err := client.New(restConfig, client.Options{Scheme: scheme})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	return c, nil
+}
+
+// applyResource uses server-side apply to create or update a Kubernetes resource.
+func applyResource(ctx context.Context, c client.Client, obj client.Object, verbose bool) error {
+	if verbose {
+		fmt.Printf("Applying %s %s in namespace %s\n",
+			obj.GetObjectKind().GroupVersionKind().Kind,
+			obj.GetName(),
+			obj.GetNamespace())
+	}
+
+	// Server-side apply: single declarative call, no need to check if exists
+	if err := c.Patch(ctx, obj, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership); err != nil {
+		return fmt.Errorf("failed to apply %s %s: %w",
+			obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), err)
+	}
+
+	if verbose {
+		fmt.Printf("Applied %s %s\n", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName())
+	}
+	return nil
+}
+
+// deleteResource deletes a Kubernetes resource, ignoring NotFound errors.
+func deleteResource(ctx context.Context, c client.Client, obj client.Object) error {
+	if err := c.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
+		return err
+	}
+	return nil
+}
 
 type AgentRegistryRuntime interface {
 	ReconcileAll(
@@ -64,16 +127,40 @@ func (r *agentRegistryRuntime) ReconcileAll(
 		if err != nil {
 			return fmt.Errorf("translate agent %s: %w", req.RegistryAgent.Name, err)
 		}
+
+		// Translate and add resolved MCP servers from agent manifest to desired state
+		for _, serverReq := range req.ResolvedMCPServers {
+			mcpServer, err := r.registryTranslator.TranslateMCPServer(context.TODO(), serverReq)
+			if err != nil {
+				return fmt.Errorf("translate resolved MCP server %s for agent %s: %w", serverReq.RegistryServer.Name, req.RegistryAgent.Name, err)
+			}
+			desiredState.MCPServers = append(desiredState.MCPServers, mcpServer)
+		}
+
+		// Populate ResolvedMCPServers on the agent for ConfigMap generation
+		resolvedConfigs := createResolvedMCPServerConfigs(req.ResolvedMCPServers)
+		agent.ResolvedMCPServers = resolvedConfigs
+
 		desiredState.Agents = append(desiredState.Agents, agent)
 
-		serversForConfig := pythonServersFromServerRunRequests(req.ResolvedMCPServers)
+		// Convert back to PythonMCPServer for local runtime backward compatibility
+		var pythonServers []common.PythonMCPServer
+		for _, cfg := range resolvedConfigs {
+			pythonServers = append(pythonServers, common.PythonMCPServer{
+				Name:    cfg.Name,
+				Type:    cfg.Type,
+				URL:     cfg.URL,
+				Headers: cfg.Headers,
+			})
+		}
+
 		if err := common.RefreshMCPConfig(
 			&common.MCPConfigTarget{
 				BaseDir:   r.runtimeDir,
 				AgentName: req.RegistryAgent.Name,
 				Version:   req.RegistryAgent.Version,
 			},
-			serversForConfig,
+			pythonServers,
 			r.verbose,
 		); err != nil {
 			return fmt.Errorf("failed to refresh resolved MCP server config for agent %s: %w", req.RegistryAgent.Name, err)
@@ -99,7 +186,8 @@ func (r *agentRegistryRuntime) ensureRuntime(
 	switch cfg.Type {
 	case api.RuntimeConfigTypeLocal:
 		return r.ensureLocalRuntime(ctx, cfg.Local)
-	// TODO: Add a handler for other runtimes
+	case api.RuntimeConfigTypeKubernetes:
+		return r.ensureKubernetesRuntime(ctx, cfg.Kubernetes)
 	default:
 		return fmt.Errorf("unsupported runtime config type: %v", cfg.Type)
 	}
@@ -152,13 +240,129 @@ func (r *agentRegistryRuntime) ensureLocalRuntime(
 	return nil
 }
 
-// pythonServersFromServerRunRequests converts server run requests into Python MCP server structs.
-func pythonServersFromServerRunRequests(requests []*registry.MCPServerRunRequest) []common.PythonMCPServer {
+func (r *agentRegistryRuntime) ensureKubernetesRuntime(
+	ctx context.Context,
+	cfg *api.KubernetesRuntimeConfig,
+) error {
+	if cfg == nil || (len(cfg.Agents) == 0 && len(cfg.RemoteMCPServers) == 0 && len(cfg.MCPServers) == 0) {
+		return nil
+	}
+
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	// Apply ConfigMaps first
+	for _, configMap := range cfg.ConfigMaps {
+		if configMap.Namespace == "" {
+			configMap.Namespace = kagent.DefaultNamespace
+		}
+		if err := applyResource(ctx, c, configMap, r.verbose); err != nil {
+			return fmt.Errorf("ConfigMap %s: %w", configMap.Name, err)
+		}
+	}
+
+	for _, agent := range cfg.Agents {
+		if agent.Namespace == "" {
+			agent.Namespace = kagent.DefaultNamespace
+		}
+		if err := applyResource(ctx, c, agent, r.verbose); err != nil {
+			return fmt.Errorf("agent %s: %w", agent.Name, err)
+		}
+	}
+
+	for _, remoteMCP := range cfg.RemoteMCPServers {
+		if remoteMCP.Namespace == "" {
+			remoteMCP.Namespace = kagent.DefaultNamespace
+		}
+		if err := applyResource(ctx, c, remoteMCP, r.verbose); err != nil {
+			return fmt.Errorf("remote MCP server %s: %w", remoteMCP.Name, err)
+		}
+	}
+
+	for _, mcpServer := range cfg.MCPServers {
+		if mcpServer.Namespace == "" {
+			mcpServer.Namespace = kagent.DefaultNamespace
+		}
+		if err := applyResource(ctx, c, mcpServer, r.verbose); err != nil {
+			return fmt.Errorf("MCP server %s: %w", mcpServer.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// DeleteKubernetesAgent deletes a kagent Agent CR by name/version.
+func DeleteKubernetesAgent(ctx context.Context, name, version, namespace string) error {
+	if namespace == "" {
+		namespace = kagent.DefaultNamespace
+	}
+
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	agent := &v1alpha2.Agent{}
+	agent.Name = kagent.AgentResourceName(name, version)
+	agent.Namespace = namespace
+
+	if err := deleteResource(ctx, c, agent); err != nil {
+		return fmt.Errorf("failed to delete agent %s: %w", agent.Name, err)
+	}
+	return nil
+}
+
+// DeleteKubernetesRemoteMCPServer deletes a kagent RemoteMCPServer CR by name.
+func DeleteKubernetesRemoteMCPServer(ctx context.Context, name, namespace string) error {
+	if namespace == "" {
+		namespace = kagent.DefaultNamespace
+	}
+
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	remoteMCP := &v1alpha2.RemoteMCPServer{}
+	remoteMCP.Name = kagent.RemoteMCPResourceName(name)
+	remoteMCP.Namespace = namespace
+
+	if err := deleteResource(ctx, c, remoteMCP); err != nil {
+		return fmt.Errorf("failed to delete remote MCP server %s: %w", remoteMCP.Name, err)
+	}
+	return nil
+}
+
+// DeleteKubernetesMCPServer deletes a kagent MCPServer CR by name.
+func DeleteKubernetesMCPServer(ctx context.Context, name, namespace string) error {
+	if namespace == "" {
+		namespace = kagent.DefaultNamespace
+	}
+
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	mcpServer := &kmcpv1alpha1.MCPServer{}
+	mcpServer.Name = kagent.MCPServerResourceName(name)
+	mcpServer.Namespace = namespace
+
+	if err := deleteResource(ctx, c, mcpServer); err != nil {
+		return fmt.Errorf("failed to delete MCP server %s: %w", mcpServer.Name, err)
+	}
+	return nil
+}
+
+// createResolvedMCPServerConfigs converts server run requests into API ResolvedMCPServerConfig
+func createResolvedMCPServerConfigs(requests []*registry.MCPServerRunRequest) []api.ResolvedMCPServerConfig {
 	if len(requests) == 0 {
 		return nil
 	}
 
-	var mcpServers []common.PythonMCPServer
+	var configs []api.ResolvedMCPServerConfig
 	for _, serverReq := range requests {
 		server := serverReq.RegistryServer
 		// Skip servers with no remotes or packages
@@ -166,15 +370,15 @@ func pythonServersFromServerRunRequests(requests []*registry.MCPServerRunRequest
 			continue
 		}
 
-		pythonServer := common.PythonMCPServer{
-			Name: server.Name,
+		config := api.ResolvedMCPServerConfig{
+			Name: registry.GenerateInternalName(server.Name),
 		}
 
 		useRemote := len(server.Remotes) > 0 && (serverReq.PreferRemote || len(server.Packages) == 0)
 		if useRemote {
 			remote := server.Remotes[0]
-			pythonServer.Type = "remote"
-			pythonServer.URL = remote.URL
+			config.Type = "remote"
+			config.URL = remote.URL
 
 			if len(remote.Headers) > 0 || len(serverReq.HeaderValues) > 0 {
 				headers := make(map[string]string)
@@ -183,16 +387,16 @@ func pythonServersFromServerRunRequests(requests []*registry.MCPServerRunRequest
 				}
 				maps.Copy(headers, serverReq.HeaderValues)
 				if len(headers) > 0 {
-					pythonServer.Headers = headers
+					config.Headers = headers
 				}
 			}
 		} else {
-			pythonServer.Type = "command"
-			// For command type, Python derives URL as http://{server_name}:3000/mcp
+			// For command type, URL is derived internally by the client (http://{server_name}:port)
+			config.Type = "command"
 		}
 
-		mcpServers = append(mcpServers, pythonServer)
+		configs = append(configs, config)
 	}
 
-	return mcpServers
+	return configs
 }

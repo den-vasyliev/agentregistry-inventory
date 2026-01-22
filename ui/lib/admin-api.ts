@@ -331,12 +331,12 @@ class AdminApiClient {
       },
       body: JSON.stringify(server),
     })
-    
+
     // Get response text first so we can parse it or show it as error
     const responseText = await response.text()
     console.log('Response status:', response.status)
     console.log('Response text:', responseText.substring(0, 200))
-    
+
     if (!response.ok) {
       let errorMessage = 'Failed to create server'
       try {
@@ -347,13 +347,13 @@ class AdminApiClient {
         }
       } catch {
         // If JSON parsing fails, use the text directly (truncate if too long)
-        errorMessage = responseText.length > 200 
-          ? responseText.substring(0, 200) + '...' 
+        errorMessage = responseText.length > 200
+          ? responseText.substring(0, 200) + '...'
           : responseText || `Server error: ${response.status} ${response.statusText}`
       }
       throw new Error(errorMessage)
     }
-    
+
     // Parse successful response
     try {
       return JSON.parse(responseText)
@@ -653,6 +653,7 @@ class AdminApiClient {
     config?: Record<string, string>
     preferRemote?: boolean
     resourceType?: 'mcp' | 'agent'
+    runtime?: 'local' | 'kubernetes'
   }): Promise<void> {
     const response = await fetch(`${this.baseUrl}/admin/v0/deployments`, {
       method: 'POST',
@@ -665,6 +666,7 @@ class AdminApiClient {
         config: params.config || {},
         preferRemote: params.preferRemote || false,
         resourceType: params.resourceType || 'mcp',
+        runtime: params.runtime || 'local',
       }),
     })
     if (!response.ok) {
@@ -683,6 +685,7 @@ class AdminApiClient {
     config: Record<string, string>
     preferRemote: boolean
     resourceType: string
+    runtime: string
   }>> {
     const response = await fetch(`${this.baseUrl}/admin/v0/deployments`)
     if (!response.ok) {

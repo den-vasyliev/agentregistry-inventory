@@ -66,7 +66,9 @@ func (t *registryTranslator) TranslateAgent(
 	// note that the change to remove this would have to be done in kagent-adk
 	env["KAGENT_URL"] = "http://localhost"
 	env["KAGENT_NAME"] = manifest.Name
-	env["KAGENT_NAMESPACE"] = "default"
+	if _, ok := env["KAGENT_NAMESPACE"]; !ok {
+		env["KAGENT_NAMESPACE"] = "default"
+	}
 
 	// Set agent configuration
 	env["AGENT_NAME"] = manifest.Name
@@ -141,7 +143,7 @@ func translateRemoteMCPServer(
 	}
 
 	return &api.MCPServer{
-		Name:          generateInternalName(registryServer.Name),
+		Name:          GenerateInternalName(registryServer.Name),
 		MCPServerType: api.MCPServerTypeRemote,
 		Remote: &api.RemoteMCPServer{
 			Host:    u.host,
@@ -236,7 +238,7 @@ func translateLocalMCPServer(
 	}
 
 	return &api.MCPServer{
-		Name:          generateInternalName(registryServer.Name),
+		Name:          GenerateInternalName(registryServer.Name),
 		MCPServerType: api.MCPServerTypeLocal,
 		Local: &api.LocalMCPServer{
 			Deployment: api.MCPServerDeployment{
@@ -285,7 +287,10 @@ func parseUrl(rawUrl string) (*parsedUrl, error) {
 	}, nil
 }
 
-func generateInternalName(server string) string {
+// GenerateInternalName converts a server name to a DNS-1123 compliant name
+// that can be used as a Docker Compose service name or Kubernetes resource name.
+// Export this function so that the runtime can use this to construct the name of MCP to connect to
+func GenerateInternalName(server string) string {
 	// convert the server name to a dns-1123 compliant name
 	name := strings.ToLower(strings.ReplaceAll(server, " ", "-"))
 	name = strings.ReplaceAll(name, ".", "-")

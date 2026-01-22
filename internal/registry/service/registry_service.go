@@ -2,14 +2,10 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"maps"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -18,10 +14,10 @@ import (
 	"github.com/agentregistry-dev/agentregistry/internal/registry/config"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/database"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/embeddings"
-	"github.com/agentregistry-dev/agentregistry/internal/registry/types"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/validators"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/dockercompose"
+	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
 	"github.com/jackc/pgx/v5"
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
@@ -674,7 +670,7 @@ func (s *registryServiceImpl) IsServerPublished(ctx context.Context, serverName,
 }
 
 // DeployServer deploys a server with configuration
-func (s *registryServiceImpl) DeployServer(ctx context.Context, serverName, version string, config map[string]string, preferRemote bool) (*models.Deployment, error) {
+func (s *registryServiceImpl) DeployServer(ctx context.Context, serverName, version string, config map[string]string, preferRemote bool, runtimeTarget string) (*models.Deployment, error) {
 	serverResp, err := s.db.GetServerByNameAndVersion(ctx, nil, serverName, version, true)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
@@ -690,6 +686,7 @@ func (s *registryServiceImpl) DeployServer(ctx context.Context, serverName, vers
 		Config:       config,
 		PreferRemote: preferRemote,
 		ResourceType: "mcp",
+		Runtime:      runtimeTarget,
 		DeployedAt:   time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -705,6 +702,9 @@ func (s *registryServiceImpl) DeployServer(ctx context.Context, serverName, vers
 	}
 
 	if err := s.ReconcileAll(ctx); err != nil {
+		if cleanupErr := s.db.RemoveDeployment(ctx, nil, serverName, version); cleanupErr != nil {
+			return nil, fmt.Errorf("deployment created but reconciliation failed: %v (cleanup failed: %v)", err, cleanupErr)
+		}
 		return nil, fmt.Errorf("deployment created but reconciliation failed: %w", err)
 	}
 
@@ -713,7 +713,7 @@ func (s *registryServiceImpl) DeployServer(ctx context.Context, serverName, vers
 }
 
 // DeployAgent deploys an agent with configuration
-func (s *registryServiceImpl) DeployAgent(ctx context.Context, agentName, version string, config map[string]string, preferRemote bool) (*models.Deployment, error) {
+func (s *registryServiceImpl) DeployAgent(ctx context.Context, agentName, version string, config map[string]string, preferRemote bool, runtimeTarget string) (*models.Deployment, error) {
 	agentResp, err := s.db.GetAgentByNameAndVersion(ctx, nil, agentName, version)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
@@ -729,6 +729,7 @@ func (s *registryServiceImpl) DeployAgent(ctx context.Context, agentName, versio
 		Config:       config,
 		PreferRemote: preferRemote,
 		ResourceType: "agent",
+		Runtime:      runtimeTarget,
 		DeployedAt:   time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -741,7 +742,40 @@ func (s *registryServiceImpl) DeployAgent(ctx context.Context, agentName, versio
 		return nil, err
 	}
 
+	// Resolve and create deployment records for registry-type MCP servers from agent manifest
+	resolvedServers, err := s.resolveAgentManifestMCPServers(ctx, &agentResp.Agent.AgentManifest)
+	if err != nil {
+		// Log warning but don't fail - agent deployment should still succeed
+		log.Printf("Warning: Failed to resolve MCP servers for agent %s: %v", agentName, err)
+	} else {
+		// Create deployment records for each resolved MCP server
+		for _, serverReq := range resolvedServers {
+			mcpDeployment := &models.Deployment{
+				ServerName:   serverReq.RegistryServer.Name,
+				Version:      serverReq.RegistryServer.Version,
+				Status:       "active",
+				Config:       make(map[string]string),
+				PreferRemote: serverReq.PreferRemote,
+				ResourceType: "mcp",
+				Runtime:      runtimeTarget,
+				DeployedAt:   time.Now(),
+				UpdatedAt:    time.Now(),
+			}
+			// Try to create deployment, but ignore if it already exists (idempotent)
+			if err := s.db.CreateDeployment(ctx, nil, mcpDeployment); err != nil {
+				if !errors.Is(err, database.ErrAlreadyExists) {
+					log.Printf("Warning: Failed to create deployment for MCP server %s: %v", serverReq.RegistryServer.Name, err)
+				}
+			}
+		}
+	}
+
+	// If reconciliation fails, remove the deployment that we just added
+	// This is required because reconciler uses the DB as the source of truth for desired state
 	if err := s.ReconcileAll(ctx); err != nil {
+		if cleanupErr := s.db.RemoveDeployment(ctx, nil, agentName, version); cleanupErr != nil {
+			return nil, fmt.Errorf("deployment created but reconciliation failed: %v (cleanup failed: %v)", err, cleanupErr)
+		}
 		return nil, fmt.Errorf("deployment created but reconciliation failed: %w", err)
 	}
 
@@ -770,7 +804,29 @@ func (s *registryServiceImpl) UpdateDeploymentConfig(ctx context.Context, server
 
 // RemoveServer removes a deployment
 func (s *registryServiceImpl) RemoveServer(ctx context.Context, serverName string, version string) error {
-	err := s.db.RemoveDeployment(ctx, nil, serverName, version)
+	deployment, err := s.db.GetDeploymentByNameAndVersion(ctx, nil, serverName, version)
+	if err != nil {
+		return err
+	}
+
+	// Clean up kubernetes resources
+	if deployment != nil && deployment.Runtime == "kubernetes" {
+		if deployment.ResourceType == "agent" {
+			if err := runtime.DeleteKubernetesAgent(ctx, serverName, version, kagent.DefaultNamespace); err != nil {
+				return err
+			}
+		}
+		if deployment.ResourceType == "mcp" {
+			if err := runtime.DeleteKubernetesMCPServer(ctx, serverName, kagent.DefaultNamespace); err != nil {
+				return err
+			}
+			if err := runtime.DeleteKubernetesRemoteMCPServer(ctx, serverName, kagent.DefaultNamespace); err != nil {
+				return err
+			}
+		}
+	}
+
+	err = s.db.RemoveDeployment(ctx, nil, serverName, version)
 	if err != nil {
 		return err
 	}
@@ -793,12 +849,23 @@ func (s *registryServiceImpl) ReconcileAll(ctx context.Context) error {
 
 	log.Printf("Reconciling %d deployment(s)", len(deployments))
 
-	var (
-		serverRunRequests []*registry.MCPServerRunRequest
-		agentRunRequests  []*registry.AgentRunRequest
-	)
+	type runtimeRequests struct {
+		servers []*registry.MCPServerRunRequest
+		agents  []*registry.AgentRunRequest
+	}
+	// Store server and agent run requests by runtime target
+	requestsByRuntime := map[string]*runtimeRequests{
+		"local":      {},
+		"kubernetes": {},
+	}
 
 	for _, dep := range deployments {
+		runtimeTarget := dep.Runtime
+		if runtimeTarget == "" {
+			runtimeTarget = "local"
+		}
+		targetRequests := requestsByRuntime[runtimeTarget]
+
 		switch dep.ResourceType {
 		case "mcp":
 			depServer, err := s.GetServerByNameAndVersion(ctx, dep.ServerName, dep.Version, true)
@@ -807,26 +874,27 @@ func (s *registryServiceImpl) ReconcileAll(ctx context.Context) error {
 				continue
 			}
 
-			depEnvValues := make(map[string]string)
-			depArgValues := make(map[string]string)
-			depHeaderValues := make(map[string]string)
-
+			// Extract some configurations from deployment config
+			envValues := make(map[string]string)
+			argValues := make(map[string]string)
+			headerValues := make(map[string]string)
 			for k, v := range dep.Config {
-				if len(k) > 7 && k[:7] == "HEADER_" {
-					depHeaderValues[k[7:]] = v
-				} else if len(k) > 4 && k[:4] == "ARG_" {
-					depArgValues[k[4:]] = v
-				} else {
-					depEnvValues[k] = v
+				switch {
+				case len(k) > 7 && k[:7] == "HEADER_":
+					headerValues[k[7:]] = v
+				case len(k) > 4 && k[:4] == "ARG_":
+					argValues[k[4:]] = v
+				default:
+					envValues[k] = v
 				}
 			}
 
-			serverRunRequests = append(serverRunRequests, &registry.MCPServerRunRequest{
+			targetRequests.servers = append(targetRequests.servers, &registry.MCPServerRunRequest{
 				RegistryServer: &depServer.Server,
 				PreferRemote:   dep.PreferRemote,
-				EnvValues:      depEnvValues,
-				ArgValues:      depArgValues,
-				HeaderValues:   depHeaderValues,
+				EnvValues:      envValues,
+				ArgValues:      argValues,
+				HeaderValues:   headerValues,
 			})
 
 		case "agent":
@@ -839,42 +907,58 @@ func (s *registryServiceImpl) ReconcileAll(ctx context.Context) error {
 			depEnvValues := make(map[string]string)
 			maps.Copy(depEnvValues, dep.Config)
 
-			agentRunRequests = append(agentRunRequests, &registry.AgentRunRequest{
+			targetRequests.agents = append(targetRequests.agents, &registry.AgentRunRequest{
 				RegistryAgent: &depAgent.Agent,
 				EnvValues:     depEnvValues,
 			})
+
 		default:
 			log.Printf("Warning: Unknown resource type %q for deployment %s v%s", dep.ResourceType, dep.ServerName, dep.Version)
 		}
 	}
 
 	regTranslator := registry.NewTranslator()
-	composeTranslator := dockercompose.NewAgentGatewayTranslator(s.cfg.RuntimeDir, s.cfg.AgentGatewayPort)
-	agentRuntime := runtime.NewAgentRegistryRuntime(
-		regTranslator,
-		composeTranslator,
-		s.cfg.RuntimeDir,
-		s.cfg.Verbose,
-	)
 
-	// Resolve registry-type MCP servers from agent manifests to add them to serverRunRequests
-	for _, agentReq := range agentRunRequests {
-		resolvedServers, err := s.resolveAgentManifestMCPServers(ctx, &agentReq.RegistryAgent.AgentManifest)
-		if err != nil {
-			return fmt.Errorf("failed to resolve MCP servers for agent %s: %w", agentReq.RegistryAgent.Name, err)
+	for runtimeTarget, requests := range requestsByRuntime {
+		if len(requests.servers) == 0 && len(requests.agents) == 0 {
+			continue
 		}
 
-		// Store resolved mcp servers so they can be written to the agent mcp server injection config
-		agentReq.ResolvedMCPServers = resolvedServers
-		// Add resolved servers to serverRunRequests so they get deployed
-		serverRunRequests = append(serverRunRequests, resolvedServers...)
-		if s.cfg.Verbose && len(resolvedServers) > 0 {
-			log.Printf("Resolved %d MCP server(s) of type 'registry' for agent %s", len(resolvedServers), agentReq.RegistryAgent.Name)
-		}
-	}
+		// Resolve registry-type MCP servers from agent manifests
+		for _, agentReq := range requests.agents {
+			resolvedServers, err := s.resolveAgentManifestMCPServers(ctx, &agentReq.RegistryAgent.AgentManifest)
+			if err != nil {
+				return fmt.Errorf("failed to resolve MCP servers for agent %s: %w", agentReq.RegistryAgent.Name, err)
+			}
 
-	if err := agentRuntime.ReconcileAll(ctx, serverRunRequests, agentRunRequests); err != nil {
-		return fmt.Errorf("failed reconciliation: %w", err)
+			// Propagate KAGENT_NAMESPACE from agent to resolved MCP servers
+			// so they deploy in the same namespace as the agent
+			if ns, ok := agentReq.EnvValues["KAGENT_NAMESPACE"]; ok && ns != "" {
+				for _, server := range resolvedServers {
+					server.EnvValues["KAGENT_NAMESPACE"] = ns
+				}
+			}
+
+			agentReq.ResolvedMCPServers = resolvedServers
+			requests.servers = append(requests.servers, resolvedServers...)
+			if s.cfg.Verbose && len(resolvedServers) > 0 {
+				log.Printf("Resolved %d MCP server(s) of type 'registry' for %s agent %s", len(resolvedServers), runtimeTarget, agentReq.RegistryAgent.Name)
+			}
+		}
+
+		// Create the appropriate runtime translator for the target runtime and reconcile the requests
+		var agentRuntime runtime.AgentRegistryRuntime
+		if runtimeTarget == "kubernetes" {
+			k8sTranslator := kagent.NewTranslator()
+			agentRuntime = runtime.NewAgentRegistryRuntime(regTranslator, k8sTranslator, s.cfg.RuntimeDir, s.cfg.Verbose)
+		} else {
+			composeTranslator := dockercompose.NewAgentGatewayTranslator(s.cfg.RuntimeDir, s.cfg.AgentGatewayPort)
+			agentRuntime = runtime.NewAgentRegistryRuntime(regTranslator, composeTranslator, s.cfg.RuntimeDir, s.cfg.Verbose)
+		}
+
+		if err := agentRuntime.ReconcileAll(ctx, requests.servers, requests.agents); err != nil {
+			return fmt.Errorf("failed %s reconciliation: %w", runtimeTarget, err)
+		}
 	}
 
 	return nil
@@ -893,28 +977,20 @@ func (s *registryServiceImpl) resolveAgentManifestMCPServers(ctx context.Context
 			continue
 		}
 
-		// Determine registry URL
-		registryURL := mcpServer.RegistryURL
-		if registryURL == "" {
-			registryURL = "http://127.0.0.1:12121"
-		}
-
 		version := mcpServer.RegistryServerVersion
 		if version == "" {
 			version = "latest"
 		}
 
-		serverEntry, err := fetchServerFromRegistry(registryURL, mcpServer.RegistryServerName, version)
+		// Use the registry service's own database instead of making HTTP calls
+		serverResp, err := s.GetServerByNameAndVersion(ctx, mcpServer.RegistryServerName, version, true)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch server %q from registry %s: %w", mcpServer.RegistryServerName, registryURL, err)
+			return nil, fmt.Errorf("failed to get server %q version %s from registry database: %w", mcpServer.RegistryServerName, version, err)
 		}
-
-		// Convert registry.ServerSpec to apiv0.ServerJSON
-		serverJSON := convertServerSpecToServerJSON(&serverEntry.Server)
 
 		// Create MCPServerRunRequest so that this resolved server is ran/deployed
 		resolvedServers = append(resolvedServers, &registry.MCPServerRunRequest{
-			RegistryServer: serverJSON,
+			RegistryServer: &serverResp.Server,
 			PreferRemote:   mcpServer.RegistryServerPreferRemote,
 			EnvValues:      make(map[string]string),
 			ArgValues:      make(map[string]string),
@@ -923,77 +999,6 @@ func (s *registryServiceImpl) resolveAgentManifestMCPServers(ctx context.Context
 	}
 
 	return resolvedServers, nil
-}
-
-// fetchServerFromRegistry fetches a server from a registry via HTTP
-func fetchServerFromRegistry(baseURL string, name string, version string) (*types.ServerEntry, error) {
-	// Construct the endpoint: /v0/servers/{serverName}/versions/{version}
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	if !strings.HasSuffix(baseURL, "/v0/servers") {
-		baseURL = baseURL + "/v0/servers"
-	}
-
-	if version == "" {
-		version = "latest"
-	}
-
-	encodedName := url.PathEscape(name)
-	fetchURL := fmt.Sprintf("%s/%s/versions/%s", baseURL, encodedName, version)
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	resp, err := client.Get(fetchURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch server by name: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
-	}
-
-	var registryResp types.RegistryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&registryResp); err != nil {
-		return nil, fmt.Errorf("failed to decode server list response: %w", err)
-	}
-
-	if len(registryResp.Servers) != 1 {
-		return nil, fmt.Errorf("expected 1 server, got %d: %s with version %s", len(registryResp.Servers), name, version)
-	}
-
-	return &registryResp.Servers[0], nil
-}
-
-// convertServerSpecToServerJSON converts a types.ServerSpec to apiv0.ServerJSON
-func convertServerSpecToServerJSON(spec *types.ServerSpec) *apiv0.ServerJSON {
-	// Convert Repository - apiv0.ServerJSON uses model.Repository
-	var repo *model.Repository
-	if spec.Repository.URL != "" || spec.Repository.Source != "" {
-		repo = &model.Repository{
-			URL:    spec.Repository.URL,
-			Source: spec.Repository.Source, // Source is a string in model.Repository
-		}
-	}
-
-	return &apiv0.ServerJSON{
-		// ServerSpec doesn't include schema
-		// TODO(infocus7): Should we use model.CurrentSchemaURL? Or should we return the schema from the ServerEntry?
-		// In raw JSON, it's "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json", so would maybe need to parse it.
-		Schema:      "",
-		Name:        spec.Name,
-		Title:       spec.Title,
-		Description: spec.Description,
-		Version:     spec.Version,
-		WebsiteURL:  spec.WebsiteURL,
-		Repository:  repo,
-		Packages:    spec.Packages,
-		Remotes:     spec.Remotes,
-		// ServerSpec doesn't include meta
-		Icons: nil,
-		Meta:  nil,
-	}
 }
 
 func (s *registryServiceImpl) ensureSemanticEmbedding(ctx context.Context, opts *database.SemanticSearchOptions) error {

@@ -23,7 +23,7 @@ var InitCmd = &cobra.Command{
 You can customize the root agent instructions using the --instruction-file flag.
 You can select a specific model using --model-provider and --model-name flags.
 If no custom instruction file is provided, a default dice-rolling instruction will be used.
-If no model is specified, the agent will need to be configured later.
+If no model flags are provided, defaults to Gemini (gemini-2.0-flash).
 
 Examples:
 arctl agent init adk python dice
@@ -72,7 +72,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Check if the model provider or model name flags were changed
+	// If so support default model name for the provider if not provided
+	providerFlagChanged := cmd.Flags().Changed("model-provider")
+	modelNameFlagChanged := cmd.Flags().Changed("model-name")
+
 	modelName := strings.TrimSpace(initModelName)
+	if providerFlagChanged && !modelNameFlagChanged && modelProvider != "" {
+		if defaultName, ok := defaultModelNameForProvider(modelProvider); ok {
+			modelName = defaultName
+		}
+	}
 	if modelName != "" && modelProvider == "" {
 		return fmt.Errorf("model provider is required when model name is provided")
 	}
@@ -150,6 +160,21 @@ func normalizeModelProvider(value string) (string, error) {
 	return trimmed, nil
 }
 
+func defaultModelNameForProvider(provider string) (string, bool) {
+	switch provider {
+	case "openai":
+		return "gpt-4o-mini", true
+	case "anthropic":
+		return "claude-3-5-sonnet", true
+	case "gemini":
+		return "gemini-2.0-flash", true
+	case "azureopenai":
+		return "your-deployment-name", true
+	default:
+		return "", false
+	}
+}
+
 func loadInstruction(path string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", nil
@@ -180,5 +205,5 @@ func printAgentNextSteps(agentName string) {
 	fmt.Printf("   4. Run the agent locally\n")
 	fmt.Printf("      arctl agent run .\n")
 	fmt.Printf("   5. Publish the agent to AgentRegistry\n")
-	fmt.Printf("      arctl agent publish . --image %s/%s:latest\n", strings.TrimSuffix(version.DockerRegistry, "/"), agentName)
+	fmt.Printf("      arctl agent publish .\n")
 }

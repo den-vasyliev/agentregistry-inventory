@@ -12,4 +12,5 @@ type Deployment struct {
 	Config       map[string]string `json:"config"`
 	PreferRemote bool              `json:"preferRemote"`
 	ResourceType string            `json:"resourceType"` // "mcp" or "agent"
+	Runtime      string            `json:"runtime"`      // "local" or "kubernetes"
 }
