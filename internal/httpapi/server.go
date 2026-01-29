@@ -75,6 +75,10 @@ func (s *Server) registerRoutes() {
 	// Register admin utility endpoints
 	s.registerAdminUtilityRoutes()
 
+	// Register submit endpoint
+	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
+	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
+
 	// Health endpoint
 	s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

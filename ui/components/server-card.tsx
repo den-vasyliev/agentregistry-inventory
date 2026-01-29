@@ -2,6 +2,7 @@
 
 import { ServerResponse } from "@/lib/admin-api"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -9,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, CheckCircle2, XCircle } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
@@ -27,7 +28,8 @@ interface ServerCardProps {
 export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
   const official = _meta?.['io.modelcontextprotocol.registry/official']
-  
+  const deployment = _meta?.deployment
+
   // Extract metadata
   const publisherMetadata = serverData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
@@ -206,6 +208,28 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
             </span>
           )}
         </div>
+
+        {deployment && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant={deployment.ready ? "default" : "destructive"}
+                className={`text-xs ${deployment.ready ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}`}
+              >
+                {deployment.ready ? (
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                ) : (
+                  <XCircle className="h-3 w-3 mr-1" />
+                )}
+                {deployment.ready ? 'Running' : 'Not Ready'}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{deployment.message || (deployment.ready ? 'Deployment is healthy' : 'Deployment has issues')}</p>
+              {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         {official?.publishedAt && (
           <div className="flex items-center gap-1">

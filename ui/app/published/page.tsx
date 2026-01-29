@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus } from "lucide-react"
+import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -302,11 +303,25 @@ export default function PublishedPage() {
 
       <div className="container mx-auto px-6 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Published Resources</h1>
-            <p className="text-muted-foreground">
-              View and manage MCP servers, skills, and agents that are currently published in the registry.
-            </p>
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Published Resources</h1>
+              <p className="text-muted-foreground">
+                View and manage MCP servers, skills, and agents that are currently published in the registry.
+              </p>
+            </div>
+            <SubmitResourceDialog
+              trigger={
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Submit Resource
+                </Button>
+              }
+              onSubmitted={() => {
+                // Refresh the list
+                fetchPublished()
+              }}
+            />
           </div>
 
           {error && (
