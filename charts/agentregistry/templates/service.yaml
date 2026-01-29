@@ -1,0 +1,39 @@
+{{- if .Values.httpApi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agentregistry.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.httpApi.serviceType }}
+  ports:
+    - port: {{ .Values.httpApi.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "agentregistry.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agentregistry.fullname" . }}-metrics
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8081
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "agentregistry.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: controller

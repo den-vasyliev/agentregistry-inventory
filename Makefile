@@ -5,8 +5,9 @@ DOCKER_REPO ?= agentregistry-dev/agentregistry
 DOCKER_BUILDER ?= docker buildx
 DOCKER_BUILD_ARGS ?= --push --platform linux/$(LOCALARCH)
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
-GIT_COMMIT ?= $(shell git rev-parse --short HEAD || echo "unknown")
-VERSION ?= $(shell git describe --tags --always 2>/dev/null | grep v || echo "v0.0.0-$(GIT_COMMIT)")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BASE_VERSION ?= $(shell cat VERSION 2>/dev/null || echo "0.1.0")
+VERSION ?= v$(BASE_VERSION)-$(GIT_COMMIT)
 
 LDFLAGS := \
 	-s -w \
@@ -18,7 +19,7 @@ LDFLAGS := \
 # Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-.PHONY: help install-ui build-ui clean-ui build-cli build install dev-ui test clean fmt lint all release-cli docker-compose-up docker-compose-down docker-compose-logs
+.PHONY: help install-ui build-ui clean-ui build-cli build-controller build install dev-ui test clean fmt lint all release-cli docker-compose-up docker-compose-down docker-compose-logs docker-controller
 
 # Default target
 help:
@@ -26,7 +27,8 @@ help:
 	@echo "  install-ui           - Install UI dependencies"
 	@echo "  build-ui             - Build the Next.js UI"
 	@echo "  clean-ui             - Clean UI build artifacts"
-	@echo "  build-cli             - Build the Go CLI"
+	@echo "  build-cli            - Build the Go CLI"
+	@echo "  build-controller     - Build the controller binary"
 	@echo "  build                - Build both UI and Go CLI"
 	@echo "  install              - Install the CLI to GOPATH/bin"
 	@echo "  dev-ui               - Run Next.js in development mode"
@@ -36,6 +38,42 @@ help:
 	@echo "  fmt                  - Run the formatter"
 	@echo "  lint                 - Run the linter"
 	@echo "  release              - Build and release the CLI"
+	@echo "  docker-controller    - Build controller Docker image"
+	@echo "  version              - Show current version info"
+	@echo ""
+	@echo "Current version: $(VERSION)"
+
+version:
+	@echo "Version:    $(VERSION)"
+	@echo "Git Commit: $(GIT_COMMIT)"
+	@echo "Build Date: $(BUILD_DATE)"
+
+# Bump patch version (0.1.0 -> 0.1.1)
+bump-patch:
+	@current=$$(cat VERSION); \
+	major=$$(echo $$current | cut -d. -f1); \
+	minor=$$(echo $$current | cut -d. -f2); \
+	patch=$$(echo $$current | cut -d. -f3); \
+	new="$$major.$$minor.$$((patch + 1))"; \
+	echo $$new > VERSION; \
+	echo "Bumped version: $$current -> $$new"
+
+# Bump minor version (0.1.0 -> 0.2.0)
+bump-minor:
+	@current=$$(cat VERSION); \
+	major=$$(echo $$current | cut -d. -f1); \
+	minor=$$(echo $$current | cut -d. -f2); \
+	new="$$major.$$((minor + 1)).0"; \
+	echo $$new > VERSION; \
+	echo "Bumped version: $$current -> $$new"
+
+# Bump major version (0.1.0 -> 1.0.0)
+bump-major:
+	@current=$$(cat VERSION); \
+	major=$$(echo $$current | cut -d. -f1); \
+	new="$$((major + 1)).0.0"; \
+	echo $$new > VERSION; \
+	echo "Bumped version: $$current -> $$new"
 
 # Install UI dependencies
 install-ui:
@@ -72,13 +110,23 @@ build-cli:
 
 # Build the Go server (with embedded UI)
 build-server:
-	@echo "Building Go CLI..."
+	@echo "Building Go server..."
 	@echo "Downloading Go dependencies..."
 	go mod download
 	@echo "Building binary..."
 	go build -ldflags "$(LDFLAGS)" \
 		-o bin/arctl-server cmd/server/main.go
 	@echo "Binary built successfully: bin/arctl-server"
+
+# Build the controller binary
+build-controller:
+	@echo "Building controller..."
+	@echo "Downloading Go dependencies..."
+	go mod download
+	@echo "Building binary..."
+	go build -ldflags "$(LDFLAGS)" \
+		-o bin/controller cmd/controller/main.go
+	@echo "Binary built successfully: bin/controller"
 
 # Build everything (UI + Go)
 build: build-ui build-cli
@@ -118,6 +166,13 @@ dev-build: build-ui
 	go build -o bin/arctl cmd/cli/main.go
 	@echo "Development build complete!"
 
+# Run controller locally (for development)
+# Usage: make run-controller KUBECONFIG=~/.kube/config
+run-controller: build-controller
+	@echo "Running controller locally..."
+	@echo "Using kubeconfig: $(KUBECONFIG)"
+	./bin/controller --kubeconfig="$(KUBECONFIG)"
+
 
 fmt: goimports
 	$(GOIMPORT) -w .
@@ -135,6 +190,11 @@ docker-server:
 	@echo "Building server Docker image..."
 	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/server.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
 	@echo "✓ Docker image built successfully"
+
+docker-controller:
+	@echo "Building controller Docker image..."
+	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/controller.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/controller:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
+	@echo "✓ Controller image built: $(DOCKER_REGISTRY)/$(DOCKER_REPO)/controller:$(VERSION)"
 
 
 docker-registry:

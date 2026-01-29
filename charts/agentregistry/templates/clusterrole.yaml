@@ -1,0 +1,109 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "agentregistry.fullname" . }}-controller
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+rules:
+  # Agent Registry CRDs
+  - apiGroups:
+      - agentregistry.dev
+    resources:
+      - mcpservercatalogs
+      - agentcatalogs
+      - skillcatalogs
+      - registrydeployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - agentregistry.dev
+    resources:
+      - mcpservercatalogs/status
+      - agentcatalogs/status
+      - skillcatalogs/status
+      - registrydeployments/status
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+      - agentregistry.dev
+    resources:
+      - mcpservercatalogs/finalizers
+      - agentcatalogs/finalizers
+      - skillcatalogs/finalizers
+      - registrydeployments/finalizers
+    verbs:
+      - update
+
+  # KAgent CRDs (for deployments)
+  - apiGroups:
+      - kagent.dev
+    resources:
+      - agents
+      - remotemcpservers
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # KMCP CRDs (for MCP server deployments)
+  - apiGroups:
+      - kmcp.io
+    resources:
+      - mcpservers
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # ConfigMaps (for agent MCP configs)
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Leader election
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Events (for recording events)
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
