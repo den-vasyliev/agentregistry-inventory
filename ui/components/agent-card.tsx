@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github } from "lucide-react"
+import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle } from "lucide-react"
 
 interface AgentCardProps {
   agent: AgentResponse
@@ -25,6 +25,7 @@ interface AgentCardProps {
 export function AgentCard({ agent, onDelete, onPublish, showDelete = false, showPublish = false, onClick }: AgentCardProps) {
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+  const deployment = _meta?.deployment
 
   const handleClick = () => {
     if (onClick) {
@@ -58,14 +59,39 @@ export function AgentCard({ agent, onDelete, onPublish, showDelete = false, show
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-lg mb-1">{agentData.name}</h3>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
-              <Badge variant="outline" className="text-xs">
-                {agentData.framework}
-              </Badge>
-              <Badge variant="secondary" className="text-xs">
-                {agentData.language}
-              </Badge>
-            </p>
+            <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+              {agentData.framework && (
+                <Badge variant="outline" className="text-xs">
+                  {agentData.framework}
+                </Badge>
+              )}
+              {agentData.language && (
+                <Badge variant="secondary" className="text-xs">
+                  {agentData.language}
+                </Badge>
+              )}
+              {deployment && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant={deployment.ready ? "default" : "destructive"}
+                      className={`text-xs ${deployment.ready ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}`}
+                    >
+                      {deployment.ready ? (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      {deployment.ready ? 'Running' : 'Not Ready'}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{deployment.message || (deployment.ready ? 'Deployment is healthy' : 'Deployment has issues')}</p>
+                    {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">

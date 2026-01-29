@@ -29,6 +29,9 @@ import {
   Upload,
   Github,
   ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Circle,
 } from "lucide-react"
 
 interface AgentDetailProps {
@@ -42,6 +45,7 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
   
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+  const deployment = _meta?.deployment
 
   // Handle ESC key to close
   useEffect(() => {
@@ -138,10 +142,27 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
-            <Badge className="h-3.5 w-3.5 text-muted-foreground" />
+            <Circle className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Status:</span>
-            <span className="font-medium">{agentData.status}</span>
+            <span className="font-medium">{agentData.status || official?.status || 'unknown'}</span>
           </div>
+
+          {deployment && (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-md ${deployment.ready ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+              {deployment.ready ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-600" />
+              )}
+              <span className="text-muted-foreground">Deployment:</span>
+              <span className={`font-medium ${deployment.ready ? 'text-green-600' : 'text-red-600'}`}>
+                {deployment.ready ? 'Running' : 'Not Ready'}
+              </span>
+              {deployment.namespace && (
+                <span className="text-xs text-muted-foreground">({deployment.namespace})</span>
+              )}
+            </div>
+          )}
 
           {official?.publishedAt && (
             <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">

@@ -74,6 +74,99 @@ arctl mcp list
 
 To access the UI, open `http://localhost:12121` in your browser.
 
+## ☸️ Kubernetes Deployment
+
+Agent Registry can be deployed as a Kubernetes controller using Helm. This provides a production-ready setup with CRD-based storage and controller-runtime integration.
+
+### Prerequisites
+
+- Kubernetes cluster (1.27+)
+- kubectl configured to access your cluster
+- Helm 3.x
+
+### Installation
+
+```bash
+# Add the Helm repository (if published) or install from local chart
+helm install agentregistry ./charts/agentregistry \
+  --namespace agentregistry \
+  --create-namespace
+
+# Verify the deployment
+kubectl get pods -n agentregistry
+kubectl get mcpservercatalogs,agentcatalogs,skillcatalogs -n agentregistry
+```
+
+### Configuration
+
+Key configuration options in `values.yaml`:
+
+```yaml
+# Controller settings
+controller:
+  leaderElection: true    # Enable for HA deployments
+
+# HTTP API server
+httpApi:
+  enabled: true
+  port: 8080
+
+# CRD installation
+crds:
+  install: true
+```
+
+### Accessing the API
+
+```bash
+# Port-forward to access the API locally
+kubectl port-forward -n agentregistry svc/agentregistry 8080:8080
+
+# List servers via API
+curl http://localhost:8080/v0/servers
+```
+
+### Creating Catalog Entries
+
+Create catalog entries using CRDs:
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: filesystem-v1-0-0
+  namespace: agentregistry
+spec:
+  name: "filesystem"
+  version: "1.0.0"
+  title: "Filesystem MCP Server"
+  description: "Provides file system access tools"
+  packages:
+    - registryType: npm
+      identifier: "@anthropics/mcp-server-filesystem"
+      transport:
+        type: stdio
+```
+
+### Deploying to Runtime
+
+Deploy catalog entries to Kubernetes using RegistryDeployment:
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: filesystem-deployment
+  namespace: agentregistry
+spec:
+  resourceName: "filesystem"
+  version: "1.0.0"
+  resourceType: mcp
+  runtime: kubernetes
+```
+
+The controller will create the appropriate KAgent MCPServer CR to deploy the MCP server.
+
 ## 📚 Core Concepts
 
 ### MCP Servers

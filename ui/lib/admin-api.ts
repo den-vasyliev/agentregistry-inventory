@@ -103,10 +103,20 @@ export interface RegistryExtensions {
   isLatest: boolean
 }
 
+export interface DeploymentInfo {
+  namespace?: string
+  serviceName?: string
+  url?: string
+  ready: boolean
+  message?: string
+  lastChecked?: string
+}
+
 export interface ServerResponse {
   server: ServerJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: RegistryExtensions
+    deployment?: DeploymentInfo
   }
 }
 
@@ -214,12 +224,14 @@ export interface AgentRegistryExtensions {
   publishedAt: string
   updatedAt: string
   isLatest: boolean
+  published?: boolean
 }
 
 export interface AgentResponse {
   agent: AgentJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: AgentRegistryExtensions
+    deployment?: DeploymentInfo
   }
 }
 
