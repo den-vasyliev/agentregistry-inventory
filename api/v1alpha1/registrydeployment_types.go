@@ -18,8 +18,6 @@ const (
 type RuntimeType string
 
 const (
-	// RuntimeTypeLocal indicates local deployment (Docker Compose)
-	RuntimeTypeLocal RuntimeType = "local"
 	// RuntimeTypeKubernetes indicates Kubernetes deployment
 	RuntimeTypeKubernetes RuntimeType = "kubernetes"
 )

@@ -233,6 +233,9 @@ func (h *DeploymentHandler) getDeployment(ctx context.Context, input *Deployment
 func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateDeploymentInput) (*Response[DeploymentResponse], error) {
 	crName := GenerateCRName(input.Body.ResourceName, input.Body.Version)
 
+	// Always use kubernetes runtime
+	runtime := agentregistryv1alpha1.RuntimeTypeKubernetes
+
 	deployment := &agentregistryv1alpha1.RegistryDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
@@ -240,14 +243,14 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 				"agentregistry.dev/resource-name": SanitizeK8sName(input.Body.ResourceName),
 				"agentregistry.dev/version":       SanitizeK8sName(input.Body.Version),
 				"agentregistry.dev/resource-type": input.Body.ResourceType,
-				"agentregistry.dev/runtime":       input.Body.Runtime,
+				"agentregistry.dev/runtime":       string(runtime),
 			},
 		},
 		Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
 			ResourceName: input.Body.ResourceName,
 			Version:      input.Body.Version,
 			ResourceType: agentregistryv1alpha1.ResourceType(input.Body.ResourceType),
-			Runtime:      agentregistryv1alpha1.RuntimeType(input.Body.Runtime),
+			Runtime:      runtime,
 			PreferRemote: input.Body.PreferRemote,
 			Config:       input.Body.Config,
 			Namespace:    input.Body.Namespace,

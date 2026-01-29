@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -13,18 +12,12 @@ import (
 	"github.com/agentregistry-dev/agentregistry/internal/cli/mcp"
 	"github.com/agentregistry-dev/agentregistry/internal/cli/skill"
 	"github.com/agentregistry-dev/agentregistry/internal/client"
-	"github.com/agentregistry-dev/agentregistry/internal/utils"
-	"github.com/agentregistry-dev/agentregistry/pkg/daemon"
 	"github.com/agentregistry-dev/agentregistry/pkg/types"
 	"github.com/spf13/cobra"
 )
 
 // CLIOptions configures the CLI behavior
-// We could extend this to include more extensibility options in the future (e.g. client factory)
 type CLIOptions struct {
-	// DaemonManager handles daemon lifecycle. If nil, uses default.
-	DaemonManager types.DaemonManager
-
 	// AuthnProvider provides CLI-specific authentication.
 	// If nil, uses ARCTL_API_TOKEN env var.
 	AuthnProvider types.CLIAuthnProvider
@@ -33,8 +26,6 @@ type CLIOptions struct {
 var cliOptions CLIOptions
 var registryURL string
 var registryToken string
-
-const defaultRegistryPort = "12121"
 
 // Configure applies options to the root command
 func Configure(opts CLIOptions) {
@@ -48,25 +39,6 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		baseURL, token := resolveRegistryTarget()
 
-		dm := cliOptions.DaemonManager
-		if dm == nil {
-			dm = daemon.NewDaemonManager(nil)
-		}
-
-		if shouldAutoStartDaemon(baseURL) {
-			if !utils.IsDockerComposeAvailable() {
-				fmt.Println("Docker compose is not available. Please install docker compose and try again.")
-				fmt.Println("See https://docs.docker.com/compose/install/ for installation instructions.")
-				fmt.Println("agent registry uses docker compose to start the server and the agent gateway.")
-				return fmt.Errorf("docker compose is not available")
-			}
-			if !dm.IsRunning() {
-				if err := dm.Start(); err != nil {
-					return fmt.Errorf("failed to start daemon: %w", err)
-				}
-			}
-		}
-
 		// Get authentication token if no token override was provided
 		if token == "" && cliOptions.AuthnProvider != nil {
 			var err error
@@ -76,7 +48,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		// Check if local registry is running and create API client
+		// Create API client
 		c, err := client.NewClientWithConfig(baseURL, token)
 		if err != nil {
 			return fmt.Errorf("API client not initialized: %w", err)
@@ -148,39 +120,4 @@ func normalizeBaseURL(raw string) string {
 		return trimmed
 	}
 	return "http://" + trimmed
-}
-
-func shouldAutoStartDaemon(targetURL string) bool {
-	parsed := parseURL(targetURL)
-	if parsed == nil {
-		return false
-	}
-	host := strings.ToLower(parsed.Hostname())
-	if host != "localhost" && host != "127.0.0.1" && host != "::1" {
-		return false
-	}
-	port := parsed.Port()
-	if port == "" {
-		if parsed.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-	return port == defaultRegistryPort
-}
-
-func parseURL(raw string) *url.URL {
-	if strings.TrimSpace(raw) == "" {
-		raw = client.DefaultBaseURL
-	}
-	parsed, err := url.Parse(raw)
-	if err == nil && parsed.Hostname() != "" {
-		return parsed
-	}
-	parsed, err = url.Parse("http://" + raw)
-	if err != nil {
-		return nil
-	}
-	return parsed
 }

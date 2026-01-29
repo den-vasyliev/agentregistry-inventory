@@ -182,10 +182,7 @@ func TestTranslateRuntimeConfig_AgentWithMCPServers(t *testing.T) {
 		t.Fatalf("TranslateRuntimeConfig failed: %v", err)
 	}
 
-	// Verify Kubernetes config type
-	if config.Type != api.RuntimeConfigTypeKubernetes {
-		t.Errorf("Expected config type Kubernetes, got %s", config.Type)
-	}
+	// Verify Kubernetes config
 	if config.Kubernetes == nil {
 		t.Fatal("Kubernetes config is nil")
 	}

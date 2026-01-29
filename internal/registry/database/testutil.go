@@ -130,7 +130,7 @@ func ensureVectorExtension(ctx context.Context, uri string) error {
 
 // NewTestDB creates an isolated PostgreSQL database for each test by copying a template.
 // The template database has migrations pre-applied, so each test is fast.
-// Requires PostgreSQL to be running on localhost:5432 (e.g., via docker-compose).
+// Requires PostgreSQL to be running on localhost:5432.
 func NewTestDB(t *testing.T) database.Database {
 	t.Helper()
 

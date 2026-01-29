@@ -47,10 +47,8 @@ jobs:
     - name: Download Go dependencies
       run: go mod download
 
-    - name: Run Integration Tests
+    - name: Run Tests
       run: |
-        echo "Starting integration test services..."
-        make docker-registry docker-compose-up
         make test
 
     - name: Build Go CLI

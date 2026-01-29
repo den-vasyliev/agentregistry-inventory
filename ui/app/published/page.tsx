@@ -45,7 +45,7 @@ export default function PublishedPage() {
   const [error, setError] = useState<string | null>(null)
   const [unpublishing, setUnpublishing] = useState(false)
   const [deploying, setDeploying] = useState(false)
-  const [deployRuntime, setDeployRuntime] = useState<'local' | 'kubernetes'>('local')
+  const [deployRuntime] = useState<'kubernetes'>('kubernetes')
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
 
@@ -132,7 +132,7 @@ export default function PublishedPage() {
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
     setItemToDeploy({ name, version, type })
-    setDeployRuntime('local')
+    // Reset deploy state
   }
 
   const confirmDeploy = async () => {
@@ -572,16 +572,8 @@ export default function PublishedPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            <Label htmlFor="deploy-runtime">Deployment destination</Label>
-            <Select value={deployRuntime} onValueChange={(value) => setDeployRuntime(value as 'local' | 'kubernetes')}>
-              <SelectTrigger id="deploy-runtime">
-                <SelectValue placeholder="Select destination" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">Local (Docker Compose)</SelectItem>
-                <SelectItem value="kubernetes">Kubernetes</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Deployment destination</Label>
+            <p className="text-sm text-muted-foreground">Kubernetes</p>
           </div>
           <DialogFooter>
             <Button

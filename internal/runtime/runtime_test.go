@@ -13,14 +13,14 @@ func TestValidateRuntime(t *testing.T) {
 		customFunc RuntimeValidator
 	}{
 		{
-			name:    "valid local runtime",
-			runtime: "local",
-			wantErr: false,
-		},
-		{
 			name:    "valid kubernetes runtime",
 			runtime: "kubernetes",
 			wantErr: false,
+		},
+		{
+			name:    "invalid local runtime",
+			runtime: "local",
+			wantErr: true,
 		},
 		{
 			name:    "invalid runtime without custom validator",
@@ -36,7 +36,7 @@ func TestValidateRuntime(t *testing.T) {
 			},
 		},
 		{
-			name:    "valid runtime with custom validator accepting vertex",
+			name:    "valid runtime with custom validator accepting runtimeA",
 			runtime: "runtimeA",
 			wantErr: false,
 			customFunc: func(runtime string) error {
@@ -66,7 +66,7 @@ func TestValidateRuntime(t *testing.T) {
 }
 
 func TestSupportedRuntimes(t *testing.T) {
-	expected := []string{"local", "kubernetes"}
+	expected := []string{"kubernetes"}
 
 	if len(SupportedRuntimes) != len(expected) {
 		t.Errorf("SupportedRuntimes length = %d, want %d", len(SupportedRuntimes), len(expected))

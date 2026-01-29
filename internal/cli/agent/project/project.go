@@ -10,7 +10,6 @@ import (
 
 	"github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/adk/python"
 	"github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/common"
-	"github.com/agentregistry-dev/agentregistry/internal/utils"
 	"github.com/agentregistry-dev/agentregistry/internal/version"
 	"github.com/agentregistry-dev/agentregistry/pkg/models"
 )
@@ -89,60 +88,6 @@ func RegenerateMcpTools(projectDir string, manifest *models.AgentManifest, verbo
 	}
 	if verbose {
 		fmt.Printf("Regenerated %s\n", target)
-	}
-	return nil
-}
-
-// RegenerateDockerCompose rewrites docker-compose.yaml using the embedded template.
-func RegenerateDockerCompose(projectDir string, manifest *models.AgentManifest, version string, verbose bool) error {
-	if manifest == nil {
-		return fmt.Errorf("manifest is required")
-	}
-
-	envVars := EnvVarsFromManifest(manifest)
-	image := manifest.Image
-	if image == "" {
-		image = ConstructImageName("", manifest.Name)
-	}
-	gen := python.NewPythonGenerator()
-	templateBytes, err := gen.ReadTemplateFile("docker-compose.yaml.tmpl")
-	if err != nil {
-		return fmt.Errorf("failed to read docker-compose template: %w", err)
-	}
-
-	// Sanitize version for filesystem use in template
-	sanitizedVersion := utils.SanitizeVersion(version)
-
-	rendered, err := gen.RenderTemplate(string(templateBytes), struct {
-		Name              string
-		Version           string
-		Image             string
-		ModelProvider     string
-		ModelName         string
-		TelemetryEndpoint string
-		EnvVars           []string
-		McpServers        []models.McpServerType
-	}{
-		Name:              manifest.Name,
-		Version:           sanitizedVersion,
-		Image:             image,
-		ModelProvider:     manifest.ModelProvider,
-		ModelName:         manifest.ModelName,
-		TelemetryEndpoint: manifest.TelemetryEndpoint,
-		EnvVars:           envVars,
-		McpServers:        manifest.McpServers,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to render docker-compose: %w", err)
-	}
-
-	target := filepath.Join(projectDir, "docker-compose.yaml")
-	if err := os.WriteFile(target, []byte(rendered), 0o644); err != nil {
-		return fmt.Errorf("failed to write docker-compose.yaml: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Updated %s\n", target)
 	}
 	return nil
 }

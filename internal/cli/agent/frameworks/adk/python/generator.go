@@ -119,7 +119,6 @@ func printSummary(cfg *common.AgentConfig) {
 	fmt.Printf("   ├── agent.yaml\n")
 	fmt.Printf("   ├── pyproject.toml\n")
 	fmt.Printf("   ├── Dockerfile\n")
-	fmt.Printf("   ├── docker-compose.yaml\n")
 	fmt.Printf("   ├── README.md\n")
 	fmt.Printf("   └── .python-version\n")
 	if cfg.TelemetryEndpoint != "" {

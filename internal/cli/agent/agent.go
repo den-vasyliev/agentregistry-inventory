@@ -20,8 +20,7 @@ var AgentCmd = &cobra.Command{
 	Example: `arctl agent list
 arctl agent show dice
 arctl agent publish ./my-agent
-arctl agent remove dice
-arctl agent run ./my-agent`,
+arctl agent deploy dice`,
 }
 
 func init() {
@@ -29,7 +28,6 @@ func init() {
 
 	AgentCmd.AddCommand(InitCmd)
 	AgentCmd.AddCommand(BuildCmd)
-	AgentCmd.AddCommand(RunCmd)
 	AgentCmd.AddCommand(AddSkillCmd)
 	AgentCmd.AddCommand(AddMcpCmd)
 	AgentCmd.AddCommand(PublishCmd)

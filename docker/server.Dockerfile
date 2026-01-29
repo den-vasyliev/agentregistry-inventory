@@ -59,19 +59,6 @@ RUN DOCKER_ARCH=$(case ${TARGETARCH} in \
     mv docker/docker /usr/local/bin/docker && \
     rm -rf docker-28.5.1.tgz docker
 
-# Install Docker Compose plugin
-ARG TARGETARCH
-RUN DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker} && \
-    COMPOSE_ARCH=$(case ${TARGETARCH} in \
-        "amd64") echo "x86_64" ;; \
-        "arm64") echo "aarch64" ;; \
-        *) echo "x86_64" ;; \
-    esac) && \
-    mkdir -p $DOCKER_CONFIG/cli-plugins && \
-    curl -SL https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-${COMPOSE_ARCH} -o $DOCKER_CONFIG/cli-plugins/docker-compose && \
-    chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose && \
-    docker compose version
-
 COPY --from=builder /app/bin/arctl-server /app/bin/arctl-server
 
 COPY .env.example .env

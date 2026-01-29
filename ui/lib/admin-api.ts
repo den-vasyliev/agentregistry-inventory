@@ -658,14 +658,14 @@ class AdminApiClient {
 
   // ===== Deployments API =====
 
-  // Deploy a server
+  // Deploy a server to Kubernetes
   async deployServer(params: {
     serverName: string
     version?: string
     config?: Record<string, string>
     preferRemote?: boolean
     resourceType?: 'mcp' | 'agent'
-    runtime?: 'local' | 'kubernetes'
+    namespace?: string
   }): Promise<void> {
     const response = await fetch(`${this.baseUrl}/admin/v0/deployments`, {
       method: 'POST',
@@ -673,12 +673,13 @@ class AdminApiClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        serverName: params.serverName,
+        resourceName: params.serverName,
         version: params.version || 'latest',
         config: params.config || {},
         preferRemote: params.preferRemote || false,
         resourceType: params.resourceType || 'mcp',
-        runtime: params.runtime || 'local',
+        runtime: 'kubernetes',
+        namespace: params.namespace,
       }),
     })
     if (!response.ok) {
@@ -689,10 +690,9 @@ class AdminApiClient {
 
   // Get all deployments
   async listDeployments(params?: {
-    runtime?: string      // 'local' | 'kubernetes'
     resourceType?: string // 'mcp' | 'agent'
   }): Promise<Array<{
-    serverName: string
+    resourceName: string
     version: string
     deployedAt: string
     updatedAt: string
@@ -700,13 +700,11 @@ class AdminApiClient {
     config: Record<string, string>
     preferRemote: boolean
     resourceType: string
-    runtime: string
-    isExternal?: boolean
+    namespace?: string
   }>> {
     const queryParams = new URLSearchParams()
-    if (params?.runtime) queryParams.append('runtime', params.runtime)
     if (params?.resourceType) queryParams.append('resourceType', params.resourceType)
-    
+
     const url = `${this.baseUrl}/admin/v0/deployments${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await fetch(url)
     if (!response.ok) {

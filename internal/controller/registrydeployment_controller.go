@@ -73,12 +73,6 @@ func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	// Only handle Kubernetes runtime
-	if deployment.Spec.Runtime != agentregistryv1alpha1.RuntimeTypeKubernetes {
-		logger.Info().Msg("skipping non-kubernetes deployment")
-		return ctrl.Result{}, nil
-	}
-
 	// Reconcile based on resource type
 	var err error
 	switch deployment.Spec.ResourceType {

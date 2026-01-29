@@ -55,10 +55,6 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to regenerate mcp_tools.py: %w", err)
 	}
 
-	if err := project.RegenerateDockerCompose(projectDir, manifest, "", verbose); err != nil {
-		return fmt.Errorf("failed to regenerate docker-compose.yaml: %w", err)
-	}
-
 	mainDocker := docker.NewExecutor(verbose, projectDir)
 	if err := mainDocker.CheckAvailability(); err != nil {
 		return fmt.Errorf("docker check failed: %w", err)

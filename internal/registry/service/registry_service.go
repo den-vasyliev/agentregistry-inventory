@@ -13,7 +13,6 @@ import (
 	"github.com/agentregistry-dev/agentregistry/internal/registry/embeddings"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/validators"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime"
-	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/dockercompose"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
 	"github.com/agentregistry-dev/agentregistry/pkg/models"
@@ -997,17 +996,12 @@ func (s *registryServiceImpl) ReconcileAll(ctx context.Context) error {
 		}
 
 		// Create the appropriate runtime translator for the target runtime and reconcile the requests
-		var agentRuntime runtime.AgentRegistryRuntime
-		if runtimeTarget == "kubernetes" {
-			k8sTranslator := kagent.NewTranslator()
-			agentRuntime = runtime.NewAgentRegistryRuntime(regTranslator, k8sTranslator, s.cfg.RuntimeDir, s.cfg.Verbose)
-		} else {
-			composeTranslator := dockercompose.NewAgentGatewayTranslator(s.cfg.RuntimeDir, s.cfg.AgentGatewayPort)
-			agentRuntime = runtime.NewAgentRegistryRuntime(regTranslator, composeTranslator, s.cfg.RuntimeDir, s.cfg.Verbose)
-		}
+		// Only kubernetes runtime is supported
+		k8sTranslator := kagent.NewTranslator()
+		agentRuntime := runtime.NewAgentRegistryRuntime(regTranslator, k8sTranslator, s.cfg.RuntimeDir, s.cfg.Verbose)
 
 		if err := agentRuntime.ReconcileAll(ctx, requests.servers, requests.agents); err != nil {
-			return fmt.Errorf("failed %s reconciliation: %w", runtimeTarget, err)
+			return fmt.Errorf("failed kubernetes reconciliation: %w", err)
 		}
 	}
 

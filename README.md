@@ -47,8 +47,9 @@ See [`DEVELOPMENT.md`](DEVELOPMENT.md) for detailed architecture information.
 
 ### Prerequisites
 
-- Docker Desktop with Docker Compose v2+
+- Docker Desktop
 - Go 1.25+ (for building from source)
+- Kubernetes cluster (for deployment)
 
 ### Installation
 

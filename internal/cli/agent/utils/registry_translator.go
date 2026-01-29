@@ -9,7 +9,7 @@ import (
 )
 
 // TranslateRegistryServer converts a registry ServerSpec into a common.McpServerType
-// that can be used by the docker-compose generator.
+// that can be used by the deployment generator.
 func TranslateRegistryServer(
 	name string,
 	serverSpec *types.ServerSpec,

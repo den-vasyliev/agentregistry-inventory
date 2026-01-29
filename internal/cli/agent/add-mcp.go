@@ -156,11 +156,6 @@ func addMcpCmd(name string) error {
 		return fmt.Errorf("failed to ensure MCP server directories: %w", err)
 	}
 
-	// Regenerate docker-compose.yaml with updated MCP server configuration
-	if err := project.RegenerateDockerCompose(resolvedDir, manifest, "", verbose); err != nil {
-		return fmt.Errorf("failed to regenerate docker-compose.yaml: %w", err)
-	}
-
 	fmt.Printf("✓ Added MCP server '%s' (%s) to agent.yaml\n", res.Name, res.Type)
 	return nil
 }

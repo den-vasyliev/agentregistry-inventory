@@ -5,30 +5,19 @@ import (
 	"os"
 	"strings"
 
-	"github.com/agentregistry-dev/agentregistry/internal/runtime"
 	"github.com/agentregistry-dev/agentregistry/pkg/models"
 	"github.com/spf13/cobra"
 )
 
 var DeployCmd = &cobra.Command{
 	Use:   "deploy [agent-name]",
-	Short: "Deploy an agent",
-	Long: `Deploy an agent from the registry.
+	Short: "Deploy an agent to Kubernetes",
+	Long: `Deploy an agent from the registry to Kubernetes.
 
 Example:
   arctl agent deploy my-agent --version latest
-  arctl agent deploy my-agent --version 1.2.3
-  arctl agent deploy my-agent --version latest --runtime kubernetes`,
+  arctl agent deploy my-agent --version 1.2.3 --namespace my-namespace`,
 	Args: cobra.ExactArgs(1),
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		runtimeFlag, _ := cmd.Flags().GetString("runtime")
-		if runtimeFlag != "" {
-			if err := runtime.ValidateRuntime(runtimeFlag); err != nil {
-				return err
-			}
-		}
-		return nil
-	},
 	RunE: runDeploy,
 }
 
@@ -39,15 +28,14 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	name := args[0]
 	version, _ := cmd.Flags().GetString("version")
-	runtime, _ := cmd.Flags().GetString("runtime")
 	namespace, _ := cmd.Flags().GetString("namespace")
 
 	if version == "" {
 		version = "latest"
 	}
 
-	if runtime == "" {
-		runtime = "local"
+	if namespace == "" {
+		namespace = "kagent"
 	}
 
 	if apiClient == nil {
@@ -70,25 +58,19 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build config map with environment variables
-	// TODO: need to figure out how do we
-	// store/configure MCP servers agents is referencing.
-	// They are part of the agent.yaml, so we should store them
-	// in the config, then when doing reconciliation, we can deploy them as well.
 	config := buildDeployConfig(manifest)
-	if namespace != "" {
-		config["KAGENT_NAMESPACE"] = namespace
+	config["KAGENT_NAMESPACE"] = namespace
+
+	// Deploy to Kubernetes
+	fmt.Printf("Deploying agent to Kubernetes...\n")
+	deployment, err := apiClient.DeployAgent(name, version, config, "kubernetes")
+	if err != nil {
+		return fmt.Errorf("failed to deploy agent: %w", err)
 	}
 
-	// Handle runtime-specific deployment logic
-	switch runtime {
-	case "local":
-		return deployLocal(name, version, config)
-	case "kubernetes":
-		return deployKubernetes(name, version, config, namespace)
-	default:
-		// This shouldn't happen due to PreRunE validation, but handle gracefully
-		return fmt.Errorf("unimplemented runtime: %s", runtime)
-	}
+	fmt.Printf("\n✓ Deployed agent '%s' version '%s' to Kubernetes\n", deployment.ServerName, deployment.Version)
+	fmt.Printf("Namespace: %s\n", namespace)
+	return nil
 }
 
 // buildDeployConfig creates the configuration map with all necessary environment variables
@@ -116,31 +98,27 @@ func buildDeployConfig(manifest *models.AgentManifest) map[string]string {
 	return config
 }
 
-// deployLocal deploys an agent to the local/docker runtime
-func deployLocal(name, version string, config map[string]string) error {
-	deployment, err := apiClient.DeployAgent(name, version, config, "local")
-	if err != nil {
-		return fmt.Errorf("failed to deploy agent: %w", err)
+// validateAPIKey checks if the required API key for a model provider is set
+func validateAPIKey(modelProvider string) error {
+	providerAPIKeys := map[string]string{
+		"openai":      "OPENAI_API_KEY",
+		"anthropic":   "ANTHROPIC_API_KEY",
+		"azureopenai": "AZUREOPENAI_API_KEY",
+		"gemini":      "GOOGLE_API_KEY",
 	}
 
-	fmt.Printf("Agent '%s' version '%s' deployed to local runtime\n", deployment.ServerName, deployment.Version)
-	return nil
-}
-
-// deployKubernetes deploys an agent to the kubernetes runtime
-func deployKubernetes(name, version string, config map[string]string, namespace string) error {
-	deployment, err := apiClient.DeployAgent(name, version, config, "kubernetes")
-	if err != nil {
-		return fmt.Errorf("failed to deploy agent: %w", err)
+	envVar, ok := providerAPIKeys[strings.ToLower(modelProvider)]
+	if !ok || envVar == "" {
+		return nil
 	}
-
-	fmt.Printf("Agent '%s' version '%s' deployed to kubernetes runtime in namespace '%s'\n", deployment.ServerName, deployment.Version, namespace)
+	if os.Getenv(envVar) == "" {
+		return fmt.Errorf("required API key %s not set for model provider %s", envVar, modelProvider)
+	}
 	return nil
 }
 
 func init() {
 	DeployCmd.Flags().String("version", "latest", "Agent version to deploy")
-	DeployCmd.Flags().String("runtime", "local", "Deployment runtime target (local, kubernetes)")
 	DeployCmd.Flags().Bool("prefer-remote", false, "Prefer using a remote source when available")
-	DeployCmd.Flags().String("namespace", "", "Kubernetes namespace for agent deployment")
+	DeployCmd.Flags().String("namespace", "kagent", "Kubernetes namespace for agent deployment")
 }

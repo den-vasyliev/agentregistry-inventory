@@ -73,13 +73,3 @@ func (e *Executor) Push(imageName string) error {
 	return nil
 }
 
-// ComposeCommand returns the docker compose invocation (docker compose vs docker-compose).
-func ComposeCommand() []string {
-	if _, err := exec.LookPath("docker"); err == nil {
-		cmd := exec.Command("docker", "compose", "version")
-		if err := cmd.Run(); err == nil {
-			return []string{"docker", "compose"}
-		}
-	}
-	return []string{"docker-compose"}
-}
