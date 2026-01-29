@@ -290,6 +290,9 @@ GOIMPORT_VERSION ?= v0.41
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.8.0
 
+ENVTEST = $(LOCALBIN)/setup-envtest
+ENVTEST_VERSION ?= release-0.19
+
 .PHONY: goimports
 goimports: $(GOIMPORT) ## Download goimports locally if necessary.
 $(GOIMPORT): $(LOCALBIN)
@@ -299,6 +302,35 @@ $(GOIMPORT): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+.PHONY: test-controller
+test-controller: envtest ## Run controller tests with envtest
+	@echo "Running controller tests with envtest..."
+	go install gotest.tools/gotestsum@latest
+	go install github.com/boumenot/gocover-cobertura@latest
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use --bin-dir $(LOCALBIN) -p path)" \
+		gotestsum --junitfile report.xml --format testname -- \
+		-coverprofile=coverage.out -covermode=count \
+		./internal/controller/... $(TEST_ARGS)
+	go tool cover -func=coverage.out
+	gocover-cobertura < coverage.out > coverage.xml
+	@echo "Coverage report: coverage.out, coverage.xml"
+
+.PHONY: test-coverage
+test-coverage: envtest ## Run all tests with coverage
+	@echo "Running all tests with coverage..."
+	go install gotest.tools/gotestsum@latest
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use --bin-dir $(LOCALBIN) -p path)" \
+		gotestsum --junitfile report.xml --format testname -- \
+		-coverprofile=coverage.out -covermode=count \
+		./internal/controller/... ./internal/httpapi/... $(TEST_ARGS)
+	go tool cover -func=coverage.out
+	@echo "Coverage report: coverage.out"
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

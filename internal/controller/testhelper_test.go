@@ -63,9 +63,9 @@ func SetupTestEnv(t *testing.T, timeout time.Duration, startMgr bool) *TestEnvHe
 	// Setup envtest environment
 	helper.Env = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			"../../charts/agentregistry/templates/crds/",
+			"../../charts/agentregistry/crds/",
 		},
-		ErrorIfCRDPathMissing:    false, // CRDs are Helm templates, may not parse directly
+		ErrorIfCRDPathMissing:    true,
 		AttachControlPlaneOutput: false,
 	}
 
