@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
+import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, LogIn } from "lucide-react"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { toast } from "sonner"
@@ -176,8 +176,13 @@ export default function PublishedPage() {
     try {
       setDeploying(true)
 
+      // Use authenticated client for admin operation
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+
       // Deploy server or agent
-      await adminApiClient.deployServer({
+      await client.deployServer({
         serverName: itemToDeploy.name,
         version: itemToDeploy.version,
         config: {},
@@ -203,14 +208,19 @@ export default function PublishedPage() {
     try {
       setUnpublishing(true)
 
+      // Use authenticated client for admin operation
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+
       if (itemToUnpublish.type === 'server') {
-        await adminApiClient.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
         setServers(prev => prev.filter(s => s.server.name !== itemToUnpublish.name || s.server.version !== itemToUnpublish.version))
       } else if (itemToUnpublish.type === 'skill') {
-        await adminApiClient.unpublishSkillStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishSkillStatus(itemToUnpublish.name, itemToUnpublish.version)
         setSkills(prev => prev.filter(s => s.skill.name !== itemToUnpublish.name || s.skill.version !== itemToUnpublish.version))
       } else if (itemToUnpublish.type === 'agent') {
-        await adminApiClient.unpublishAgentStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishAgentStatus(itemToUnpublish.name, itemToUnpublish.version)
         setAgents(prev => prev.filter(a => a.agent.name !== itemToUnpublish.name || a.agent.version !== itemToUnpublish.version))
       }
 
