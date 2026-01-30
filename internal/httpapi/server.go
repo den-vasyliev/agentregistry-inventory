@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -25,11 +26,13 @@ import (
 
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
-	client client.Client
-	cache  cache.Cache
-	logger zerolog.Logger
-	mux    *http.ServeMux
-	api    huma.API
+	client               client.Client
+	cache                cache.Cache
+	logger               zerolog.Logger
+	mux                  *http.ServeMux
+	api                  huma.API
+	authEnabled          bool
+	allowedTokens        map[string]bool // Simple token allowlist for now
 }
 
 // NewServer creates a new HTTP API server
@@ -42,16 +45,59 @@ func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Serve
 	api := humago.New(mux, config)
 
 	s := &Server{
-		client: c,
-		cache:  cache,
-		logger: logger,
-		mux:    mux,
-		api:    api,
+		client:        c,
+		cache:         cache,
+		logger:        logger,
+		mux:           mux,
+		api:           api,
+		authEnabled:   false, // Auth disabled by default - can be enabled via env var
+		allowedTokens: make(map[string]bool),
 	}
+
+	// TODO: Load allowed tokens from config/secret
+	// For now, auth is disabled
 
 	s.registerRoutes()
 
 	return s
+}
+
+// authMiddleware checks for valid Bearer token on admin endpoints
+func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
+	// Skip auth if disabled
+	if !s.authEnabled {
+		next(ctx)
+		return
+	}
+
+	// Check for Authorization header
+	authHeader := ctx.Header("Authorization")
+	if authHeader == "" {
+		ctx.SetStatus(http.StatusUnauthorized)
+		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Missing Authorization header")
+		return
+	}
+
+	// Extract Bearer token
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		ctx.SetStatus(http.StatusUnauthorized)
+		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Invalid Authorization header format")
+		return
+	}
+
+	token := parts[1]
+
+	// Validate token
+	if !s.allowedTokens[token] {
+		s.logger.Warn().Str("token_prefix", token[:min(8, len(token))]).Msg("invalid token")
+		ctx.SetStatus(http.StatusUnauthorized)
+		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	// Token valid, continue
+	next(ctx)
 }
 
 // registerRoutes registers all HTTP routes
@@ -70,7 +116,10 @@ func (s *Server) registerRoutes() {
 	modelHandler.RegisterRoutes(s.api, "/v0", false)
 	deploymentHandler.RegisterRoutes(s.api, "/v0", false)
 
-	// Register admin API endpoints
+	// Register admin API endpoints with auth middleware
+	if s.authEnabled {
+		s.api.UseMiddleware(s.authMiddleware)
+	}
 	serverHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	agentHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	skillHandler.RegisterRoutes(s.api, "/admin/v0", true)

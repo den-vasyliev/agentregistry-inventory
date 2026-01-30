@@ -286,9 +286,26 @@ export interface ModelListResponse {
 
 class AdminApiClient {
   private baseUrl: string
+  private getAuthToken?: () => string | null
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_BASE_URL, getAuthToken?: () => string | null) {
     this.baseUrl = baseUrl
+    this.getAuthToken = getAuthToken
+  }
+
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+
+    if (this.getAuthToken) {
+      const token = this.getAuthToken()
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+    }
+
+    return headers
   }
 
   // List servers with pagination and filtering (ADMIN - shows all servers)
@@ -362,9 +379,7 @@ class AdminApiClient {
   async importServers(request: ImportRequest): Promise<ImportResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/import`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(request),
     })
     if (!response.ok) {
@@ -379,9 +394,7 @@ class AdminApiClient {
     console.log('Creating server:', server)
     const response = await fetch(`${this.baseUrl}/admin/v0/servers`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(server),
     })
 
@@ -520,9 +533,7 @@ class AdminApiClient {
   async createSkill(skill: SkillJSON): Promise<SkillResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/skills`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(skill),
     })
     if (!response.ok) {
@@ -605,9 +616,7 @@ class AdminApiClient {
   async createAgent(agent: AgentJSON): Promise<AgentResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/agents`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(agent),
     })
     if (!response.ok) {
@@ -755,9 +764,7 @@ class AdminApiClient {
   async createModel(model: ModelJSON): Promise<ModelResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/models`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(model),
     })
     if (!response.ok) {
@@ -809,9 +816,7 @@ class AdminApiClient {
   async importSkills(request: ImportRequest): Promise<ImportResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/import/skills`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(request),
     })
     if (!response.ok) {
@@ -825,9 +830,7 @@ class AdminApiClient {
   async importAgents(request: ImportRequest): Promise<ImportResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/import/agents`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(request),
     })
     if (!response.ok) {
@@ -841,9 +844,7 @@ class AdminApiClient {
   async importModels(request: ImportRequest): Promise<ImportResponse> {
     const response = await fetch(`${this.baseUrl}/admin/v0/import/models`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(request),
     })
     if (!response.ok) {
@@ -866,9 +867,7 @@ class AdminApiClient {
   }): Promise<void> {
     const response = await fetch(`${this.baseUrl}/admin/v0/deployments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify({
         resourceName: params.serverName,
         version: params.version || 'latest',
@@ -940,5 +939,11 @@ class AdminApiClient {
   }
 }
 
+// Default client without auth (for public endpoints)
 export const adminApiClient = new AdminApiClient()
+
+// Create a client with authentication
+export function createAuthenticatedClient(accessToken: string | null | undefined): AdminApiClient {
+  return new AdminApiClient(API_BASE_URL, () => accessToken || null)
+}
 
