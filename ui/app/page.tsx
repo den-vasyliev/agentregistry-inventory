@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,7 +38,7 @@ import { ImportAgentsDialog } from "@/components/import-agents-dialog"
 import { AddAgentDialog } from "@/components/add-agent-dialog"
 import { AddModelDialog } from "@/components/add-model-dialog"
 import { ImportModelsDialog } from "@/components/import-models-dialog"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
+import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -62,6 +63,7 @@ interface GroupedServer extends ServerResponse {
 }
 
 export default function AdminPage() {
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("servers")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [groupedServers, setGroupedServers] = useState<GroupedServer[]>([])
@@ -266,7 +268,10 @@ export default function AdminPage() {
   // Handle server publishing
   const handlePublish = async (server: ServerResponse) => {
     try {
-      await adminApiClient.publishServerStatus(server.server.name, server.server.version)
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishServerStatus(server.server.name, server.server.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${server.server.name}`)
     } catch (err) {
@@ -276,7 +281,10 @@ export default function AdminPage() {
 
   const handlePublishSkill = async (skill: SkillResponse) => {
     try {
-      await adminApiClient.publishSkillStatus(skill.skill.name, skill.skill.version)
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishSkillStatus(skill.skill.name, skill.skill.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${skill.skill.name}`)
     } catch (err) {
@@ -288,7 +296,10 @@ export default function AdminPage() {
     const {agent } = agentResponse;
 
     try {
-      await adminApiClient.publishAgentStatus(agent.name, agent.version)
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishAgentStatus(agent.name, agent.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${agent.name}`)
     } catch (err) {
@@ -300,7 +311,10 @@ export default function AdminPage() {
     const { model } = modelResponse
 
     try {
-      await adminApiClient.publishModelStatus(model.name)
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishModelStatus(model.name)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${model.name}`)
     } catch (err) {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { adminApiClient } from "@/lib/admin-api"
+import { adminApiClient, createAuthenticatedClient } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, LogIn } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -57,8 +57,12 @@ export default function DeployedPage() {
   const fetchDeployments = async () => {
     try {
       setError(null)
+      // Use authenticated client if session available
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
       // listDeployments now returns both managed and external K8s resources
-      const deployData = await adminApiClient.listDeployments()
+      const deployData = await client.listDeployments()
       setDeployments(deployData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch deployments')
@@ -98,7 +102,11 @@ export default function DeployedPage() {
 
     try {
       setRemoving(true)
-      await adminApiClient.removeDeployment(serverToRemove.name, serverToRemove.version, serverToRemove.resourceType)
+      // Use authenticated client for admin operation
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.removeDeployment(serverToRemove.name, serverToRemove.version, serverToRemove.resourceType)
       // Remove from local state
       setDeployments(prev => prev.filter(d => d.serverName !== serverToRemove.name || d.version !== serverToRemove.version || d.resourceType !== serverToRemove.resourceType))
       setServerToRemove(null)
