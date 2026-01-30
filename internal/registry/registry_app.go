@@ -18,16 +18,9 @@ import (
 	"github.com/agentregistry-dev/agentregistry/internal/registry/api"
 	v0 "github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/config"
-	internaldb "github.com/agentregistry-dev/agentregistry/internal/registry/database"
-	"github.com/agentregistry-dev/agentregistry/internal/registry/embeddings"
-	"github.com/agentregistry-dev/agentregistry/internal/registry/importer"
-	"github.com/agentregistry-dev/agentregistry/internal/registry/seed"
-	"github.com/agentregistry-dev/agentregistry/internal/registry/service"
 	"github.com/agentregistry-dev/agentregistry/internal/registry/telemetry"
 	"github.com/agentregistry-dev/agentregistry/internal/version"
 	"github.com/agentregistry-dev/agentregistry/pkg/registry/auth"
-	"github.com/agentregistry-dev/agentregistry/pkg/registry/database"
-
 	"github.com/agentregistry-dev/agentregistry/pkg/types"
 )
 
@@ -41,12 +34,7 @@ func App(_ context.Context, opts ...types.AppOptions) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Create a context with timeout for PostgreSQL connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Build auth providers from options (before database creation)
-	// Only create jwtManager if JWT is configured
+	// Build auth providers from options
 	var jwtManager *auth.JWTManager
 	if cfg.JWTPrivateKey != "" {
 		jwtManager = auth.NewJWTManager(cfg)
@@ -63,93 +51,6 @@ func App(_ context.Context, opts ...types.AppOptions) error {
 	if authzProvider == nil {
 		log.Println("Using public authz provider")
 		authzProvider = auth.NewPublicAuthzProvider(jwtManager)
-	}
-	authz := auth.Authorizer{Authz: authzProvider}
-
-	// Connect to PostgreSQL with authz (runs OSS migrations)
-	baseDB, err := internaldb.NewPostgreSQL(ctx, cfg.DatabaseURL, authz)
-	if err != nil {
-		return fmt.Errorf("failed to connect to PostgreSQL: %w", err)
-	}
-
-	// Allow implementors to wrap the database, and run additional migrations
-	var db database.Database = baseDB
-	if options.DatabaseFactory != nil {
-		db, err = options.DatabaseFactory(ctx, cfg.DatabaseURL, baseDB, authz)
-		if err != nil {
-			if err := baseDB.Close(); err != nil {
-				log.Printf("Error closing base database connection: %v", err)
-			}
-			return fmt.Errorf("failed to create extended database: %w", err)
-		}
-	}
-
-	// Store the database instance for later cleanup
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Error closing database connection: %v", err)
-		} else {
-			log.Println("Database connection closed successfully")
-		}
-	}()
-
-	var embeddingProvider embeddings.Provider
-	if cfg.Embeddings.Enabled {
-		client := &http.Client{Timeout: 30 * time.Second}
-		if provider, err := embeddings.Factory(&cfg.Embeddings, client); err != nil {
-			log.Printf("Warning: semantic embeddings disabled: %v", err)
-		} else {
-			embeddingProvider = provider
-		}
-	}
-
-	baseRegistryService := service.NewRegistryService(db, cfg, embeddingProvider)
-
-	var registryService service.RegistryService
-	if options.ServiceFactory != nil {
-		registryService = options.ServiceFactory(baseRegistryService)
-	} else {
-		registryService = baseRegistryService
-	}
-
-	if options.OnServiceCreated != nil {
-		options.OnServiceCreated(registryService)
-	}
-
-	// Import builtin seed data unless it is disabled
-	if !cfg.DisableBuiltinSeed {
-		log.Printf("Importing builtin seed data in the background...")
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			ctx = auth.WithSystemContext(ctx)
-
-			if err := seed.ImportBuiltinSeedData(ctx, registryService); err != nil {
-				log.Printf("Failed to import builtin seed data: %v", err)
-			}
-		}()
-	}
-
-	// Import seed data if seed source is provided
-	if cfg.SeedFrom != "" {
-		log.Printf("Importing data from %s in the background...", cfg.SeedFrom)
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			ctx = auth.WithSystemContext(ctx)
-
-			importerService := importer.NewService(registryService)
-			if embeddingProvider != nil {
-				importerService.SetEmbeddingProvider(embeddingProvider)
-				importerService.SetEmbeddingDimensions(cfg.Embeddings.Dimensions)
-				importerService.SetGenerateEmbeddings(cfg.Embeddings.Enabled)
-			}
-			if err := importerService.ImportFromPath(ctx, cfg.SeedFrom, cfg.EnrichServerData); err != nil {
-				log.Printf("Failed to import seed data: %v", err)
-			}
-		}()
 	}
 
 	log.Printf("Starting agentregistry %s (commit: %s)", version.Version, version.GitCommit)
@@ -172,23 +73,12 @@ func App(_ context.Context, opts ...types.AppOptions) error {
 		}
 	}()
 
-	if cfg.ReconcileOnStartup {
-		log.Println("Reconciling existing deployments at startup...")
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-
-		ctx = auth.WithSystemContext(ctx)
-
-		if err := registryService.ReconcileAll(ctx); err != nil {
-			log.Printf("Warning: Failed to reconcile deployments at startup: %v", err)
-			log.Println("Server will continue starting, but deployments may not be in sync")
-		} else {
-			log.Println("Startup reconciliation completed successfully")
-		}
-	}
+	// TODO: Initialize Kubernetes client and use CRDs instead of database
+	// For now, create a minimal server without registry service
+	log.Println("Note: Using Kubernetes CRD-based architecture (no database)")
 
 	// Initialize HTTP server
-	baseServer := api.NewServer(cfg, registryService, metrics, versionInfo, options.UIHandler, authnProvider)
+	baseServer := api.NewServer(cfg, nil, metrics, versionInfo, options.UIHandler, authnProvider)
 
 	var server types.Server
 	if options.HTTPServerFactory != nil {
@@ -203,7 +93,8 @@ func App(_ context.Context, opts ...types.AppOptions) error {
 
 	var mcpHTTPServer *http.Server
 	if cfg.MCPPort > 0 {
-		mcpServer := mcpregistry.NewServer(registryService)
+		// TODO: Update MCP server to use Kubernetes CRDs
+		mcpServer := mcpregistry.NewServer(nil)
 
 		var handler http.Handler = mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
 			return mcpServer
@@ -264,7 +155,6 @@ func App(_ context.Context, opts ...types.AppOptions) error {
 }
 
 // mcpAuthnMiddleware creates a middleware that uses the AuthnProvider to authenticate requests and add to session context.
-// this session context is used by the db + authz provider to check permissions.
 func mcpAuthnMiddleware(authn auth.AuthnProvider) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
