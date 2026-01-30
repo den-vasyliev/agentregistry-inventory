@@ -88,22 +88,22 @@ export function ImportDialog({ open, onOpenChange, onImportComplete }: ImportDia
         <DialogHeader>
           <DialogTitle>Import Servers</DialogTitle>
           <DialogDescription>
-            Import MCP servers from an external registry or seed file
+            Import MCP servers from a Git repository, external registry, or seed file
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="source">Source URL or File Path</Label>
+            <Label htmlFor="source">Repository URL or Registry Endpoint</Label>
             <Input
               id="source"
-              placeholder="https://registry.example.com/v0/servers"
+              placeholder="https://github.com/user/repo or https://registry.example.com/v0/servers"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Enter a registry API endpoint (ending with /v0/servers) or a direct URL to a JSON seed file
+              Enter a Git repository URL (will check for application.yaml file), registry API endpoint, or direct URL to a JSON seed file
             </p>
           </div>
 
@@ -164,10 +164,12 @@ export function ImportDialog({ open, onOpenChange, onImportComplete }: ImportDia
           <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950 dark:border-blue-800">
             <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <div className="text-sm text-blue-900 dark:text-blue-100">
-              <p className="font-medium">Common Registry URLs:</p>
+              <p className="font-medium">Supported Sources:</p>
               <ul className="mt-1 space-y-1 text-xs">
+                <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for application.yaml file)</li>
                 <li>• Official MCP Registry: <code>https://registry.modelcontextprotocol.io/v0.1/servers</code></li>
                 <li>• Your own registry: <code>https://your-registry.com/v0/servers</code></li>
+                <li>• Direct JSON file: <code>https://example.com/servers.json</code></li>
               </ul>
             </div>
           </div>

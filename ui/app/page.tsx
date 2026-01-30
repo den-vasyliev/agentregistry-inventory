@@ -24,16 +24,20 @@ import {
 import { ServerCard } from "@/components/server-card"
 import { SkillCard } from "@/components/skill-card"
 import { AgentCard } from "@/components/agent-card"
+import { ModelCard } from "@/components/model-card"
 import { ServerDetail } from "@/components/server-detail"
 import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
+import { ModelDetail } from "@/components/model-detail"
 import { ImportDialog } from "@/components/import-dialog"
 import { AddServerDialog } from "@/components/add-server-dialog"
 import { ImportSkillsDialog } from "@/components/import-skills-dialog"
 import { AddSkillDialog } from "@/components/add-skill-dialog"
 import { ImportAgentsDialog } from "@/components/import-agents-dialog"
 import { AddAgentDialog } from "@/components/add-agent-dialog"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ServerStats } from "@/lib/admin-api"
+import { AddModelDialog } from "@/components/add-model-dialog"
+import { ImportModelsDialog } from "@/components/import-models-dialog"
+import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -43,6 +47,7 @@ import {
   Plus,
   Zap,
   Bot,
+  Brain,
   Eye,
   ArrowUpDown,
   X,
@@ -62,9 +67,11 @@ export default function AdminPage() {
   const [groupedServers, setGroupedServers] = useState<GroupedServer[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
   const [agents, setAgents] = useState<AgentResponse[]>([])
+  const [models, setModels] = useState<ModelResponse[]>([])
   const [filteredServers, setFilteredServers] = useState<GroupedServer[]>([])
   const [filteredSkills, setFilteredSkills] = useState<SkillResponse[]>([])
   const [filteredAgents, setFilteredAgents] = useState<AgentResponse[]>([])
+  const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
@@ -76,11 +83,14 @@ export default function AdminPage() {
   const [addSkillDialogOpen, setAddSkillDialogOpen] = useState(false)
   const [importAgentsDialogOpen, setImportAgentsDialogOpen] = useState(false)
   const [addAgentDialogOpen, setAddAgentDialogOpen] = useState(false)
+  const [addModelDialogOpen, setAddModelDialogOpen] = useState(false)
+  const [importModelsDialogOpen, setImportModelsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
+  const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
   
   // Track scroll position for restoring after navigation
   const scrollPositionRef = useRef<number>(0)
@@ -177,17 +187,32 @@ export default function AdminPage() {
       // Fetch all agents (with pagination if needed)
       const allAgents: AgentResponse[] = []
       let agentCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listAgents({ 
-          cursor: agentCursor, 
+        const response = await adminApiClient.listAgents({
+          cursor: agentCursor,
           limit: 100,
         })
         allAgents.push(...response.agents)
         agentCursor = response.metadata.nextCursor
       } while (agentCursor)
-      
+
       setAgents(allAgents)
+
+      // Fetch all models (with pagination if needed)
+      const allModels: ModelResponse[] = []
+      let modelCursor: string | undefined
+
+      do {
+        const response = await adminApiClient.listModels({
+          cursor: modelCursor,
+          limit: 100,
+        })
+        allModels.push(...response.models)
+        modelCursor = response.metadata.nextCursor
+      } while (modelCursor)
+
+      setModels(allModels)
       
       // Group servers by name
       const grouped = groupServersByName(allServers)
@@ -271,6 +296,18 @@ export default function AdminPage() {
     }
   }
 
+  const handlePublishModel = async (modelResponse: ModelResponse) => {
+    const { model } = modelResponse
+
+    try {
+      await adminApiClient.publishModelStatus(model.name)
+      await fetchData() // Refresh data
+      toast.success(`Successfully published ${model.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to publish model")
+    }
+  }
+
   // Filter and sort servers based on search query and sort option
   useEffect(() => {
     let filtered = [...groupedServers]
@@ -324,11 +361,11 @@ export default function AdminPage() {
     setFilteredServers(filtered)
   }, [searchQuery, groupedServers, sortBy, filterVerifiedOrg, filterVerifiedPublisher])
 
-  // Filter skills and agents based on search query
+  // Filter skills, agents, and models based on search query
   useEffect(() => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      
+
       // Filter skills
       const filteredSk = skills.filter(
         (s) =>
@@ -343,14 +380,25 @@ export default function AdminPage() {
         ({agent}) =>
           agent.name?.toLowerCase().includes(query) ||
           agent.modelProvider?.toLowerCase().includes(query) ||
-          agent.description.toLowerCase().includes(query)
+          agent.description?.toLowerCase().includes(query)
       )
       setFilteredAgents(filteredA)
+
+      // Filter models
+      const filteredM = models.filter(
+        ({ model }) =>
+          model.name?.toLowerCase().includes(query) ||
+          model.provider?.toLowerCase().includes(query) ||
+          model.model?.toLowerCase().includes(query) ||
+          model.description?.toLowerCase().includes(query)
+      )
+      setFilteredModels(filteredM)
     } else {
       setFilteredSkills(skills)
       setFilteredAgents(agents)
+      setFilteredModels(models)
     }
-  }, [searchQuery, skills, agents])
+  }, [searchQuery, skills, agents, models])
 
   if (loading) {
     return (
@@ -410,13 +458,24 @@ export default function AdminPage() {
     )
   }
 
+  // Show model detail view if a model is selected
+  if (selectedModel) {
+    return (
+      <ModelDetail
+        model={selectedModel}
+        onClose={() => setSelectedModel(null)}
+        onPublish={handlePublishModel}
+      />
+    )
+  }
+
   return (
     <main className="min-h-screen bg-background">
       {/* Stats Section */}
       {stats && (
         <div className="bg-muted/30 border-b">
           <div className="container mx-auto px-6 py-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -454,6 +513,18 @@ export default function AdminPage() {
                   </div>
                 </div>
               </Card>
+
+              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/40 rounded-lg flex items-center justify-center">
+                    <Brain className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{models.length}</p>
+                    <p className="text-xs text-muted-foreground">Models</p>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         </div>
@@ -476,6 +547,10 @@ export default function AdminPage() {
               <TabsTrigger value="agents" className="gap-2">
                 <Bot className="h-4 w-4" />
                 Agents
+              </TabsTrigger>
+              <TabsTrigger value="models" className="gap-2">
+                <Brain className="h-4 w-4" />
+                Models
               </TabsTrigger>
             </TabsList>
 
@@ -517,6 +592,10 @@ export default function AdminPage() {
                     <Bot className="mr-2 h-4 w-4" />
                     Add Agent
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setAddModelDialogOpen(true)}>
+                    <Brain className="mr-2 h-4 w-4" />
+                    Add Model
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -542,6 +621,10 @@ export default function AdminPage() {
                   <DropdownMenuItem onClick={() => setImportAgentsDialogOpen(true)}>
                     <Bot className="mr-2 h-4 w-4" />
                     Import Agents
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setImportModelsDialogOpen(true)}>
+                    <Brain className="mr-2 h-4 w-4" />
+                    Import Models
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -769,6 +852,61 @@ export default function AdminPage() {
               )}
             </div>
           </TabsContent>
+
+          {/* Models Tab */}
+          <TabsContent value="models">
+            {/* Models List */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">
+                Models
+                <span className="text-muted-foreground ml-2">
+                  ({filteredModels.length})
+                </span>
+              </h2>
+
+              {filteredModels.length === 0 ? (
+                <Card className="p-12">
+                  <div className="text-center text-muted-foreground">
+                    <div className="w-12 h-12 mx-auto mb-4 opacity-50 flex items-center justify-center text-primary">
+                      <Brain className="w-12 h-12" />
+                    </div>
+                    <p className="text-lg font-medium mb-2">
+                      {models.length === 0
+                        ? "No models in registry"
+                        : "No models match your filters"}
+                    </p>
+                    <p className="text-sm mb-4">
+                      {models.length === 0
+                        ? "Add models to the registry to get started"
+                        : "Try adjusting your search or filter criteria"}
+                    </p>
+                    {models.length === 0 && (
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setAddModelDialogOpen(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Model
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredModels.map((model, index) => (
+                    <ModelCard
+                      key={`${model.model.name}-${index}`}
+                      model={model}
+                      onClick={() => setSelectedModel(model)}
+                      showPublish={true}
+                      onPublish={handlePublishModel}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -788,7 +926,7 @@ export default function AdminPage() {
       <ImportSkillsDialog
         open={importSkillsDialogOpen}
         onOpenChange={setImportSkillsDialogOpen}
-        onImportComplete={() => {}}
+        onImportComplete={fetchData}
       />
       <AddSkillDialog
         open={addSkillDialogOpen}
@@ -800,12 +938,24 @@ export default function AdminPage() {
       <ImportAgentsDialog
         open={importAgentsDialogOpen}
         onOpenChange={setImportAgentsDialogOpen}
-        onImportComplete={() => {}}
+        onImportComplete={fetchData}
       />
       <AddAgentDialog
         open={addAgentDialogOpen}
         onOpenChange={setAddAgentDialogOpen}
-        onAgentAdded={() => {}}
+        onAgentAdded={fetchData}
+      />
+
+      {/* Model Dialogs */}
+      <AddModelDialog
+        open={addModelDialogOpen}
+        onOpenChange={setAddModelDialogOpen}
+        onModelAdded={fetchData}
+      />
+      <ImportModelsDialog
+        open={importModelsDialogOpen}
+        onOpenChange={setImportModelsDialogOpen}
+        onImportComplete={fetchData}
       />
 
     </main>

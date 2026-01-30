@@ -10,7 +10,7 @@ import { adminApiClient } from "@/lib/admin-api"
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
-interface ImportSkillsDialogProps {
+interface ImportModelsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onImportComplete: () => void
@@ -21,7 +21,7 @@ interface ImportStatus {
   message: string
 }
 
-export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: ImportSkillsDialogProps) {
+export function ImportModelsDialog({ open, onOpenChange, onImportComplete }: ImportModelsDialogProps) {
   const [source, setSource] = useState("")
   const [headers, setHeaders] = useState("")
   const [updateExisting, setUpdateExisting] = useState(false)
@@ -49,8 +49,8 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
         }
       }
 
-      // Import skills
-      const response = await adminApiClient.importSkills({
+      // Import models
+      const response = await adminApiClient.importModels({
         source: source.trim(),
         headers: Object.keys(headerMap).length > 0 ? headerMap : undefined,
         update: updateExisting,
@@ -62,7 +62,7 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
       })
 
       if (response.success) {
-        toast.success("Skills imported successfully!")
+        toast.success("Models imported successfully!")
         setTimeout(() => {
           onOpenChange(false)
           onImportComplete()
@@ -88,9 +88,9 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import Skills</DialogTitle>
+          <DialogTitle>Import Models</DialogTitle>
           <DialogDescription>
-            Import skills from a Git repository, external registry, or seed file
+            Import AI models from a Git repository, external registry, or seed file
           </DialogDescription>
         </DialogHeader>
 
@@ -99,7 +99,7 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
             <Label htmlFor="source">Repository URL or Registry Endpoint</Label>
             <Input
               id="source"
-              placeholder="https://github.com/user/repo or https://registry.example.com/v0/skills"
+              placeholder="https://github.com/user/repo or https://registry.example.com/v0/models"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               disabled={loading}
@@ -134,7 +134,7 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
               className="h-4 w-4"
             />
             <Label htmlFor="update" className="cursor-pointer">
-              Update existing skills if they already exist
+              Update existing models if they already exist
             </Label>
           </div>
 
@@ -169,8 +169,8 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
               <p className="font-medium">Supported Sources:</p>
               <ul className="mt-1 space-y-1 text-xs">
                 <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for application.yaml file)</li>
-                <li>• Registry API: <code>https://registry.example.com/v0/skills</code></li>
-                <li>• Direct JSON file: <code>https://example.com/skills.json</code></li>
+                <li>• Registry API: <code>https://registry.example.com/v0/models</code></li>
+                <li>• Direct JSON file: <code>https://example.com/models.json</code></li>
               </ul>
             </div>
           </div>
@@ -196,4 +196,3 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
     </Dialog>
   )
 }
-

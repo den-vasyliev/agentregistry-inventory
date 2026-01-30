@@ -18,6 +18,8 @@ interface AddServerDialogProps {
 
 export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServerDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [generatedManifest, setGeneratedManifest] = useState("")
 
   // Form fields
   const [schema, setSchema] = useState("2025-10-17")
@@ -25,7 +27,7 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [version, setVersion] = useState("")
-  const [websiteUrl, setWebsiteUrl] = useState("")
+  const [ownerEmail, setOwnerEmail] = useState("")
   const [repositorySource, setRepositorySource] = useState<"github" | "gitlab" | "bitbucket">("github")
   const [repositoryUrl, setRepositoryUrl] = useState("")
 
@@ -39,93 +41,228 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
     setTitle("")
     setDescription("")
     setVersion("")
-    setWebsiteUrl("")
+    setOwnerEmail("")
     setRepositoryUrl("")
     setPackages([])
     setRemotes([])
+    setShowPreview(false)
+    setGeneratedManifest("")
   }
 
-  const handleSubmit = async () => {
-    setLoading(true)
+  const toYaml = (obj: any, indent = 0): string => {
+    const spaces = '  '.repeat(indent)
+    let yaml = ''
 
-    try {
-      // Validate required fields
-      if (!name.trim()) {
-        throw new Error("Server name is required")
-      }
-      
-      // Validate name format (namespace/name)
-      const namePattern = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/
-      if (!namePattern.test(name.trim())) {
-        throw new Error("Server name must be in format 'namespace/name' (e.g., 'io.example/my-server')")
-      }
-      
-      if (!version.trim()) {
-        throw new Error("Version is required")
-      }
-      if (!description.trim()) {
-        throw new Error("Description is required")
-      }
-
-      // Build server object
-      const server: ServerJSON = {
-        $schema: schema.trim(),
-        name: name.trim(),
-        description: description.trim(),
-        version: version.trim(),
-      }
-
-      if (title.trim()) {
-        server.title = title.trim()
-      }
-
-      if (websiteUrl.trim()) {
-        server.websiteUrl = websiteUrl.trim()
-      }
-
-      if (repositoryUrl.trim()) {
-        server.repository = {
-          source: repositorySource,
-          url: repositoryUrl.trim(),
+    if (Array.isArray(obj)) {
+      obj.forEach(item => {
+        if (typeof item === 'object' && item !== null) {
+          const entries = Object.entries(item)
+          if (entries.length > 0) {
+            // First key-value pair on same line as dash
+            const [firstKey, firstValue] = entries[0]
+            if (typeof firstValue === 'object' && firstValue !== null && !Array.isArray(firstValue)) {
+              yaml += `${spaces}- ${firstKey}:\n${toYaml(firstValue, indent + 2)}`
+            } else if (Array.isArray(firstValue)) {
+              yaml += `${spaces}- ${firstKey}:\n${toYaml(firstValue, indent + 2)}`
+            } else {
+              yaml += `${spaces}- ${firstKey}: ${firstValue}\n`
+            }
+            // Remaining key-value pairs indented to align with first key
+            for (let i = 1; i < entries.length; i++) {
+              const [key, value] = entries[i]
+              if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                yaml += `${spaces}  ${key}:\n${toYaml(value, indent + 2)}`
+              } else if (Array.isArray(value)) {
+                yaml += `${spaces}  ${key}:\n${toYaml(value, indent + 2)}`
+              } else if (typeof value === 'string') {
+                if (value.includes('\n') || value.includes(':') || value.includes('#') || value.includes('"')) {
+                  yaml += `${spaces}  ${key}: "${value.replace(/"/g, '\\"')}"\n`
+                } else {
+                  yaml += `${spaces}  ${key}: ${value}\n`
+                }
+              } else {
+                yaml += `${spaces}  ${key}: ${value}\n`
+              }
+            }
+          }
+        } else {
+          yaml += `${spaces}- ${item}\n`
         }
-      }
+      })
+    } else if (typeof obj === 'object' && obj !== null) {
+      Object.entries(obj).forEach(([key, value]) => {
+        if (value === null || value === undefined) return
 
-      if (packages.length > 0) {
-        server.packages = packages
-          .filter(p => p.identifier.trim() && p.version.trim())
-          .map(p => ({
-            identifier: p.identifier.trim(),
-            version: p.version.trim(),
-            registryType: p.registryType as 'npm' | 'pypi' | 'docker',
-            transport: { type: p.transport || 'stdio' },
-          }))
-      }
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            yaml += `${spaces}${key}: []\n`
+          } else {
+            yaml += `${spaces}${key}:\n${toYaml(value, indent + 1)}`
+          }
+        } else if (typeof value === 'object') {
+          yaml += `${spaces}${key}:\n${toYaml(value, indent + 1)}`
+        } else if (typeof value === 'string') {
+          // Quote strings with special characters
+          if (value.includes('\n') || value.includes(':') || value.includes('#') || value.includes('"')) {
+            yaml += `${spaces}${key}: "${value.replace(/"/g, '\\"')}"\n`
+          } else {
+            yaml += `${spaces}${key}: ${value}\n`
+          }
+        } else {
+          yaml += `${spaces}${key}: ${value}\n`
+        }
+      })
+    }
 
-      if (remotes.length > 0) {
-        server.remotes = remotes
-          .filter(r => r.type.trim())
-          .map(r => ({
-            type: r.type.trim(),
-            url: r.url.trim() || undefined,
-          }))
-      }
+    return yaml
+  }
 
-      // Create server
-      const result = await adminApiClient.createServer(server)
-      
-      // Show success toast
-      toast.success(`Server "${result.server.name}" created successfully!`)
+  const generateManifest = (): string => {
+    // Validate required fields
+    if (!name.trim()) {
+      throw new Error("Server name is required")
+    }
 
-      // Close dialog and refresh
-      onOpenChange(false)
-      onServerAdded()
-      resetForm()
+    if (!version.trim()) {
+      throw new Error("Version is required")
+    }
+    if (!description.trim()) {
+      throw new Error("Description is required")
+    }
+    if (!ownerEmail.trim()) {
+      throw new Error("Owner email is required")
+    }
+
+    // Validate email format
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(ownerEmail.trim())) {
+      throw new Error("Please enter a valid email address")
+    }
+
+    // Generate Kubernetes resource name from server name
+    const resourceName = name.trim().toLowerCase().replace(/[\/\.\s]/g, '-')
+
+    // Build descriptor
+    const descriptor: Record<string, unknown> = {
+      type: 'mcp-server',
+      version: version.trim(),
+      description: description.trim(),
+      owners: [{ name: ownerEmail.trim() }],
+    }
+
+    if (title.trim()) {
+      descriptor.title = title.trim()
+    }
+
+    if (repositoryUrl.trim()) {
+      descriptor.links = [{
+        url: repositoryUrl.trim(),
+        description: 'Source code repository'
+      }]
+    }
+
+    if (packages.length > 0) {
+      descriptor.packages = packages
+        .filter(p => p.identifier.trim() && p.version.trim())
+        .map(p => ({
+          identifier: p.identifier.trim(),
+          version: p.version.trim(),
+          registryType: p.registryType,
+          transport: {
+            type: p.transport || 'stdio',
+          },
+        }))
+    }
+
+    if (remotes.length > 0) {
+      descriptor.remotes = remotes
+        .filter(r => r.type.trim() && r.url.trim())
+        .map(r => ({
+          type: r.type.trim(),
+          url: r.url.trim(),
+        }))
+    }
+
+    // Build Application manifest
+    const manifest = {
+      apiVersion: 'agentregistry.dev/v1alpha1',
+      kind: 'Application',
+      metadata: {
+        name: resourceName,
+        labels: {
+          'app.kubernetes.io/name': resourceName,
+          'app.kubernetes.io/component': 'mcp-server',
+          'app.kubernetes.io/part-of': 'agentregistry',
+        }
+      },
+      spec: {
+        selector: {
+          matchLabels: {
+            'app.kubernetes.io/name': resourceName,
+          }
+        },
+        componentKinds: [
+          {
+            group: 'agentregistry.dev/v1alpha1',
+            kind: 'MCPServer'
+          }
+        ],
+        addOwnerRef: true,
+        descriptor,
+      },
+    }
+
+    return `# Generated Application manifest for MCP Server
+# Save as application.yaml, commit and push to your repository
+# Import using the "Import" option in the registry UI
+
+${toYaml(manifest)}
+`
+  }
+
+  const handleGeneratePreview = async () => {
+    setLoading(true)
+    try {
+      const manifest = generateManifest()
+      setGeneratedManifest(manifest)
+      setShowPreview(true)
     } catch (err) {
-      // Show error toast
-      toast.error(err instanceof Error ? err.message : "Failed to create server")
+      toast.error(err instanceof Error ? err.message : "Failed to generate manifest")
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDownload = () => {
+    const blob = new Blob([generatedManifest], { type: 'text/yaml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `application.yaml`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast.success(`Manifest downloaded as application.yaml`)
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedManifest)
+      toast.success("Manifest copied to clipboard!")
+    } catch (err) {
+      toast.error("Failed to copy manifest")
+    }
+  }
+
+  const handleBackToForm = () => {
+    setShowPreview(false)
+  }
+
+  const handleClose = () => {
+    onOpenChange(false)
+    resetForm()
   }
 
   const addPackage = () => {
@@ -143,7 +280,7 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
   }
 
   const addRemote = () => {
-    setRemotes([...remotes, { type: "sse", url: "" }])
+    setRemotes([...remotes, { type: "streamable-http", url: "" }])
   }
 
   const removeRemote = (index: number) => {
@@ -160,29 +297,79 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New MCP Server</DialogTitle>
+          <DialogTitle>{showPreview ? "Application Manifest" : "Add New MCP Server"}</DialogTitle>
           <DialogDescription>
-            Manually add a new MCP server to your registry
+            {showPreview
+              ? "Review, copy, or download the manifest to commit to your repository"
+              : "Fill in the server details to generate a Kubernetes Application manifest"
+            }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Basic Information */}
-          <div className="grid grid-cols-3 gap-4">
+        {showPreview ? (
+          <>
+            <div className="space-y-4 py-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">
+                  <strong>Next steps:</strong>
+                </p>
+                <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                  <li>Download the manifest as <code className="bg-background px-1 py-0.5 rounded">application.yaml</code></li>
+                  <li>Commit and push to your Git repository</li>
+                  <li>Import from repository using the "Import" option in the registry UI</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Generated Manifest</Label>
+                <Textarea
+                  value={generatedManifest}
+                  readOnly
+                  rows={20}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBackToForm}
+                disabled={loading}
+              >
+                Back to Form
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCopy}
+                  disabled={loading}
+                >
+                  Copy to Clipboard
+                </Button>
+                <Button
+                  onClick={handleDownload}
+                  disabled={loading}
+                >
+                  Download YAML
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-4 py-4">
+              {/* Basic Information */}
+              <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Server Name *</Label>
               <Input
                 id="name"
-                placeholder="io.example/my-server"
+                placeholder="my-server"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
-                className={name && !/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/.test(name) ? "border-yellow-500" : ""}
               />
-              <p className={`text-xs flex items-center gap-1 min-h-[1.25rem] ${name && !/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/.test(name) ? 'text-yellow-600' : 'invisible'}`}>
-                <AlertCircle className="h-3 w-3" />
-                Must be in format namespace/name (e.g., io.example/my-server)
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -209,6 +396,21 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="ownerEmail">Owner Email *</Label>
+            <Input
+              id="ownerEmail"
+              type="email"
+              placeholder="owner@example.com"
+              value={ownerEmail}
+              onChange={(e) => setOwnerEmail(e.target.value)}
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Contact email for the resource owner
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
             <Textarea
               id="description"
@@ -220,40 +422,27 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="websiteUrl">Website URL</Label>
-              <Input
-                id="websiteUrl"
-                placeholder="https://example.com"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
+          <div className="space-y-2">
+            <Label htmlFor="repositoryUrl">Repository URL</Label>
+            <div className="flex gap-2">
+              <select
+                value={repositorySource}
+                onChange={(e) => setRepositorySource(e.target.value as any)}
+                className="px-3 py-2 border rounded-md bg-background text-foreground border-input focus:outline-none focus:ring-2 focus:ring-ring"
                 disabled={loading}
+              >
+                <option value="github">GitHub</option>
+                <option value="gitlab">GitLab</option>
+                <option value="bitbucket">Bitbucket</option>
+              </select>
+              <Input
+                id="repositoryUrl"
+                placeholder="https://github.com/user/repo"
+                value={repositoryUrl}
+                onChange={(e) => setRepositoryUrl(e.target.value)}
+                disabled={loading}
+                className="flex-1"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="repositoryUrl">Repository URL</Label>
-              <div className="flex gap-2">
-                <select
-                  value={repositorySource}
-                  onChange={(e) => setRepositorySource(e.target.value as any)}
-                  className="px-3 py-2 border rounded-md bg-background text-foreground border-input focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={loading}
-                >
-                  <option value="github">GitHub</option>
-                  <option value="gitlab">GitLab</option>
-                  <option value="bitbucket">Bitbucket</option>
-                </select>
-                <Input
-                  id="repositoryUrl"
-                  placeholder="https://github.com/user/repo"
-                  value={repositoryUrl}
-                  onChange={(e) => setRepositoryUrl(e.target.value)}
-                  disabled={loading}
-                  className="flex-1"
-                />
-              </div>
             </div>
           </div>
 
@@ -312,7 +501,7 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
                 </div>
                 <div className="flex gap-2 items-center pl-2">
                   <Label className="text-xs text-muted-foreground">Transport *:</Label>
-                  {["stdio", "sse", "streamable-http"].map((transport) => (
+                  {["stdio", "streamable-http"].map((transport) => (
                     <label key={transport} className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
@@ -355,14 +544,14 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
             {remotes.map((remote, index) => (
               <div key={index} className="flex gap-2 items-start">
                 <Input
-                  placeholder="Type (e.g., sse, stdio)"
+                  placeholder="Type (e.g., streamable-http)"
                   value={remote.type}
                   onChange={(e) => updateRemote(index, "type", e.target.value)}
                   disabled={loading}
                   className="w-40"
                 />
                 <Input
-                  placeholder="URL (optional)"
+                  placeholder="URL (e.g., https://example.com/mcp)"
                   value={remote.url}
                   onChange={(e) => updateRemote(index, "url", e.target.value)}
                   disabled={loading}
@@ -391,22 +580,21 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
         <div className="flex justify-end gap-2">
           <Button
             variant="outline"
-            onClick={() => {
-              onOpenChange(false)
-              resetForm()
-            }}
+            onClick={handleClose}
             disabled={loading}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleSubmit}
-            disabled={loading || !name.trim() || !version.trim() || !description.trim()}
+            onClick={handleGeneratePreview}
+            disabled={loading || !name.trim() || !version.trim() || !description.trim() || !ownerEmail.trim()}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Server
+            Generate Manifest
           </Button>
         </div>
+      </>
+    )}
       </DialogContent>
     </Dialog>
   )
