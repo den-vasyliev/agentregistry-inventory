@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -43,7 +44,11 @@ func runShow(cmd *cobra.Command, args []string) error {
 
 	// Handle JSON output format
 	if showOutputFormat == "json" {
-		fmt.Println(skill)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(skill); err != nil {
+			return fmt.Errorf("failed to encode JSON: %w", err)
+		}
 		return nil
 	}
 

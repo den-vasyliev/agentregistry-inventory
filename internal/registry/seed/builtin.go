@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"github.com/agentregistry-dev/agentregistry/internal/registry/service"
+	"github.com/agentregistry-dev/agentregistry/pkg/models"
 	"github.com/agentregistry-dev/agentregistry/pkg/registry/database"
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
 )
@@ -19,6 +20,9 @@ var builtinSeedData []byte
 
 //go:embed seed-readme.json
 var builtinReadmeData []byte
+
+//go:embed skill-seed.json
+var builtinSkillSeedData []byte
 
 func ImportBuiltinSeedData(ctx context.Context, registry service.RegistryService) error {
 	servers, err := loadSeedData(builtinSeedData)
@@ -40,7 +44,40 @@ func ImportBuiltinSeedData(ctx context.Context, registry service.RegistryService
 		)
 	}
 
+	skills, err := loadSkillSeedData(builtinSkillSeedData)
+	if err != nil {
+		return err
+	}
+	for _, skill := range skills {
+		importSkill(ctx, registry, skill)
+	}
+
 	return nil
+}
+
+func loadSkillSeedData(data []byte) ([]*models.SkillJSON, error) {
+	var skills []*models.SkillJSON
+	if err := json.Unmarshal(data, &skills); err != nil {
+		return nil, fmt.Errorf("failed to parse skill seed data: %w", err)
+	}
+	return skills, nil
+}
+
+func importSkill(ctx context.Context, registry service.RegistryService, skill *models.SkillJSON) {
+	_, err := registry.CreateSkill(ctx, skill)
+	if err != nil {
+		if !errors.Is(err, database.ErrInvalidVersion) {
+			log.Printf("Failed to create skill %s: %v", skill.Name, err)
+			return
+		}
+		return
+	}
+	log.Printf("Imported skill %s@%s", skill.Name, skill.Version)
+	if err := registry.PublishSkill(ctx, skill.Name, skill.Version); err != nil {
+		log.Printf("Warning: failed to publish skill %s@%s: %v", skill.Name, skill.Version, err)
+		return
+	}
+	log.Printf("Published skill %s@%s", skill.Name, skill.Version)
 }
 
 func loadSeedData(data []byte) ([]*apiv0.ServerJSON, error) {
