@@ -243,6 +243,47 @@ export interface AgentListResponse {
   }
 }
 
+// Model types
+export interface ModelJSON {
+  name: string
+  provider: string
+  model: string
+  baseUrl?: string
+  description?: string
+}
+
+export interface ModelUsageRefJSON {
+  namespace: string
+  name: string
+  kind?: string
+}
+
+export interface ModelRegistryExtensions {
+  status: string
+  publishedAt?: string
+  updatedAt: string
+  isLatest: boolean
+  published?: boolean
+}
+
+export interface ModelResponse {
+  model: ModelJSON
+  _meta: {
+    'io.modelcontextprotocol.registry/official'?: ModelRegistryExtensions
+    usedBy?: ModelUsageRefJSON[]
+    ready?: boolean
+    message?: string
+  }
+}
+
+export interface ModelListResponse {
+  models: ModelResponse[]
+  metadata: {
+    count: number
+    nextCursor?: string
+  }
+}
+
 class AdminApiClient {
   private baseUrl: string
 
@@ -654,6 +695,162 @@ class AdminApiClient {
       const error = await response.text()
       throw new Error(error || 'Failed to unpublish agent')
     }
+  }
+
+  // ===== Models API =====
+
+  // List models with pagination and filtering (ADMIN - shows all models)
+  async listModels(params?: {
+    cursor?: string
+    limit?: number
+    search?: string
+    provider?: string
+  }): Promise<ModelListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.cursor) queryParams.append('cursor', params.cursor)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.provider) queryParams.append('provider', params.provider)
+
+    const url = `${this.baseUrl}/admin/v0/models${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error('Failed to fetch models')
+    }
+    return response.json()
+  }
+
+  // List PUBLISHED models only (PUBLIC endpoint)
+  async listPublishedModels(params?: {
+    cursor?: string
+    limit?: number
+    search?: string
+    provider?: string
+  }): Promise<ModelListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.cursor) queryParams.append('cursor', params.cursor)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.provider) queryParams.append('provider', params.provider)
+
+    const url = `${this.baseUrl}/v0/models${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error('Failed to fetch published models')
+    }
+    return response.json()
+  }
+
+  // Get a specific model
+  async getModel(modelName: string): Promise<ModelResponse> {
+    const encodedName = encodeURIComponent(modelName)
+    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch model')
+    }
+    return response.json()
+  }
+
+  // Create a model in the registry
+  async createModel(model: ModelJSON): Promise<ModelResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/v0/models`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(model),
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || 'Failed to create model')
+    }
+    return response.json()
+  }
+
+  // Publish a model (change status to published)
+  async publishModelStatus(modelName: string): Promise<void> {
+    const encodedName = encodeURIComponent(modelName)
+    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}/publish`, {
+      method: 'POST',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to publish model')
+    }
+  }
+
+  // Unpublish a model (change status to unpublished)
+  async unpublishModelStatus(modelName: string): Promise<void> {
+    const encodedName = encodeURIComponent(modelName)
+    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}/unpublish`, {
+      method: 'POST',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to unpublish model')
+    }
+  }
+
+  // Delete a model
+  async deleteModel(modelName: string): Promise<void> {
+    const encodedName = encodeURIComponent(modelName)
+    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to delete model')
+    }
+  }
+
+  // ===== Import APIs =====
+
+  // Import skills from an external source
+  async importSkills(request: ImportRequest): Promise<ImportResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/v0/import/skills`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to import skills')
+    }
+    return response.json()
+  }
+
+  // Import agents from an external source
+  async importAgents(request: ImportRequest): Promise<ImportResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/v0/import/agents`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to import agents')
+    }
+    return response.json()
+  }
+
+  // Import models from an external source
+  async importModels(request: ImportRequest): Promise<ImportResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/v0/import/models`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to import models')
+    }
+    return response.json()
   }
 
   // ===== Deployments API =====
