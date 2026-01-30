@@ -35,27 +35,27 @@ func NewAgentHandler(c client.Client, cache cache.Cache, logger zerolog.Logger) 
 
 // Agent response types
 type AgentJSON struct {
-	Name              string              `json:"name"`
-	Version           string              `json:"version"`
-	Title             string              `json:"title,omitempty"`
-	Description       string              `json:"description,omitempty"`
-	Image             string              `json:"image"`
-	Language          string              `json:"language,omitempty"`
-	Framework         string              `json:"framework,omitempty"`
-	ModelProvider     string              `json:"modelProvider,omitempty"`
-	ModelName         string              `json:"modelName,omitempty"`
-	TelemetryEndpoint string              `json:"telemetryEndpoint,omitempty"`
-	WebsiteURL        string              `json:"websiteUrl,omitempty"`
-	Repository        *RepositoryJSON     `json:"repository,omitempty"`
-	Packages          []AgentPackageJSON  `json:"packages,omitempty"`
-	Remotes           []TransportJSON     `json:"remotes,omitempty"`
+	Name              string                `json:"name"`
+	Version           string                `json:"version"`
+	Title             string                `json:"title,omitempty"`
+	Description       string                `json:"description,omitempty"`
+	Image             string                `json:"image"`
+	Language          string                `json:"language,omitempty"`
+	Framework         string                `json:"framework,omitempty"`
+	ModelProvider     string                `json:"modelProvider,omitempty"`
+	ModelName         string                `json:"modelName,omitempty"`
+	TelemetryEndpoint string                `json:"telemetryEndpoint,omitempty"`
+	WebsiteURL        string                `json:"websiteUrl,omitempty"`
+	Repository        *RepositoryJSON       `json:"repository,omitempty"`
+	Packages          []AgentPackageJSON    `json:"packages,omitempty"`
+	Remotes           []TransportJSON       `json:"remotes,omitempty"`
 	McpServers        []McpServerConfigJSON `json:"mcpServers,omitempty"`
 }
 
 type AgentPackageJSON struct {
-	RegistryType string                   `json:"registryType"`
-	Identifier   string                   `json:"identifier"`
-	Version      string                   `json:"version,omitempty"`
+	RegistryType string                     `json:"registryType"`
+	Identifier   string                     `json:"identifier"`
+	Version      string                     `json:"version,omitempty"`
 	Transport    *AgentPackageTransportJSON `json:"transport,omitempty"`
 }
 

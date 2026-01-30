@@ -45,6 +45,7 @@ func main() {
 		probeAddr            string
 		httpAPIAddr          string
 		enableHTTPAPI        bool
+		logLevel             string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8081", "The address the metric endpoint binds to.")
@@ -54,16 +55,46 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&httpAPIAddr, "http-api-address", ":8080", "The address the HTTP API server binds to.")
 	flag.BoolVar(&enableHTTPAPI, "enable-http-api", true, "Enable the HTTP API server.")
-
-	// Set up structured logging with zerolog before parsing flags
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
-
-	// Set up controller-runtime logger using zerologr
-	logf.SetLogger(zerologr.New(&log.Logger))
+	flag.StringVar(&logLevel, "log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 	// Parse flags (controller-runtime adds --kubeconfig flag automatically)
 	flag.Parse()
+
+	// Set up structured logging with zerolog
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	if logLevel == "trace" || logLevel == "debug" {
+		// Use console writer for better readability in development
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: "2006-01-02 15:04:05.000",
+			PartsOrder: []string{
+				zerolog.TimestampFieldName,
+				zerolog.LevelFieldName,
+				zerolog.CallerFieldName,
+				zerolog.MessageFieldName,
+			},
+		}).With().Timestamp().Caller().Logger()
+	} else {
+		// Use JSON output for production
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Caller().Logger()
+	}
+
+	// Set log level
+	switch logLevel {
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	}
+
+	// Set up controller-runtime logger using zerologr
+	logf.SetLogger(zerologr.New(&log.Logger))
 
 	log.Info().
 		Str("version", version.Version).
@@ -74,6 +105,7 @@ func main() {
 		Bool("leader-elect", enableLeaderElection).
 		Str("http-api-addr", httpAPIAddr).
 		Bool("enable-http-api", enableHTTPAPI).
+		Str("log-level", logLevel).
 		Msg("starting agent registry controller")
 
 	// Get Kubernetes config (uses --kubeconfig flag or KUBECONFIG env var or in-cluster)

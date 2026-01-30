@@ -2,6 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -10,6 +13,8 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -217,19 +222,277 @@ func (s *Server) getStats(ctx context.Context) (*StatsResponse, error) {
 }
 
 func (s *Server) importFromSource(ctx context.Context, input *ImportInput) (*ImportResponse, error) {
-	// TODO: Implement actual import logic
-	// For now, return a placeholder response
 	s.logger.Info().
 		Str("source", input.Body.Source).
 		Bool("update", input.Body.Update).
 		Msg("import requested")
 
+	// Fetch data from source
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, input.Body.Source, nil)
+	if err != nil {
+		return nil, huma.Error400BadRequest("Invalid source URL", err)
+	}
+
+	// Add custom headers if provided
+	for k, v := range input.Body.Headers {
+		req.Header.Set(k, v)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch from source", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, huma.Error500InternalServerError(
+			fmt.Sprintf("Source returned status %d: %s", resp.StatusCode, string(body)),
+			nil,
+		)
+	}
+
+	// Parse response - support both array of servers and object with servers field
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to read response body", err)
+	}
+
+	var servers []ExternalServerJSON
+	// Try parsing as array first
+	if err := json.Unmarshal(body, &servers); err != nil {
+		// Try parsing as object with servers field
+		var wrapper struct {
+			Servers []ExternalServerJSON `json:"servers"`
+		}
+		if err := json.Unmarshal(body, &wrapper); err != nil {
+			return nil, huma.Error400BadRequest("Failed to parse server data", err)
+		}
+		servers = wrapper.Servers
+	}
+
+	if len(servers) == 0 {
+		return &ImportResponse{
+			Body: ImportResult{
+				Success: true,
+				Message: "No servers found to import",
+			},
+		}, nil
+	}
+
+	// Import each server
+	imported := 0
+	updated := 0
+	skipped := 0
+	var errors []string
+
+	for _, extServer := range servers {
+		if extServer.Name == "" || extServer.Version == "" {
+			skipped++
+			continue
+		}
+
+		crName := handlers.GenerateCRName(extServer.Name, extServer.Version)
+
+		// Check if server already exists
+		existing := &agentregistryv1alpha1.MCPServerCatalog{}
+		err := s.client.Get(ctx, client.ObjectKey{Name: crName}, existing)
+		if err == nil {
+			// Server exists
+			if !input.Body.Update {
+				skipped++
+				continue
+			}
+			// Update existing server
+			existing.Spec = s.convertExternalToSpec(extServer)
+			if err := s.client.Update(ctx, existing); err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", extServer.Name, err))
+				continue
+			}
+			updated++
+			continue
+		}
+
+		if !apierrors.IsNotFound(err) {
+			errors = append(errors, fmt.Sprintf("%s: %v", extServer.Name, err))
+			continue
+		}
+
+		// Create new server
+		server := &agentregistryv1alpha1.MCPServerCatalog{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: crName,
+				Labels: map[string]string{
+					"agentregistry.dev/name":    handlers.SanitizeK8sName(extServer.Name),
+					"agentregistry.dev/version": handlers.SanitizeK8sName(extServer.Version),
+				},
+			},
+			Spec: s.convertExternalToSpec(extServer),
+		}
+
+		if err := s.client.Create(ctx, server); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", extServer.Name, err))
+			continue
+		}
+		imported++
+	}
+
+	// Build result message
+	message := fmt.Sprintf("Imported %d, updated %d, skipped %d servers", imported, updated, skipped)
+	if len(errors) > 0 {
+		message += fmt.Sprintf(", %d errors", len(errors))
+	}
+
 	return &ImportResponse{
 		Body: ImportResult{
-			Success: false,
-			Message: "Import functionality not yet implemented in CRD-based backend",
+			Success: len(errors) == 0,
+			Message: message,
 		},
 	}, nil
+}
+
+// ExternalServerJSON represents a server from external registries (MCP Registry format)
+type ExternalServerJSON struct {
+	Name        string                  `json:"name"`
+	Version     string                  `json:"version"`
+	Title       string                  `json:"title,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	WebsiteURL  string                  `json:"websiteUrl,omitempty"`
+	Repository  *ExternalRepositoryJSON `json:"repository,omitempty"`
+	Packages    []ExternalPackageJSON   `json:"packages,omitempty"`
+	Remotes     []ExternalTransportJSON `json:"remotes,omitempty"`
+}
+
+type ExternalRepositoryJSON struct {
+	URL       string `json:"url,omitempty"`
+	Source    string `json:"source,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Subfolder string `json:"subfolder,omitempty"`
+}
+
+type ExternalTransportJSON struct {
+	Type    string                 `json:"type"`
+	URL     string                 `json:"url,omitempty"`
+	Headers []ExternalKeyValueJSON `json:"headers,omitempty"`
+}
+
+type ExternalKeyValueJSON struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+type ExternalPackageJSON struct {
+	RegistryType         string                 `json:"registryType"`
+	RegistryBaseURL      string                 `json:"registryBaseUrl,omitempty"`
+	Identifier           string                 `json:"identifier"`
+	Version              string                 `json:"version,omitempty"`
+	FileSHA256           string                 `json:"fileSha256,omitempty"`
+	RuntimeHint          string                 `json:"runtimeHint,omitempty"`
+	Transport            ExternalTransportJSON  `json:"transport"`
+	RuntimeArguments     []ExternalArgumentJSON `json:"runtimeArguments,omitempty"`
+	PackageArguments     []ExternalArgumentJSON `json:"packageArguments,omitempty"`
+	EnvironmentVariables []ExternalKeyValueJSON `json:"environmentVariables,omitempty"`
+}
+
+type ExternalArgumentJSON struct {
+	Name        string `json:"name"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Multiple    bool   `json:"multiple,omitempty"`
+}
+
+func (s *Server) convertExternalToSpec(ext ExternalServerJSON) agentregistryv1alpha1.MCPServerCatalogSpec {
+	spec := agentregistryv1alpha1.MCPServerCatalogSpec{
+		Name:        ext.Name,
+		Version:     ext.Version,
+		Title:       ext.Title,
+		Description: ext.Description,
+		WebsiteURL:  ext.WebsiteURL,
+	}
+
+	if ext.Repository != nil {
+		spec.Repository = &agentregistryv1alpha1.Repository{
+			URL:       ext.Repository.URL,
+			Source:    ext.Repository.Source,
+			ID:        ext.Repository.ID,
+			Subfolder: ext.Repository.Subfolder,
+		}
+	}
+
+	for _, p := range ext.Packages {
+		pkg := agentregistryv1alpha1.Package{
+			RegistryType:    p.RegistryType,
+			RegistryBaseURL: p.RegistryBaseURL,
+			Identifier:      p.Identifier,
+			Version:         p.Version,
+			FileSHA256:      p.FileSHA256,
+			RuntimeHint:     p.RuntimeHint,
+			Transport: agentregistryv1alpha1.Transport{
+				Type: p.Transport.Type,
+				URL:  p.Transport.URL,
+			},
+		}
+		for _, h := range p.Transport.Headers {
+			pkg.Transport.Headers = append(pkg.Transport.Headers, agentregistryv1alpha1.KeyValueInput{
+				Name:        h.Name,
+				Description: h.Description,
+				Value:       h.Value,
+				Required:    h.Required,
+			})
+		}
+		for _, a := range p.RuntimeArguments {
+			pkg.RuntimeArguments = append(pkg.RuntimeArguments, agentregistryv1alpha1.Argument{
+				Name:        a.Name,
+				Type:        a.Type,
+				Description: a.Description,
+				Value:       a.Value,
+				Required:    a.Required,
+				Multiple:    a.Multiple,
+			})
+		}
+		for _, a := range p.PackageArguments {
+			pkg.PackageArguments = append(pkg.PackageArguments, agentregistryv1alpha1.Argument{
+				Name:        a.Name,
+				Type:        a.Type,
+				Description: a.Description,
+				Value:       a.Value,
+				Required:    a.Required,
+				Multiple:    a.Multiple,
+			})
+		}
+		for _, e := range p.EnvironmentVariables {
+			pkg.EnvironmentVariables = append(pkg.EnvironmentVariables, agentregistryv1alpha1.KeyValueInput{
+				Name:        e.Name,
+				Description: e.Description,
+				Value:       e.Value,
+				Required:    e.Required,
+			})
+		}
+		spec.Packages = append(spec.Packages, pkg)
+	}
+
+	for _, r := range ext.Remotes {
+		remote := agentregistryv1alpha1.Transport{
+			Type: r.Type,
+			URL:  r.URL,
+		}
+		for _, h := range r.Headers {
+			remote.Headers = append(remote.Headers, agentregistryv1alpha1.KeyValueInput{
+				Name:        h.Name,
+				Description: h.Description,
+				Value:       h.Value,
+				Required:    h.Required,
+			})
+		}
+		spec.Remotes = append(spec.Remotes, remote)
+	}
+
+	return spec
 }
 
 // Runnable returns a manager.Runnable that starts the HTTP server

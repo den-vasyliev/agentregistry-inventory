@@ -688,11 +688,11 @@ class AdminApiClient {
     }
   }
 
-  // Get all deployments
+  // Get all deployments (includes both managed and external K8s resources)
   async listDeployments(params?: {
     resourceType?: string // 'mcp' | 'agent'
   }): Promise<Array<{
-    resourceName: string
+    serverName: string
     version: string
     deployedAt: string
     updatedAt: string
@@ -700,7 +700,9 @@ class AdminApiClient {
     config: Record<string, string>
     preferRemote: boolean
     resourceType: string
+    runtime: string
     namespace?: string
+    isExternal?: boolean
   }>> {
     const queryParams = new URLSearchParams()
     if (params?.resourceType) queryParams.append('resourceType', params.resourceType)
@@ -711,7 +713,20 @@ class AdminApiClient {
       throw new Error('Failed to fetch deployments')
     }
     const data = await response.json()
-    return data.deployments || []
+    // Map resourceName to serverName for UI compatibility
+    return (data.deployments || []).map((d: Record<string, unknown>) => ({
+      serverName: d.resourceName,
+      version: d.version,
+      deployedAt: d.deployedAt,
+      updatedAt: d.updatedAt,
+      status: d.status,
+      config: d.config || {},
+      preferRemote: d.preferRemote,
+      resourceType: d.resourceType,
+      runtime: d.runtime || 'kubernetes',
+      namespace: d.namespace,
+      isExternal: d.isExternal,
+    }))
   }
 
   // Remove a deployment

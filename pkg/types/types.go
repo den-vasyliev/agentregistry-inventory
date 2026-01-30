@@ -90,4 +90,3 @@ type CLIAuthnProvider interface {
 // The factory receives a Server interface and should return a Server after
 // registering new routes using base.HumaAPI() or base.Mux().
 type HTTPServerFactory func(base Server) Server
-

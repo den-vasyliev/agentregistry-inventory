@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rs/zerolog"
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
+	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +28,11 @@ type RegistryDeploymentReconciler struct {
 }
 
 const (
-	finalizerName        = "agentregistry.dev/finalizer"
-	defaultNamespace     = "kagent"
-	managedByLabel       = "agentregistry.dev/managed-by"
-	deploymentNameLabel  = "agentregistry.dev/deployment-name"
-	deploymentNSLabel    = "agentregistry.dev/deployment-namespace"
+	finalizerName       = "agentregistry.dev/finalizer"
+	defaultNamespace    = "kagent"
+	managedByLabel      = "agentregistry.dev/managed-by"
+	deploymentNameLabel = "agentregistry.dev/deployment-name"
+	deploymentNSLabel   = "agentregistry.dev/deployment-namespace"
 )
 
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=registrydeployments,verbs=get;list;watch;create;update;patch;delete
@@ -53,7 +53,7 @@ func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info().
+	logger.Debug().
 		Str("resourceName", deployment.Spec.ResourceName).
 		Str("version", deployment.Spec.Version).
 		Str("resourceType", string(deployment.Spec.ResourceType)).
@@ -340,21 +340,32 @@ func (r *RegistryDeploymentReconciler) convertCatalogToMCPServer(catalog *agentr
 	// Determine image and command based on registry type
 	image, cmd := getImageAndCommand(pkg.RegistryType, pkg.RuntimeHint)
 
+	// For OCI registry, use identifier as the image
+	if pkg.RegistryType == "oci" {
+		image = pkg.Identifier
+		cmd = "" // OCI images have their own entrypoint
+		args = nil // OCI images use their own CMD/ARGS
+	}
+
 	var transportType api.TransportType
 	var httpTransport *api.HTTPTransport
 
 	switch pkg.Transport.Type {
-	case "stdio":
-		transportType = api.TransportTypeStdio
-	default:
+	case "http", "streamable-http":
 		transportType = api.TransportTypeHTTP
+		// HTTP transport requires port/path config
+		port := uint32(8080)
+		path := "/"
 		if pkg.Transport.URL != "" {
-			_, port, path := parseURLComponents(pkg.Transport.URL)
-			httpTransport = &api.HTTPTransport{
-				Port: port,
-				Path: path,
-			}
+			_, port, path = parseURLComponents(pkg.Transport.URL)
 		}
+		httpTransport = &api.HTTPTransport{
+			Port: port,
+			Path: path,
+		}
+	default:
+		// Default to stdio for local packages (npm, pypi)
+		transportType = api.TransportTypeStdio
 	}
 
 	return &api.MCPServer{

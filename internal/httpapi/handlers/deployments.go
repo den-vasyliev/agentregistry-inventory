@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
+	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 	"github.com/rs/zerolog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -46,6 +48,7 @@ type DeploymentJSON struct {
 	DeployedAt   *time.Time        `json:"deployedAt,omitempty"`
 	UpdatedAt    *time.Time        `json:"updatedAt,omitempty"`
 	Message      string            `json:"message,omitempty"`
+	IsExternal   bool              `json:"isExternal,omitempty"`
 }
 
 type DeploymentResponse struct {
@@ -189,9 +192,45 @@ func (h *DeploymentHandler) listDeployments(ctx context.Context, input *ListDepl
 		return nil, huma.Error500InternalServerError("Failed to list deployments", err)
 	}
 
+	// Build a set of managed resource names (from RegistryDeployments)
+	managedResources := make(map[string]bool)
 	deployments := make([]DeploymentJSON, 0, len(deploymentList.Items))
 	for _, d := range deploymentList.Items {
 		deployments = append(deployments, h.convertToDeploymentJSON(&d))
+		// Track managed resources by name to avoid duplicates
+		managedResources[d.Spec.ResourceName] = true
+	}
+
+	// Also list KMCP MCPServers as external resources (if not filtering by resource type or filtering for mcp)
+	if input.ResourceType == "" || input.ResourceType == "mcp" {
+		var mcpServerList kmcpv1alpha1.MCPServerList
+		if err := h.cache.List(ctx, &mcpServerList); err != nil {
+			h.logger.Warn().Err(err).Msg("failed to list KMCP MCPServers")
+		} else {
+			for _, mcp := range mcpServerList.Items {
+				// Skip if already managed by a RegistryDeployment
+				if managedResources[mcp.Name] {
+					continue
+				}
+				deployments = append(deployments, h.convertMCPServerToDeploymentJSON(&mcp))
+			}
+		}
+	}
+
+	// Also list KAgent Agents as external resources (if not filtering by resource type or filtering for agent)
+	if input.ResourceType == "" || input.ResourceType == "agent" {
+		var agentList kagentv1alpha2.AgentList
+		if err := h.cache.List(ctx, &agentList); err != nil {
+			h.logger.Warn().Err(err).Msg("failed to list KAgent Agents")
+		} else {
+			for _, agent := range agentList.Items {
+				// Skip if already managed by a RegistryDeployment
+				if managedResources[agent.Name] {
+					continue
+				}
+				deployments = append(deployments, h.convertAgentToDeploymentJSON(&agent))
+			}
+		}
 	}
 
 	limit := input.Limit
@@ -380,6 +419,7 @@ func (h *DeploymentHandler) convertToDeploymentJSON(d *agentregistryv1alpha1.Reg
 		Namespace:    d.Spec.Namespace,
 		Status:       string(d.Status.Phase),
 		Message:      d.Status.Message,
+		IsExternal:   false,
 	}
 
 	if d.Status.DeployedAt != nil {
@@ -393,4 +433,54 @@ func (h *DeploymentHandler) convertToDeploymentJSON(d *agentregistryv1alpha1.Reg
 	}
 
 	return deployment
+}
+
+// convertMCPServerToDeploymentJSON converts a KMCP MCPServer to DeploymentJSON (as external)
+func (h *DeploymentHandler) convertMCPServerToDeploymentJSON(mcp *kmcpv1alpha1.MCPServer) DeploymentJSON {
+	status := "Unknown"
+	for _, cond := range mcp.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == metav1.ConditionTrue {
+			status = "Running"
+			break
+		} else if cond.Type == "Accepted" && cond.Status == metav1.ConditionTrue {
+			status = "Pending"
+		}
+	}
+
+	createdAt := mcp.CreationTimestamp.Time
+	return DeploymentJSON{
+		ResourceName: mcp.Name,
+		Version:      "external",
+		ResourceType: "mcp",
+		Runtime:      "kubernetes",
+		Namespace:    mcp.Namespace,
+		Status:       status,
+		DeployedAt:   &createdAt,
+		IsExternal:   true,
+	}
+}
+
+// convertAgentToDeploymentJSON converts a KAgent Agent to DeploymentJSON (as external)
+func (h *DeploymentHandler) convertAgentToDeploymentJSON(agent *kagentv1alpha2.Agent) DeploymentJSON {
+	status := "Unknown"
+	for _, cond := range agent.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == metav1.ConditionTrue {
+			status = "Running"
+			break
+		} else if cond.Type == "Accepted" && cond.Status == metav1.ConditionTrue {
+			status = "Pending"
+		}
+	}
+
+	createdAt := agent.CreationTimestamp.Time
+	return DeploymentJSON{
+		ResourceName: agent.Name,
+		Version:      "external",
+		ResourceType: "agent",
+		Runtime:      "kubernetes",
+		Namespace:    agent.Namespace,
+		Status:       status,
+		DeployedAt:   &createdAt,
+		IsExternal:   true,
+	}
 }

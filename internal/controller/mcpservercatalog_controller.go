@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +41,7 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info().
+	logger.Debug().
 		Str("specName", server.Spec.Name).
 		Str("version", server.Spec.Version).
 		Msg("reconciling MCPServerCatalog")
@@ -50,8 +51,13 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Sync from sourceRef if present
 	if server.Spec.SourceRef != nil {
 		if err := r.syncFromSource(ctx, &server, &statusChanged); err != nil {
-			logger.Warn().Err(err).Msg("failed to sync from source")
-			// Don't fail reconciliation, just log warning
+			if apierrors.IsNotFound(err) {
+				// Source was deleted, this is expected
+				logger.Debug().Msg("source MCPServer not found, was likely deleted")
+			} else {
+				logger.Warn().Err(err).Msg("failed to sync from source")
+			}
+			// Don't fail reconciliation
 		}
 	}
 
@@ -65,6 +71,11 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if server.Status.ObservedGeneration != server.Generation || statusChanged {
 		server.Status.ObservedGeneration = server.Generation
 		if err := r.Status().Update(ctx, &server); err != nil {
+			if apierrors.IsConflict(err) {
+				// Conflict means resource was modified, requeue to retry with latest version
+				logger.Debug().Msg("conflict updating status, will retry")
+				return ctrl.Result{Requeue: true}, nil
+			}
 			logger.Error().Err(err).Msg("failed to update status")
 			return ctrl.Result{}, err
 		}
@@ -96,9 +107,9 @@ func (r *MCPServerCatalogReconciler) syncFromSource(ctx context.Context, server 
 		// Update status to reflect source not found
 		now := metav1.Now()
 		newDeployment := &agentregistryv1alpha1.DeploymentRef{
-			Namespace: ref.Namespace,
-			Ready:     false,
-			Message:   "Source MCPServer not found",
+			Namespace:   ref.Namespace,
+			Ready:       false,
+			Message:     "Source MCPServer not found",
 			LastChecked: &now,
 		}
 		if !deploymentRefEqual(server.Status.Deployment, newDeployment) {

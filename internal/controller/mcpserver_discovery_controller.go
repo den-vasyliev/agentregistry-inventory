@@ -27,10 +27,10 @@ type MCPServerDiscoveryReconciler struct {
 }
 
 const (
-	discoveryLabel     = "agentregistry.dev/discovered"
-	sourceKindLabel    = "agentregistry.dev/source-kind"
-	sourceNameLabel    = "agentregistry.dev/source-name"
-	sourceNSLabel      = "agentregistry.dev/source-namespace"
+	discoveryLabel  = "agentregistry.dev/discovered"
+	sourceKindLabel = "agentregistry.dev/source-kind"
+	sourceNameLabel = "agentregistry.dev/source-name"
+	sourceNSLabel   = "agentregistry.dev/source-namespace"
 )
 
 // +kubebuilder:rbac:groups=kagent.dev,resources=mcpservers,verbs=get;list;watch
@@ -53,7 +53,7 @@ func (r *MCPServerDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	logger.Info().Msg("discovered MCPServer, syncing to catalog")
+	logger.Debug().Msg("discovered MCPServer, syncing to catalog")
 
 	// Generate catalog entry name
 	catalogName := generateCatalogName(mcpServer.Namespace, mcpServer.Name)
@@ -78,6 +78,11 @@ func (r *MCPServerDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.R
 	r.syncStatusFromMCPServer(&catalog, &mcpServer)
 
 	if err := r.Status().Update(ctx, &catalog); err != nil {
+		if apierrors.IsConflict(err) {
+			// Conflict means resource was modified, requeue to retry with latest version
+			logger.Debug().Msg("conflict updating catalog status, will retry")
+			return ctrl.Result{Requeue: true}, nil
+		}
 		logger.Error().Err(err).Msg("failed to update catalog status")
 		return ctrl.Result{}, err
 	}

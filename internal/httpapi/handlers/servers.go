@@ -35,14 +35,14 @@ func NewServerHandler(c client.Client, cache cache.Cache, logger zerolog.Logger)
 
 // Server response types
 type ServerJSON struct {
-	Name        string               `json:"name"`
-	Version     string               `json:"version"`
-	Title       string               `json:"title,omitempty"`
-	Description string               `json:"description,omitempty"`
-	WebsiteURL  string               `json:"websiteUrl,omitempty"`
-	Repository  *RepositoryJSON      `json:"repository,omitempty"`
-	Packages    []PackageJSON        `json:"packages,omitempty"`
-	Remotes     []TransportJSON      `json:"remotes,omitempty"`
+	Name        string          `json:"name"`
+	Version     string          `json:"version"`
+	Title       string          `json:"title,omitempty"`
+	Description string          `json:"description,omitempty"`
+	WebsiteURL  string          `json:"websiteUrl,omitempty"`
+	Repository  *RepositoryJSON `json:"repository,omitempty"`
+	Packages    []PackageJSON   `json:"packages,omitempty"`
+	Remotes     []TransportJSON `json:"remotes,omitempty"`
 }
 
 type RepositoryJSON struct {
@@ -53,9 +53,9 @@ type RepositoryJSON struct {
 }
 
 type TransportJSON struct {
-	Type    string           `json:"type"`
-	URL     string           `json:"url,omitempty"`
-	Headers []KeyValueJSON   `json:"headers,omitempty"`
+	Type    string         `json:"type"`
+	URL     string         `json:"url,omitempty"`
+	Headers []KeyValueJSON `json:"headers,omitempty"`
 }
 
 type KeyValueJSON struct {
@@ -66,16 +66,16 @@ type KeyValueJSON struct {
 }
 
 type PackageJSON struct {
-	RegistryType         string           `json:"registryType"`
-	RegistryBaseURL      string           `json:"registryBaseUrl,omitempty"`
-	Identifier           string           `json:"identifier"`
-	Version              string           `json:"version,omitempty"`
-	FileSHA256           string           `json:"fileSha256,omitempty"`
-	RuntimeHint          string           `json:"runtimeHint,omitempty"`
-	Transport            TransportJSON    `json:"transport"`
-	RuntimeArguments     []ArgumentJSON   `json:"runtimeArguments,omitempty"`
-	PackageArguments     []ArgumentJSON   `json:"packageArguments,omitempty"`
-	EnvironmentVariables []KeyValueJSON   `json:"environmentVariables,omitempty"`
+	RegistryType         string         `json:"registryType"`
+	RegistryBaseURL      string         `json:"registryBaseUrl,omitempty"`
+	Identifier           string         `json:"identifier"`
+	Version              string         `json:"version,omitempty"`
+	FileSHA256           string         `json:"fileSha256,omitempty"`
+	RuntimeHint          string         `json:"runtimeHint,omitempty"`
+	Transport            TransportJSON  `json:"transport"`
+	RuntimeArguments     []ArgumentJSON `json:"runtimeArguments,omitempty"`
+	PackageArguments     []ArgumentJSON `json:"packageArguments,omitempty"`
+	EnvironmentVariables []KeyValueJSON `json:"environmentVariables,omitempty"`
 }
 
 type ArgumentJSON struct {
@@ -112,10 +112,10 @@ type ServerListResponse struct {
 
 // Input types
 type ListServersInput struct {
-	Cursor   string `query:"cursor" json:"cursor,omitempty"`
-	Limit    int    `query:"limit" json:"limit,omitempty" default:"30" minimum:"1" maximum:"100"`
-	Search   string `query:"search" json:"search,omitempty"`
-	Version  string `query:"version" json:"version,omitempty"`
+	Cursor  string `query:"cursor" json:"cursor,omitempty"`
+	Limit   int    `query:"limit" json:"limit,omitempty" default:"30" minimum:"1" maximum:"100"`
+	Search  string `query:"search" json:"search,omitempty"`
+	Version string `query:"version" json:"version,omitempty"`
 }
 
 type ServerDetailInput struct {

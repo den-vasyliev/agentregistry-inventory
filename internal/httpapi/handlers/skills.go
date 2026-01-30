@@ -35,15 +35,15 @@ func NewSkillHandler(c client.Client, cache cache.Cache, logger zerolog.Logger) 
 
 // Skill response types
 type SkillJSON struct {
-	Name        string              `json:"name"`
-	Version     string              `json:"version"`
-	Title       string              `json:"title,omitempty"`
-	Category    string              `json:"category,omitempty"`
-	Description string              `json:"description,omitempty"`
-	WebsiteURL  string              `json:"websiteUrl,omitempty"`
+	Name        string               `json:"name"`
+	Version     string               `json:"version"`
+	Title       string               `json:"title,omitempty"`
+	Category    string               `json:"category,omitempty"`
+	Description string               `json:"description,omitempty"`
+	WebsiteURL  string               `json:"websiteUrl,omitempty"`
 	Repository  *SkillRepositoryJSON `json:"repository,omitempty"`
-	Packages    []SkillPackageJSON  `json:"packages,omitempty"`
-	Remotes     []SkillRemoteJSON   `json:"remotes,omitempty"`
+	Packages    []SkillPackageJSON   `json:"packages,omitempty"`
+	Remotes     []SkillRemoteJSON    `json:"remotes,omitempty"`
 }
 
 type SkillRepositoryJSON struct {
@@ -52,9 +52,9 @@ type SkillRepositoryJSON struct {
 }
 
 type SkillPackageJSON struct {
-	RegistryType string                    `json:"registryType"`
-	Identifier   string                    `json:"identifier"`
-	Version      string                    `json:"version,omitempty"`
+	RegistryType string                     `json:"registryType"`
+	Identifier   string                     `json:"identifier"`
+	Version      string                     `json:"version,omitempty"`
 	Transport    *SkillPackageTransportJSON `json:"transport,omitempty"`
 }
 
@@ -73,7 +73,7 @@ type SkillUsageRefJSON struct {
 }
 
 type SkillMeta struct {
-	Official *OfficialMeta      `json:"io.modelcontextprotocol.registry/official,omitempty"`
+	Official *OfficialMeta       `json:"io.modelcontextprotocol.registry/official,omitempty"`
 	UsedBy   []SkillUsageRefJSON `json:"usedBy,omitempty"`
 }
 

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -13,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search } from "lucide-react"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { toast } from "sonner"
 import {
@@ -37,9 +39,14 @@ type DeploymentResponse = {
 }
 
 export default function PublishedPage() {
+  const [activeTab, setActiveTab] = useState("mcp")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
   const [agents, setAgents] = useState<AgentResponse[]>([])
+  const [filteredServers, setFilteredServers] = useState<ServerResponse[]>([])
+  const [filteredSkills, setFilteredSkills] = useState<SkillResponse[]>([])
+  const [filteredAgents, setFilteredAgents] = useState<AgentResponse[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
   const [deployments, setDeployments] = useState<DeploymentResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -116,6 +123,29 @@ export default function PublishedPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Filter by search query
+  useEffect(() => {
+    const query = searchQuery.toLowerCase()
+    setFilteredServers(
+      servers.filter(s =>
+        s.server.name.toLowerCase().includes(query) ||
+        s.server.description?.toLowerCase().includes(query)
+      )
+    )
+    setFilteredSkills(
+      skills.filter(s =>
+        s.skill.name.toLowerCase().includes(query) ||
+        s.skill.description?.toLowerCase().includes(query)
+      )
+    )
+    setFilteredAgents(
+      agents.filter(a =>
+        a.agent.name.toLowerCase().includes(query) ||
+        a.agent.description?.toLowerCase().includes(query)
+      )
+    )
+  }, [searchQuery, servers, skills, agents])
+
   // Check if a resource is currently deployed (check both name and version)
   const isDeployed = (name: string, version: string, type: 'server' | 'agent') => {
     return deployments.some(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
@@ -132,7 +162,6 @@ export default function PublishedPage() {
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
     setItemToDeploy({ name, version, type })
-    // Reset deploy state
   }
 
   const confirmDeploy = async () => {
@@ -302,7 +331,7 @@ export default function PublishedPage() {
       </div>
 
       <div className="container mx-auto px-6 py-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="mb-8 flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Published Resources</h1>
@@ -322,6 +351,20 @@ export default function PublishedPage() {
                 fetchPublished()
               }}
             />
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search published resources..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
 
           {error && (
@@ -360,170 +403,164 @@ export default function PublishedPage() {
               </div>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {/* MCP Servers Section */}
-              {servers.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">MCP Servers ({servers.length})</h2>
-                  {servers.map((serverResponse) => {
-                    const server = serverResponse.server
-                    const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    const deployed = isDeployed(server.name, server.version, 'server')
-                    return (
-                      <Card key={`${server.name}-${server.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{server.name}</h3>
-                            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="mcp">MCP Servers ({filteredServers.length})</TabsTrigger>
+                <TabsTrigger value="agents">Agents ({filteredAgents.length})</TabsTrigger>
+                <TabsTrigger value="skills">Skills ({filteredSkills.length})</TabsTrigger>
+              </TabsList>
 
-                            <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {server.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
+              <TabsContent value="mcp" className="space-y-4">
+                {filteredServers.map((serverResponse) => {
+                  const server = serverResponse.server
+                  const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
+                  const deployed = isDeployed(server.name, server.version, 'server')
+                  return (
+                    <Card key={`${server.name}-${server.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{server.name}</h3>
                           </div>
 
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleDeploy(server.name, server.version, 'server')}
-                              disabled={deploying || deployed}
-                            >
-                              <Rocket className="h-4 w-4 mr-2" />
-                              {deployed ? 'Already Deployed' : 'Deploy'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnpublish(server.name, server.version, 'server')}
-                              disabled={unpublishing}
-                            >
-                              Unpublish
-                            </Button>
+                          <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {server.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
 
-              {/* Skills Section */}
-              {skills.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">Skills ({skills.length})</h2>
-                  {skills.map((skillResponse) => {
-                    const skill = skillResponse.skill
-                    const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    return (
-                      <Card key={`${skill.name}-${skill.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
-                            </div>
-
-                            <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {skill.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleDeploy(server.name, server.version, 'server')}
+                            disabled={deploying || deployed}
+                          >
+                            <Rocket className="h-4 w-4 mr-2" />
+                            {deployed ? 'Already Deployed' : 'Deploy'}
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="ml-4"
-                            onClick={() => handleUnpublish(skill.name, skill.version, 'skill')}
+                            onClick={() => handleUnpublish(server.name, server.version, 'server')}
                             disabled={unpublishing}
                           >
                             Unpublish
                           </Button>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
+                      </div>
+                    </Card>
+                  )
+                })}
+              </TabsContent>
 
-              {/* Agents Section */}
-              {agents.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">Agents ({agents.length})</h2>
-                  {agents.map((agentResponse) => {
-                    const agent = agentResponse.agent
-                    const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    const deployed = isDeployed(agent.name, agent.version, 'agent')
-                    return (
-                      <Card key={`${agent.name}-${agent.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{agent.name}</h3>
-                            </div>
-
-                            <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {agent.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
+              <TabsContent value="agents" className="space-y-4">
+                {filteredAgents.map((agentResponse) => {
+                  const agent = agentResponse.agent
+                  const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
+                  const deployed = isDeployed(agent.name, agent.version, 'agent')
+                  return (
+                    <Card key={`${agent.name}-${agent.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{agent.name}</h3>
                           </div>
 
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
-                              disabled={deploying || deployed}
-                            >
-                              <Rocket className="h-4 w-4 mr-2" />
-                              {deployed ? 'Already Deployed' : 'Deploy'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnpublish(agent.name, agent.version, 'agent')}
-                              disabled={unpublishing}
-                            >
-                              Unpublish
-                            </Button>
+                          <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {agent.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
-            </div>
+
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
+                            disabled={deploying || deployed}
+                          >
+                            <Rocket className="h-4 w-4 mr-2" />
+                            {deployed ? 'Already Deployed' : 'Deploy'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUnpublish(agent.name, agent.version, 'agent')}
+                            disabled={unpublishing}
+                          >
+                            Unpublish
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </TabsContent>
+
+              <TabsContent value="skills" className="space-y-4">
+                {filteredSkills.map((skillResponse) => {
+                  const skill = skillResponse.skill
+                  const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
+                  return (
+                    <Card key={`${skill.name}-${skill.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {skill.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-4"
+                          onClick={() => handleUnpublish(skill.name, skill.version, 'skill')}
+                          disabled={unpublishing}
+                        >
+                          Unpublish
+                        </Button>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </TabsContent>
+            </Tabs>
           )}
         </div>
       </div>
@@ -596,4 +633,3 @@ export default function PublishedPage() {
     </main>
   )
 }
-

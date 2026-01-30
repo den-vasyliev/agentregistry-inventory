@@ -45,7 +45,7 @@ func (r *AgentDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	logger.Info().Msg("discovered Agent, syncing to catalog")
+	logger.Debug().Msg("discovered Agent, syncing to catalog")
 
 	// Generate catalog entry name
 	catalogName := generateAgentCatalogName(agent.Namespace, agent.Name)
@@ -70,6 +70,11 @@ func (r *AgentDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.syncStatusFromAgent(&catalog, &agent)
 
 	if err := r.Status().Update(ctx, &catalog); err != nil {
+		if apierrors.IsConflict(err) {
+			// Conflict means resource was modified, requeue to retry with latest version
+			logger.Debug().Msg("conflict updating catalog status, will retry")
+			return ctrl.Result{Requeue: true}, nil
+		}
 		logger.Error().Err(err).Msg("failed to update catalog status")
 		return ctrl.Result{}, err
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,7 +34,7 @@ func (r *AgentCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info().
+	logger.Debug().
 		Str("specName", agent.Spec.Name).
 		Str("version", agent.Spec.Version).
 		Msg("reconciling AgentCatalog")
@@ -48,6 +49,11 @@ func (r *AgentCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if agent.Status.ObservedGeneration != agent.Generation {
 		agent.Status.ObservedGeneration = agent.Generation
 		if err := r.Status().Update(ctx, &agent); err != nil {
+			if apierrors.IsConflict(err) {
+				// Conflict means resource was modified, requeue to retry with latest version
+				logger.Debug().Msg("conflict updating status, will retry")
+				return ctrl.Result{Requeue: true}, nil
+			}
 			logger.Error().Err(err).Msg("failed to update status")
 			return ctrl.Result{}, err
 		}

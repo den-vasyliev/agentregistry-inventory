@@ -27,8 +27,8 @@ type SkillDiscoveryReconciler struct {
 }
 
 const (
-	skillDiscoveryLabel  = "agentregistry.dev/skill-discovered"
-	skillSourceLabel     = "agentregistry.dev/skill-source"
+	skillDiscoveryLabel = "agentregistry.dev/skill-discovered"
+	skillSourceLabel    = "agentregistry.dev/skill-source"
 )
 
 // +kubebuilder:rbac:groups=kagent.dev,resources=agents,verbs=get;list;watch
@@ -56,7 +56,7 @@ func (r *SkillDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info().Int("skillCount", len(agent.Spec.Skills.Refs)).Msg("discovered Agent with skills, syncing to catalog")
+	logger.Debug().Int("skillCount", len(agent.Spec.Skills.Refs)).Msg("discovered Agent with skills, syncing to catalog")
 
 	// Process each skill ref
 	for _, skillRef := range agent.Spec.Skills.Refs {
@@ -157,7 +157,14 @@ func (r *SkillDiscoveryReconciler) updateSkillUsage(ctx context.Context, catalog
 		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
 	}
 
-	return r.Status().Update(ctx, catalog)
+	if err := r.Status().Update(ctx, catalog); err != nil {
+		if apierrors.IsConflict(err) {
+			// Conflict means resource was modified, will retry
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // removeAgentFromSkillUsage removes an agent from all skill UsedBy lists
@@ -186,9 +193,15 @@ func (r *SkillDiscoveryReconciler) removeAgentFromSkillUsage(ctx context.Context
 		if updated {
 			skill.Status.UsedBy = newUsedBy
 			if err := r.Status().Update(ctx, skill); err != nil {
-				r.Logger.Error().Err(err).
-					Str("skill", skill.Name).
-					Msg("failed to update skill usage after agent deletion")
+				if !apierrors.IsConflict(err) {
+					r.Logger.Error().Err(err).
+						Str("skill", skill.Name).
+						Msg("failed to update skill usage after agent deletion")
+				} else {
+					r.Logger.Debug().
+						Str("skill", skill.Name).
+						Msg("conflict updating skill usage, will retry")
+				}
 			}
 		}
 	}

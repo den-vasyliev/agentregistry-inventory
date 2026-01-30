@@ -50,7 +50,7 @@ func (r *ModelDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	logger.Info().
+	logger.Debug().
 		Str("provider", string(modelConfig.Spec.Provider)).
 		Str("model", modelConfig.Spec.Model).
 		Msg("discovered ModelConfig, syncing to catalog")
@@ -78,6 +78,11 @@ func (r *ModelDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.syncStatusFromModelConfig(&catalog, &modelConfig)
 
 	if err := r.Status().Update(ctx, &catalog); err != nil {
+		if apierrors.IsConflict(err) {
+			// Conflict means resource was modified, requeue to retry with latest version
+			logger.Debug().Msg("conflict updating model catalog status, will retry")
+			return ctrl.Result{Requeue: true}, nil
+		}
 		logger.Error().Err(err).Msg("failed to update model catalog status")
 		return ctrl.Result{}, err
 	}

@@ -72,4 +72,3 @@ func (e *Executor) Push(imageName string) error {
 	fmt.Printf("✅ Successfully pushed Docker image: %s\n", imageName)
 	return nil
 }
-

@@ -39,17 +39,17 @@ type SubmitRequest struct {
 
 // SubmitResponse is the response for a submission
 type SubmitResponse struct {
-	Success  bool   `json:"success"`
-	Message  string `json:"message"`
-	Name     string `json:"name,omitempty"`
-	Kind     string `json:"kind,omitempty"`
-	Version  string `json:"version,omitempty"`
-	Status   string `json:"status,omitempty"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Name    string `json:"name,omitempty"`
+	Kind    string `json:"kind,omitempty"`
+	Version string `json:"version,omitempty"`
+	Status  string `json:"status,omitempty"`
 }
 
 // AgentRegistryManifest represents the .agentregistry.yaml file structure
 type AgentRegistryManifest struct {
-	Kind        string `yaml:"kind"`        // mcp-server, agent, skill
+	Kind        string `yaml:"kind"` // mcp-server, agent, skill
 	Name        string `yaml:"name"`
 	Version     string `yaml:"version"`
 	Title       string `yaml:"title,omitempty"`
@@ -72,7 +72,7 @@ type AgentRegistryManifest struct {
 }
 
 type ManifestPackage struct {
-	Type       string `yaml:"type"`       // oci, npm, pypi
+	Type       string `yaml:"type"` // oci, npm, pypi
 	Image      string `yaml:"image,omitempty"`
 	Identifier string `yaml:"identifier,omitempty"`
 	Transport  string `yaml:"transport,omitempty"`
@@ -325,7 +325,7 @@ func (h *SubmitHandler) createMCPServerCatalog(ctx context.Context, m *AgentRegi
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
 			Labels: map[string]string{
-				"agentregistry.dev/submitted":   "true",
+				"agentregistry.dev/submitted":     "true",
 				"agentregistry.dev/review-status": "pending",
 			},
 			Annotations: map[string]string{
@@ -377,7 +377,7 @@ func (h *SubmitHandler) createAgentCatalog(ctx context.Context, m *AgentRegistry
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
 			Labels: map[string]string{
-				"agentregistry.dev/submitted":   "true",
+				"agentregistry.dev/submitted":     "true",
 				"agentregistry.dev/review-status": "pending",
 			},
 			Annotations: map[string]string{
@@ -441,7 +441,7 @@ func (h *SubmitHandler) createSkillCatalog(ctx context.Context, m *AgentRegistry
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
 			Labels: map[string]string{
-				"agentregistry.dev/submitted":   "true",
+				"agentregistry.dev/submitted":     "true",
 				"agentregistry.dev/review-status": "pending",
 			},
 			Annotations: map[string]string{
