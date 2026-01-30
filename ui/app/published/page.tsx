@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, LogIn } from "lucide-react"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { toast } from "sonner"
 import {
@@ -39,6 +40,7 @@ type DeploymentResponse = {
 }
 
 export default function PublishedPage() {
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("mcp")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
@@ -161,6 +163,10 @@ export default function PublishedPage() {
   }
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
+    if (!session) {
+      toast.error("Please sign in to deploy resources")
+      return
+    }
     setItemToDeploy({ name, version, type })
   }
 
@@ -392,13 +398,13 @@ export default function PublishedPage() {
                   No published resources
                 </p>
                 <p className="text-sm mb-6">
-                  Publish MCP servers, skills, or agents from the Admin panel to see them here.
+                  Publish MCP servers, skills, or agents from the Registry to see them here.
                 </p>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
                 >
-                  Go to Admin Panel
+                  Go to Registry
                 </Link>
               </div>
             </Card>
@@ -445,9 +451,15 @@ export default function PublishedPage() {
                             size="sm"
                             onClick={() => handleDeploy(server.name, server.version, 'server')}
                             disabled={deploying || deployed}
+                            title={!session ? "Sign in to deploy" : undefined}
                           >
-                            <Rocket className="h-4 w-4 mr-2" />
-                            {deployed ? 'Already Deployed' : 'Deploy'}
+                            {!session ? (
+                              <><LogIn className="h-4 w-4 mr-2" />Sign in to deploy</>
+                            ) : deployed ? (
+                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                            ) : (
+                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                            )}
                           </Button>
                           <Button
                             variant="outline"
@@ -499,9 +511,15 @@ export default function PublishedPage() {
                             size="sm"
                             onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
                             disabled={deploying || deployed}
+                            title={!session ? "Sign in to deploy" : undefined}
                           >
-                            <Rocket className="h-4 w-4 mr-2" />
-                            {deployed ? 'Already Deployed' : 'Deploy'}
+                            {!session ? (
+                              <><LogIn className="h-4 w-4 mr-2" />Sign in to deploy</>
+                            ) : deployed ? (
+                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                            ) : (
+                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                            )}
                           </Button>
                           <Button
                             variant="outline"

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { adminApiClient } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, LogIn } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -33,6 +34,7 @@ type DeploymentResponse = {
 }
 
 export default function DeployedPage() {
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("mcp")
   const [deployments, setDeployments] = useState<DeploymentResponse[]>([])
   const [filteredDeployments, setFilteredDeployments] = useState<DeploymentResponse[]>([])
@@ -84,6 +86,10 @@ export default function DeployedPage() {
   }, [searchQuery, deployments])
 
   const handleRemove = async (serverName: string, version: string, resourceType: string) => {
+    if (!session) {
+      toast.error("Please sign in to remove deployments")
+      return
+    }
     setServerToRemove({ name: serverName, version, resourceType })
   }
 
@@ -270,13 +276,13 @@ export default function DeployedPage() {
                   No resources found
                 </p>
                 <p className="text-sm mb-6">
-                  Deploy MCP servers from the Admin panel to monitor them here.
+                  Deploy MCP servers from the Registry to monitor them here.
                 </p>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
                 >
-                  Go to Admin Panel
+                  Go to Registry
                 </Link>
               </div>
             </Card>
@@ -345,14 +351,18 @@ export default function DeployedPage() {
 
                       {!item.isExternal && (
                         <Button
-                          variant="destructive"
+                          variant={session ? "destructive" : "outline"}
                           size="sm"
                           className="ml-4"
                           onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
                           disabled={removing}
+                          title={!session ? "Sign in to remove" : undefined}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove
+                          {session ? (
+                            <><Trash2 className="h-4 w-4 mr-2" />Remove</>
+                          ) : (
+                            <><LogIn className="h-4 w-4 mr-2" />Sign in to remove</>
+                          )}
                         </Button>
                       )}
                     </div>
@@ -418,14 +428,18 @@ export default function DeployedPage() {
 
                       {!item.isExternal && (
                         <Button
-                          variant="destructive"
+                          variant={session ? "destructive" : "outline"}
                           size="sm"
                           className="ml-4"
                           onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
                           disabled={removing}
+                          title={!session ? "Sign in to remove" : undefined}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove
+                          {session ? (
+                            <><Trash2 className="h-4 w-4 mr-2" />Remove</>
+                          ) : (
+                            <><LogIn className="h-4 w-4 mr-2" />Sign in to remove</>
+                          )}
                         </Button>
                       )}
                     </div>
