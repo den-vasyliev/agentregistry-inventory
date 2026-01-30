@@ -3,11 +3,9 @@ package mcp
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
-	"github.com/agentregistry-dev/agentregistry/internal/client"
 	"github.com/agentregistry-dev/agentregistry/pkg/printer"
 	v0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
 	"github.com/spf13/cobra"
@@ -46,12 +44,6 @@ func runList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get servers: %w", err)
 	}
 
-	deployedServers, err := apiClient.GetDeployedServers()
-	if err != nil {
-		log.Printf("Warning: Failed to get deployed servers: %v", err)
-		deployedServers = nil
-	}
-
 	// Filter by type if specified
 	if filterType != "" {
 		servers = filterServersByType(servers, filterType)
@@ -73,20 +65,20 @@ func runList(cmd *cobra.Command, args []string) error {
 	case "yaml":
 		return outputDataYaml(servers)
 	default:
-		displayPaginatedServers(servers, deployedServers, listPageSize, listAll)
+		displayPaginatedServers(servers, listPageSize, listAll)
 	}
 
 	return nil
 }
 
-func displayPaginatedServers(servers []*v0.ServerResponse, deployedServers []*client.DeploymentResponse, pageSize int, showAll bool) {
+func displayPaginatedServers(servers []*v0.ServerResponse, pageSize int, showAll bool) {
 	// Sort servers before displaying
 	sortServers(servers, sortBy)
 	total := len(servers)
 
 	if showAll || total <= pageSize {
 		// Show all items
-		printServersTable(servers, deployedServers)
+		printServersTable(servers)
 		return
 	}
 
@@ -98,7 +90,7 @@ func displayPaginatedServers(servers []*v0.ServerResponse, deployedServers []*cl
 		end := min(start+pageSize, total)
 
 		// Display current page
-		printServersTable(servers[start:end], deployedServers)
+		printServersTable(servers[start:end])
 
 		// Check if there are more items
 		remaining := total - end
@@ -118,7 +110,7 @@ func displayPaginatedServers(servers []*v0.ServerResponse, deployedServers []*cl
 			case "a", "all":
 				// Show all remaining
 				fmt.Println()
-				printServersTable(servers[end:], deployedServers)
+				printServersTable(servers[end:])
 				return
 			case "q", "quit":
 				// Quit pagination
@@ -207,18 +199,9 @@ func sortServers(servers []*v0.ServerResponse, column string) {
 	}
 }
 
-func printServersTable(servers []*v0.ServerResponse, deployedServers []*client.DeploymentResponse) {
+func printServersTable(servers []*v0.ServerResponse) {
 	t := printer.NewTablePrinter(os.Stdout)
-	t.SetHeaders("Name", "Version", "Type", "Published", "Deployed", "Updated")
-
-	// Create a map of deployed servers by name and version
-	deployedMap := make(map[string]map[string]*client.DeploymentResponse)
-	for _, d := range deployedServers {
-		if deployedMap[d.ServerName] == nil {
-			deployedMap[d.ServerName] = make(map[string]*client.DeploymentResponse)
-		}
-		deployedMap[d.ServerName][d.Version] = d
-	}
+	t.SetHeaders("Name", "Version", "Type", "Published", "Updated")
 
 	for _, s := range servers {
 		// Parse the stored combined data
@@ -232,36 +215,20 @@ func printServersTable(servers []*v0.ServerResponse, deployedServers []*client.D
 			registryType = s.Server.Remotes[0].Type
 		}
 
-		// Extract published status using the published boolean field
-		publishedStatus := "False"
-		isPublished, err := isServerPublished(s.Server.Name, s.Server.Version)
-		if err != nil {
-			log.Printf("Warning: Failed to check if server is published: %v", err)
-		}
-		if isPublished {
-			publishedStatus = "True"
-		}
-		if !s.Meta.Official.UpdatedAt.IsZero() {
+		// Note: Published status removed - in K8s-native architecture, listing implies availability
+		publishedStatus := "True"
+		if s.Meta.Official != nil && !s.Meta.Official.UpdatedAt.IsZero() {
 			updatedAt = printer.FormatAge(s.Meta.Official.UpdatedAt)
 		}
 
 		// Use the full server name (includes namespace if present)
 		fullName := s.Server.Name
 
-		deployedStatus := "False"
-		if serverDeployments, ok := deployedMap[s.Server.Name]; ok {
-			if _, ok := serverDeployments[s.Server.Version]; ok {
-				deployedStatus = "True"
-			}
-			// If this specific version is not deployed, show False even if another version is deployed
-		}
-
 		t.AddRow(
 			printer.TruncateString(fullName, 50),
 			s.Server.Version,
 			registryType,
 			publishedStatus,
-			deployedStatus,
 			updatedAt,
 		)
 	}

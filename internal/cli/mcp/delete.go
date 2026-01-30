@@ -43,30 +43,13 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to check if server is published: %w", err)
 	}
 
-	// Check if server is deployed
-	isDeployed, err := isServerDeployed(serverName, deleteVersion)
-	if err != nil {
-		return fmt.Errorf("failed to check if server is deployed: %w", err)
-	}
-
-	// Fail if published or deployed unless --force is used
-	if !deleteForceFlag {
-		if isPublished {
-			return fmt.Errorf("server %s version %s is published. Unpublish it first using 'arctl mcp unpublish %s --version %s', or use --force to delete anyway", serverName, deleteVersion, serverName, deleteVersion)
-		}
-		if isDeployed {
-			return fmt.Errorf("server %s version %s is deployed. Remove it first using 'arctl mcp remove %s --version %s', or use --force to delete anyway", serverName, deleteVersion, serverName, deleteVersion)
-		}
-	}
-
-	// Make sure to remove the deployment before deleting the server from database
-	if deleteForceFlag && isDeployed {
-		if err := apiClient.RemoveDeployment(serverName, deleteVersion, "mcp"); err != nil {
-			return fmt.Errorf("failed to remove deployment before delete: %w", err)
-		}
+	// Fail if published unless --force is used
+	if !deleteForceFlag && isPublished {
+		return fmt.Errorf("server %s version %s is published. Unpublish it first using 'arctl mcp unpublish %s --version %s', or use --force to delete anyway", serverName, deleteVersion, serverName, deleteVersion)
 	}
 
 	// Delete the server
+	// Note: Deployment management is now handled by Kubernetes directly (kubectl delete application)
 	fmt.Printf("Deleting server %s version %s...\n", serverName, deleteVersion)
 	err = apiClient.DeleteMCPServer(serverName, deleteVersion)
 	if err != nil {
@@ -75,4 +58,20 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("MCP server '%s' version %s deleted successfully\n", serverName, deleteVersion)
 	return nil
+}
+
+func isServerPublished(serverName, version string) (bool, error) {
+	if apiClient == nil {
+		return false, fmt.Errorf("API client not initialized")
+	}
+
+	// Get server to check if it exists
+	// Note: Published field checking removed - no longer tracked in K8s-native architecture
+	server, err := apiClient.GetServerByNameAndVersion(serverName, version, false)
+	if err != nil {
+		return false, err
+	}
+
+	// If server exists, consider it published (in K8s-native arch, existence implies availability)
+	return server != nil, nil
 }

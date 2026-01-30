@@ -84,6 +84,13 @@ func (s *Server) registerRoutes() {
 	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
 	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
 
+	// Ping endpoint for CLI compatibility
+	s.mux.HandleFunc("/v0/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	// Health endpoint
 	s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

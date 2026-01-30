@@ -11,7 +11,7 @@ import (
 	"github.com/modelcontextprotocol/registry/pkg/model"
 )
 
-var defaultRegistryURL = "http://127.0.0.1:12121"
+var defaultRegistryURL = "http://127.0.0.1:8080"
 
 // SetDefaultRegistryURL overrides the fallback registry URL used when manifests omit registry_url.
 func SetDefaultRegistryURL(url string) {

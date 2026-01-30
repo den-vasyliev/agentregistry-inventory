@@ -26,7 +26,7 @@ type Client struct {
 
 const (
 	defaultRegistryName = "local"
-	defaultBaseURL      = "http://localhost:12121/v0"
+	defaultBaseURL      = "http://localhost:8080/v0"
 	DefaultBaseURL      = defaultBaseURL
 )
 
@@ -49,7 +49,7 @@ func NewClient(baseURL, token string) *Client {
 	}
 }
 
-// NewClientWithConfig constructs a client from explicit inputs (flag/env), applies defaults, and verifies connectivity.
+// NewClientWithConfig constructs a client from explicit inputs (flag/env), applies defaults.
 func NewClientWithConfig(baseURL, token string) (*Client, error) {
 	base := strings.TrimSpace(baseURL)
 	if base == "" {
@@ -57,25 +57,7 @@ func NewClientWithConfig(baseURL, token string) (*Client, error) {
 	}
 
 	c := NewClient(base, token)
-	if err := pingWithRetry(c); err != nil {
-		return nil, fmt.Errorf("failed to reach API at %s: %w", c.BaseURL, err)
-	}
-
 	return c, nil
-}
-
-func pingWithRetry(c *Client) error {
-	var lastErr error
-	const attempts = 3
-	for i := range attempts {
-		if err := c.Ping(); err != nil {
-			lastErr = err
-			time.Sleep(time.Duration(i+1) * time.Second)
-			continue
-		}
-		return nil
-	}
-	return fmt.Errorf("failed to reach API after %d attempts: %w", attempts, lastErr)
 }
 
 // Close is a no-op in API mode
@@ -152,15 +134,6 @@ func (c *Client) doJsonRequest(method, pathWithQuery string, in, out any) error 
 		req.Body = io.NopCloser(bytes.NewReader(inBytes))
 	}
 	return c.doJSON(req, out)
-}
-
-// Ping checks connectivity to the API
-func (c *Client) Ping() error {
-	req, err := c.newRequest(http.MethodGet, "/ping")
-	if err != nil {
-		return err
-	}
-	return c.doJSON(req, nil)
 }
 
 func (c *Client) GetVersion() (*internalv0.VersionBody, error) {

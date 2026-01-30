@@ -19,8 +19,7 @@ var AgentCmd = &cobra.Command{
 	Args:  cobra.ArbitraryArgs,
 	Example: `arctl agent list
 arctl agent show dice
-arctl agent publish ./my-agent
-arctl agent deploy dice`,
+arctl agent publish ./my-agent`,
 }
 
 func init() {
@@ -32,8 +31,6 @@ func init() {
 	AgentCmd.AddCommand(AddMcpCmd)
 	AgentCmd.AddCommand(PublishCmd)
 	AgentCmd.AddCommand(DeleteCmd)
-	AgentCmd.AddCommand(RemoveCmd)
-	AgentCmd.AddCommand(DeployCmd)
 	AgentCmd.AddCommand(UnpublishCmd)
 	AgentCmd.AddCommand(ListCmd)
 	AgentCmd.AddCommand(ShowCmd)

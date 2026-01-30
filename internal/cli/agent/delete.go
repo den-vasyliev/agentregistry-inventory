@@ -43,30 +43,13 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to check if agent is published: %w", err)
 	}
 
-	// Check if agent is deployed
-	isDeployed, err := isAgentDeployed(agentName, deleteVersion)
-	if err != nil {
-		return fmt.Errorf("failed to check if agent is deployed: %w", err)
-	}
-
-	// Fail if published or deployed unless --force is used
-	if !deleteForceFlag {
-		if isPublished {
-			return fmt.Errorf("agent %s version %s is published. Unpublish it first using 'arctl agent unpublish %s --version %s', or use --force to delete anyway", agentName, deleteVersion, agentName, deleteVersion)
-		}
-		if isDeployed {
-			return fmt.Errorf("agent %s version %s is deployed. Remove it first using 'arctl agent remove %s --version %s', or use --force to delete anyway", agentName, deleteVersion, agentName, deleteVersion)
-		}
-	}
-
-	// Make sure to remove the deployment before deleting the agent from database
-	if deleteForceFlag && isDeployed {
-		if err := apiClient.RemoveDeployment(agentName, deleteVersion, "agent"); err != nil {
-			return fmt.Errorf("failed to remove deployment before delete: %w", err)
-		}
+	// Fail if published unless --force is used
+	if !deleteForceFlag && isPublished {
+		return fmt.Errorf("agent %s version %s is published. Unpublish it first using 'arctl agent unpublish %s --version %s', or use --force to delete anyway", agentName, deleteVersion, agentName, deleteVersion)
 	}
 
 	// Delete the agent
+	// Note: Deployment management is now handled by Kubernetes directly (kubectl delete application)
 	fmt.Printf("Deleting agent %s version %s...\n", agentName, deleteVersion)
 	err = apiClient.DeleteAgent(agentName, deleteVersion)
 	if err != nil {
@@ -97,16 +80,4 @@ func isAgentPublished(agentName, version string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-func isAgentDeployed(agentName, version string) (bool, error) {
-	if apiClient == nil {
-		return false, fmt.Errorf("API client not initialized")
-	}
-
-	deployment, err := apiClient.GetDeployedServerByNameAndVersion(agentName, version, "agent")
-	if err != nil {
-		return false, fmt.Errorf("failed to get deployment: %w", err)
-	}
-	return deployment != nil, nil
 }
