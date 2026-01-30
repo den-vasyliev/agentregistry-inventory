@@ -1,0 +1,21 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: terraform-skill
+spec:
+  name: terraform-skill
+  version: "1.5.0"
+  title: Terraform Skill for Claude
+  category: infrastructure
+  description: |
+    Comprehensive Terraform and OpenTofu best practices skill for Claude Code.
+    Covers testing strategies (native tests, Terratest), module patterns, CI/CD
+    workflows (GitHub Actions, GitLab CI), and production-ready infrastructure code.
+    Includes decision matrices, security and compliance (Trivy, Checkov), and DO vs
+    DON'T patterns. Based on terraform-best-practices.com and production experience.
+  websiteUrl: https://github.com/antonbabenko/terraform-skill
+  repository:
+    url: https://github.com/antonbabenko/terraform-skill
+    source: github
+  packages: []
+  remotes: []
