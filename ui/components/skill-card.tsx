@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload, BadgeCheck } from "lucide-react"
 
 interface SkillCardProps {
   skill: SkillResponse
@@ -24,6 +24,28 @@ interface SkillCardProps {
 export function SkillCard({ skill, onDelete, onPublish, showDelete = false, showPublish = false, showExternalLinks = true, onClick }: SkillCardProps) {
   const { skill: skillData, _meta } = skill
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+
+  // Extract metadata
+  const publisherMetadata = skillData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const identityData = publisherMetadata?.identity
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if (official?.submitter) return official.submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (skillData.repository?.url) {
+      const match = skillData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   const handleClick = () => {
     if (onClick) {
@@ -131,6 +153,13 @@ export function SkillCard({ skill, onDelete, onPublish, showDelete = false, show
       </p>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {owner && (
+          <div className="flex items-center gap-1 text-primary font-medium">
+            <BadgeCheck className="h-3 w-3" />
+            <span>{owner}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-1">
           <Tag className="h-3 w-3" />
           <span>{skillData.version}</span>

@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle } from "lucide-react"
+import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle, BadgeCheck } from "lucide-react"
 
 interface AgentCardProps {
   agent: AgentResponse
@@ -26,6 +26,28 @@ export function AgentCard({ agent, onDelete, onPublish, showDelete = false, show
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   const deployment = _meta?.deployment
+
+  // Extract metadata
+  const publisherMetadata = agentData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const identityData = publisherMetadata?.identity
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if (official?.submitter) return official.submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (agentData.repository?.url) {
+      const match = agentData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   const handleClick = () => {
     if (onClick) {
@@ -125,6 +147,13 @@ export function AgentCard({ agent, onDelete, onPublish, showDelete = false, show
       )}
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {owner && (
+          <div className="flex items-center gap-1 text-primary font-medium">
+            <BadgeCheck className="h-3 w-3" />
+            <span>{owner}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-1">
           <Tag className="h-3 w-3" />
           <span>{agentData.version}</span>

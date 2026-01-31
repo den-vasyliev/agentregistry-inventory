@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { adminApiClient, createAuthenticatedClient } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, LogIn } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, LogIn, Bot } from "lucide-react"
+import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -45,7 +46,13 @@ export default function DeployedPage() {
   const [serverToRemove, setServerToRemove] = useState<{ name: string, version: string, resourceType: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const gatewayUrl = "http://localhost:21212/mcp"
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const itemsPerPage = 5
+
+  // Gateway URL - get from controller config or use default
+  const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kagent.ops.gfknewron.com"
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(gatewayUrl)
@@ -223,26 +230,33 @@ export default function DeployedPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Deployed Resources</h1>
-            <p className="text-muted-foreground">
-              Monitor and manage MCP servers and agents deployed on your system.
-            </p>
-          </div>
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center gap-4 mb-8">
+            <TabsList>
+              <TabsTrigger value="mcp" className="gap-2">
+                <span className="h-4 w-4 flex items-center justify-center">
+                  <MCPIcon />
+                </span>
+                Servers
+              </TabsTrigger>
+              <TabsTrigger value="agents" className="gap-2">
+                <Bot className="h-4 w-4" />
+                Agents
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search deployed resources..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search deployed resources..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
             </div>
           </div>
 
@@ -295,14 +309,12 @@ export default function DeployedPage() {
               </div>
             </Card>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="mcp">MCP Servers ({mcpServers.length})</TabsTrigger>
-                <TabsTrigger value="agents">Agents ({agents.length})</TabsTrigger>
-              </TabsList>
+            <>
 
               <TabsContent value="mcp" className="space-y-4">
-                {mcpServers.map((item) => (
+                {mcpServers
+                  .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                  .map((item) => (
                   <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -376,10 +388,35 @@ export default function DeployedPage() {
                     </div>
                   </Card>
                 ))}
+                {mcpServers.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                      disabled={currentPageServers === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageServers} of {Math.ceil(mcpServers.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(mcpServers.length / itemsPerPage), p + 1))}
+                      disabled={currentPageServers >= Math.ceil(mcpServers.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="agents" className="space-y-4">
-                {agents.map((item) => (
+                {agents
+                  .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                  .map((item) => (
                   <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -453,10 +490,33 @@ export default function DeployedPage() {
                     </div>
                   </Card>
                 ))}
+                {agents.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                      disabled={currentPageAgents === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageAgents} of {Math.ceil(agents.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(agents.length / itemsPerPage), p + 1))}
+                      disabled={currentPageAgents >= Math.ceil(agents.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
-            </Tabs>
+            </>
           )}
-        </div>
+        </Tabs>
       </div>
 
       {/* Remove Confirmation Dialog */}

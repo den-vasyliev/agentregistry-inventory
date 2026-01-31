@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,8 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, LogIn } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, LogIn, BadgeCheck, Bot, Zap } from "lucide-react"
+import MCPIcon from "@/components/icons/mcp"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
+import { ServerDetail } from "@/components/server-detail"
+import { SkillDetail } from "@/components/skill-detail"
+import { AgentDetail } from "@/components/agent-detail"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -57,6 +62,15 @@ export default function PublishedPage() {
   const [deployRuntime] = useState<'kubernetes'>('kubernetes')
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
+  const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
+
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageSkills, setCurrentPageSkills] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const itemsPerPage = 5
 
   const fetchPublished = async () => {
     try {
@@ -235,7 +249,82 @@ export default function PublishedPage() {
     }
   }
 
+  const handlePublish = async (server: ServerResponse) => {
+    try {
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishServerStatus(server.server.name, server.server.version)
+      await fetchPublished() // Refresh data
+      toast.success(`Successfully published ${server.server.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to publish server")
+    }
+  }
+
+  const handlePublishSkill = async (skill: SkillResponse) => {
+    try {
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishSkillStatus(skill.skill.name, skill.skill.version)
+      await fetchPublished() // Refresh data
+      toast.success(`Successfully published ${skill.skill.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to publish skill")
+    }
+  }
+
+  const handlePublishAgent = async (agentResponse: AgentResponse) => {
+    const { agent } = agentResponse
+
+    try {
+      const client = session?.accessToken
+        ? createAuthenticatedClient(session.accessToken)
+        : adminApiClient
+      await client.publishAgentStatus(agent.name, agent.version)
+      await fetchPublished() // Refresh data
+      toast.success(`Successfully published ${agent.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to publish agent")
+    }
+  }
+
   const totalPublished = servers.length + skills.length + agents.length
+
+  // Show server detail view if a server is selected
+  if (selectedServer) {
+    return (
+      <ServerDetail
+        server={selectedServer}
+        onClose={() => setSelectedServer(null)}
+        onServerCopied={fetchPublished}
+        onPublish={handlePublish}
+      />
+    )
+  }
+
+  // Show skill detail view if a skill is selected
+  if (selectedSkill) {
+    return (
+      <SkillDetail
+        skill={selectedSkill}
+        onClose={() => setSelectedSkill(null)}
+        onPublish={handlePublishSkill}
+      />
+    )
+  }
+
+  // Show agent detail view if an agent is selected
+  if (selectedAgent) {
+    return (
+      <AgentDetail
+        agent={selectedAgent}
+        onClose={() => setSelectedAgent(null)}
+        onPublish={handlePublishAgent}
+      />
+    )
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -346,39 +435,52 @@ export default function PublishedPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Published Resources</h1>
-              <p className="text-muted-foreground">
-                View and manage MCP servers, skills, and agents that are currently published in the registry.
-              </p>
-            </div>
-            <SubmitResourceDialog
-              trigger={
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Submit Resource
-                </Button>
-              }
-              onSubmitted={() => {
-                // Refresh the list
-                fetchPublished()
-              }}
-            />
-          </div>
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center gap-4 mb-8">
+            <TabsList>
+              <TabsTrigger value="mcp" className="gap-2">
+                <span className="h-4 w-4 flex items-center justify-center">
+                  <MCPIcon />
+                </span>
+                Servers
+              </TabsTrigger>
+              <TabsTrigger value="agents" className="gap-2">
+                <Bot className="h-4 w-4" />
+                Agents
+              </TabsTrigger>
+              <TabsTrigger value="skills" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Skills
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search published resources..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search published resources..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="ml-auto">
+              <SubmitResourceDialog
+                trigger={
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Submit Resource
+                  </Button>
+                }
+                onSubmitted={() => {
+                  // Refresh the list
+                  fetchPublished()
+                }}
               />
             </div>
           </div>
@@ -419,29 +521,46 @@ export default function PublishedPage() {
               </div>
             </Card>
           ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="mcp">MCP Servers ({filteredServers.length})</TabsTrigger>
-                <TabsTrigger value="agents">Agents ({filteredAgents.length})</TabsTrigger>
-                <TabsTrigger value="skills">Skills ({filteredSkills.length})</TabsTrigger>
-              </TabsList>
+            <>
 
               <TabsContent value="mcp" className="space-y-4">
-                {filteredServers.map((serverResponse) => {
+                {filteredServers
+                  .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                  .map((serverResponse) => {
                   const server = serverResponse.server
                   const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(server.name, server.version, 'server')
+
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                    (server.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
+
                   return (
-                    <Card key={`${server.name}-${server.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                    <Card
+                      key={`${server.name}-${server.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedServer(serverResponse)}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="text-xl font-semibold">{server.name}</h3>
+                            {deployed ? (
+                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                Running
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-muted">
+                                Not Deployed
+                              </Badge>
+                            )}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Package className="h-4 w-4" />
                               <span>Version: {server.version}</span>
@@ -452,6 +571,12 @@ export default function PublishedPage() {
                                 <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
                               </div>
                             )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -459,7 +584,10 @@ export default function PublishedPage() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => handleDeploy(server.name, server.version, 'server')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeploy(server.name, server.version, 'server')
+                            }}
                             disabled={deploying || deployed}
                             title={!session ? "Sign in to deploy" : undefined}
                           >
@@ -474,7 +602,10 @@ export default function PublishedPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleUnpublish(server.name, server.version, 'server')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleUnpublish(server.name, server.version, 'server')
+                            }}
                             disabled={unpublishing}
                           >
                             Unpublish
@@ -484,24 +615,69 @@ export default function PublishedPage() {
                     </Card>
                   )
                 })}
+                {filteredServers.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                      disabled={currentPageServers === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageServers} of {Math.ceil(filteredServers.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(filteredServers.length / itemsPerPage), p + 1))}
+                      disabled={currentPageServers >= Math.ceil(filteredServers.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="agents" className="space-y-4">
-                {filteredAgents.map((agentResponse) => {
+                {filteredAgents
+                  .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                  .map((agentResponse) => {
                   const agent = agentResponse.agent
                   const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(agent.name, agent.version, 'agent')
+
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = agent._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                    (agent.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
+
                   return (
-                    <Card key={`${agent.name}-${agent.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                    <Card
+                      key={`${agent.name}-${agent.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedAgent(agentResponse)}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="text-xl font-semibold">{agent.name}</h3>
+                            {deployed ? (
+                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                Running
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-muted">
+                                Not Deployed
+                              </Badge>
+                            )}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Package className="h-4 w-4" />
                               <span>Version: {agent.version}</span>
@@ -512,6 +688,12 @@ export default function PublishedPage() {
                                 <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
                               </div>
                             )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -519,7 +701,10 @@ export default function PublishedPage() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeploy(agent.name, agent.version, 'agent')
+                            }}
                             disabled={deploying || deployed}
                             title={!session ? "Sign in to deploy" : undefined}
                           >
@@ -534,7 +719,10 @@ export default function PublishedPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleUnpublish(agent.name, agent.version, 'agent')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleUnpublish(agent.name, agent.version, 'agent')
+                            }}
                             disabled={unpublishing}
                           >
                             Unpublish
@@ -544,14 +732,50 @@ export default function PublishedPage() {
                     </Card>
                   )
                 })}
+                {filteredAgents.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                      disabled={currentPageAgents === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageAgents} of {Math.ceil(filteredAgents.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(filteredAgents.length / itemsPerPage), p + 1))}
+                      disabled={currentPageAgents >= Math.ceil(filteredAgents.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="skills" className="space-y-4">
-                {filteredSkills.map((skillResponse) => {
+                {filteredSkills
+                  .slice((currentPageSkills - 1) * itemsPerPage, currentPageSkills * itemsPerPage)
+                  .map((skillResponse) => {
                   const skill = skillResponse.skill
                   const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
+
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = skill._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                    (skill.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
+
                   return (
-                    <Card key={`${skill.name}-${skill.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                    <Card
+                      key={`${skill.name}-${skill.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedSkill(skillResponse)}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
@@ -560,7 +784,7 @@ export default function PublishedPage() {
 
                           <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Package className="h-4 w-4" />
                               <span>Version: {skill.version}</span>
@@ -571,6 +795,12 @@ export default function PublishedPage() {
                                 <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
                               </div>
                             )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -578,7 +808,10 @@ export default function PublishedPage() {
                           variant="outline"
                           size="sm"
                           className="ml-4"
-                          onClick={() => handleUnpublish(skill.name, skill.version, 'skill')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUnpublish(skill.name, skill.version, 'skill')
+                          }}
                           disabled={unpublishing}
                         >
                           Unpublish
@@ -587,10 +820,33 @@ export default function PublishedPage() {
                     </Card>
                   )
                 })}
+                {filteredSkills.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageSkills(p => Math.max(1, p - 1))}
+                      disabled={currentPageSkills === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageSkills} of {Math.ceil(filteredSkills.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageSkills(p => Math.min(Math.ceil(filteredSkills.length / itemsPerPage), p + 1))}
+                      disabled={currentPageSkills >= Math.ceil(filteredSkills.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
-            </Tabs>
+            </>
           )}
-        </div>
+        </Tabs>
       </div>
 
       {/* Unpublish Confirmation Dialog */}

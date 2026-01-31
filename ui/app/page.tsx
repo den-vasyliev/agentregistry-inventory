@@ -54,6 +54,7 @@ import {
   X,
   ChevronDown,
   Filter,
+  Package,
 } from "lucide-react"
 
 // Grouped server type
@@ -93,7 +94,14 @@ export default function AdminPage() {
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
-  
+
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageSkills, setCurrentPageSkills] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const [currentPageModels, setCurrentPageModels] = useState(1)
+  const itemsPerPage = 5
+
   // Track scroll position for restoring after navigation
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
@@ -215,11 +223,11 @@ export default function AdminPage() {
       } while (modelCursor)
 
       setModels(allModels)
-      
+
       // Group servers by name
       const grouped = groupServersByName(allServers)
       setGroupedServers(grouped)
-      
+
       // Set stats
       setStats({
         total_servers: allServers.length,
@@ -333,7 +341,7 @@ export default function AdminPage() {
         (s) =>
           s.server.name.toLowerCase().includes(query) ||
           s.server.title?.toLowerCase().includes(query) ||
-          s.server.description.toLowerCase().includes(query)
+          s.server.description?.toLowerCase().includes(query)
       )
     }
 
@@ -375,43 +383,46 @@ export default function AdminPage() {
     setFilteredServers(filtered)
   }, [searchQuery, groupedServers, sortBy, filterVerifiedOrg, filterVerifiedPublisher])
 
-  // Filter skills, agents, and models based on search query
+  // Filter skills, agents, and models based on search query and running status
   useEffect(() => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    const query = searchQuery.toLowerCase()
 
-      // Filter skills
-      const filteredSk = skills.filter(
+    // Filter skills
+    let filteredSk = skills
+    if (searchQuery) {
+      filteredSk = filteredSk.filter(
         (s) =>
           s.skill.name.toLowerCase().includes(query) ||
           s.skill.title?.toLowerCase().includes(query) ||
-          s.skill.description.toLowerCase().includes(query)
+          s.skill.description?.toLowerCase().includes(query)
       )
-      setFilteredSkills(filteredSk)
+    }
+    setFilteredSkills(filteredSk)
 
-      // Filter agents
-      const filteredA = agents.filter(
+    // Filter agents
+    let filteredA = agents
+    if (searchQuery) {
+      filteredA = filteredA.filter(
         ({agent}) =>
           agent.name?.toLowerCase().includes(query) ||
           agent.modelProvider?.toLowerCase().includes(query) ||
           agent.description?.toLowerCase().includes(query)
       )
-      setFilteredAgents(filteredA)
+    }
+    setFilteredAgents(filteredA)
 
-      // Filter models
-      const filteredM = models.filter(
+    // Filter models
+    let filteredM = models
+    if (searchQuery) {
+      filteredM = filteredM.filter(
         ({ model }) =>
           model.name?.toLowerCase().includes(query) ||
           model.provider?.toLowerCase().includes(query) ||
           model.model?.toLowerCase().includes(query) ||
           model.description?.toLowerCase().includes(query)
       )
-      setFilteredModels(filteredM)
-    } else {
-      setFilteredSkills(skills)
-      setFilteredAgents(agents)
-      setFilteredModels(models)
     }
+    setFilteredModels(filteredM)
   }, [searchQuery, skills, agents, models])
 
   if (loading) {
@@ -554,13 +565,13 @@ export default function AdminPage() {
                 </span>
                 Servers
               </TabsTrigger>
-              <TabsTrigger value="skills" className="gap-2">
-                <Zap className="h-4 w-4" />
-                Skills
-              </TabsTrigger>
               <TabsTrigger value="agents" className="gap-2">
                 <Bot className="h-4 w-4" />
                 Agents
+              </TabsTrigger>
+              <TabsTrigger value="skills" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Skills
               </TabsTrigger>
               <TabsTrigger value="models" className="gap-2">
                 <Brain className="h-4 w-4" />
@@ -688,13 +699,13 @@ export default function AdminPage() {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-verified-publisher" 
+                  <Checkbox
+                    id="filter-verified-publisher"
                     checked={filterVerifiedPublisher}
                     onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
                   />
-                  <Label 
-                    htmlFor="filter-verified-publisher" 
+                  <Label
+                    htmlFor="filter-verified-publisher"
                     className="text-sm font-normal cursor-pointer"
                   >
                     Verified Publisher
@@ -741,18 +752,45 @@ export default function AdminPage() {
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredServers.map((server, index) => (
-                    <ServerCard
-                      key={`${server.server.name}-${server.server.version}-${index}`}
-                      server={server}
-                      versionCount={server.versionCount}
-                      onClick={() => handleServerClick(server)}
-                      showPublish={true}
-                      onPublish={handlePublish}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredServers
+                      .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                      .map((server, index) => (
+                        <ServerCard
+                          key={`${server.server.name}-${server.server.version}-${index}`}
+                          server={server}
+                          versionCount={server.versionCount}
+                          onClick={() => handleServerClick(server)}
+                          showPublish={true}
+                          onPublish={handlePublish}
+                        />
+                      ))}
+                  </div>
+                  {filteredServers.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                        disabled={currentPageServers === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageServers} of {Math.ceil(filteredServers.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(filteredServers.length / itemsPerPage), p + 1))}
+                        disabled={currentPageServers >= Math.ceil(filteredServers.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
@@ -797,17 +835,44 @@ export default function AdminPage() {
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredSkills.map((skill, index) => (
-                    <SkillCard
-                      key={`${skill.skill.name}-${skill.skill.version}-${index}`}
-                      skill={skill}
-                      onClick={() => setSelectedSkill(skill)}
-                      showPublish={true}
-                      onPublish={handlePublishSkill}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredSkills
+                      .slice((currentPageSkills - 1) * itemsPerPage, currentPageSkills * itemsPerPage)
+                      .map((skill, index) => (
+                        <SkillCard
+                          key={`${skill.skill.name}-${skill.skill.version}-${index}`}
+                          skill={skill}
+                          onClick={() => setSelectedSkill(skill)}
+                          showPublish={true}
+                          onPublish={handlePublishSkill}
+                        />
+                      ))}
+                  </div>
+                  {filteredSkills.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageSkills(p => Math.max(1, p - 1))}
+                        disabled={currentPageSkills === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageSkills} of {Math.ceil(filteredSkills.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageSkills(p => Math.min(Math.ceil(filteredSkills.length / itemsPerPage), p + 1))}
+                        disabled={currentPageSkills >= Math.ceil(filteredSkills.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
@@ -852,17 +917,44 @@ export default function AdminPage() {
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredAgents.map((agent, index) => (
-                    <AgentCard
-                      key={`${agent.agent.name}-${agent.agent.version}-${index}`}
-                      agent={agent}
-                      onClick={() => setSelectedAgent(agent)}
-                      showPublish={true}
-                      onPublish={handlePublishAgent}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredAgents
+                      .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                      .map((agent, index) => (
+                        <AgentCard
+                          key={`${agent.agent.name}-${agent.agent.version}-${index}`}
+                          agent={agent}
+                          onClick={() => setSelectedAgent(agent)}
+                          showPublish={true}
+                          onPublish={handlePublishAgent}
+                        />
+                      ))}
+                  </div>
+                  {filteredAgents.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                        disabled={currentPageAgents === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageAgents} of {Math.ceil(filteredAgents.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(filteredAgents.length / itemsPerPage), p + 1))}
+                        disabled={currentPageAgents >= Math.ceil(filteredAgents.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
@@ -907,17 +999,44 @@ export default function AdminPage() {
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredModels.map((model, index) => (
-                    <ModelCard
-                      key={`${model.model.name}-${index}`}
-                      model={model}
-                      onClick={() => setSelectedModel(model)}
-                      showPublish={true}
-                      onPublish={handlePublishModel}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredModels
+                      .slice((currentPageModels - 1) * itemsPerPage, currentPageModels * itemsPerPage)
+                      .map((model, index) => (
+                        <ModelCard
+                          key={`${model.model.name}-${index}`}
+                          model={model}
+                          onClick={() => setSelectedModel(model)}
+                          showPublish={true}
+                          onPublish={handlePublishModel}
+                        />
+                      ))}
+                  </div>
+                  {filteredModels.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageModels(p => Math.max(1, p - 1))}
+                        disabled={currentPageModels === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageModels} of {Math.ceil(filteredModels.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageModels(p => Math.min(Math.ceil(filteredModels.length / itemsPerPage), p + 1))}
+                        disabled={currentPageModels >= Math.ceil(filteredModels.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>

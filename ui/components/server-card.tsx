@@ -35,6 +35,24 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
   const githubStars = publisherMetadata?.stars
   const identityData = publisherMetadata?.identity
 
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if (official?.submitter) return official.submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (serverData.repository?.url) {
+      const match = serverData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
+
   const handleClick = () => {
     if (onClick) {
       onClick()
@@ -199,6 +217,13 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
       </p>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {owner && (
+          <div className="flex items-center gap-1 text-primary font-medium">
+            <BadgeCheck className="h-3 w-3" />
+            <span>{owner}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-1">
           <Tag className="h-3 w-3" />
           <span>{serverData.version}</span>

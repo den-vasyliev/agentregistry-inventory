@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   XCircle,
   Circle,
+  BadgeCheck,
 } from "lucide-react"
 
 interface AgentDetailProps {
@@ -42,10 +43,32 @@ interface AgentDetailProps {
 
 export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  
+
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   const deployment = _meta?.deployment
+
+  // Extract metadata
+  const publisherMetadata = agentData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const identityData = publisherMetadata?.identity
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if (official?.submitter) return official.submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (agentData.repository?.url) {
+      const match = agentData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   // Handle ESC key to close
   useEffect(() => {
@@ -135,6 +158,14 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
 
         {/* Quick Info */}
         <div className="flex flex-wrap gap-3 mb-6 text-sm">
+          {owner && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20">
+              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="text-muted-foreground">Owner:</span>
+              <span className="font-medium">{owner}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
             <Tag className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Version:</span>
