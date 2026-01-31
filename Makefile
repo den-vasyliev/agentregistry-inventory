@@ -1,9 +1,8 @@
 # Image configuration
-DOCKER_REGISTRY ?= localhost:5001
+KO_REGISTRY ?= localhost:5001
 BASE_IMAGE_REGISTRY ?= ghcr.io
-DOCKER_REPO ?= agentregistry-dev/agentregistry
-DOCKER_BUILDER ?= docker buildx
-DOCKER_BUILD_ARGS ?= --push --platform linux/$(LOCALARCH)
+KO_DOCKER_REPO ?= agentregistry-dev/agentregistry
+KO_PRESERVE_IMPORT_PATHS ?= true
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BASE_VERSION ?= $(shell cat VERSION 2>/dev/null || echo "0.1.0")
@@ -19,7 +18,7 @@ LDFLAGS := \
 # Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-.PHONY: help install-ui build-ui clean-ui build-cli build-controller build install dev-ui test clean fmt lint all release-cli docker-controller
+.PHONY: help install-ui build-ui clean-ui build-cli build-controller build install dev-ui test clean fmt lint all release-cli ko-server ko-controller ko-build ko-tag-as-dev
 
 # Default target
 help:
@@ -38,7 +37,10 @@ help:
 	@echo "  fmt                  - Run the formatter"
 	@echo "  lint                 - Run the linter"
 	@echo "  release              - Build and release the CLI"
-	@echo "  docker-controller    - Build controller Docker image"
+	@echo "  ko-build             - Build all images with ko (server, controller)"
+	@echo "  ko-server            - Build server image with ko"
+	@echo "  ko-controller        - Build controller image with ko"
+	@echo "  ko-tag-as-dev        - Tag images as dev"
 	@echo "  version              - Show current version info"
 	@echo ""
 	@echo "Current version: $(VERSION)"
@@ -145,9 +147,18 @@ dev-ui:
 	cd ui && npm run dev
 
 # Run Go tests
-test:
+test: envtest
 	@echo "Running Go tests..."
-	go test -ldflags "$(LDFLAGS)" -tags=integration -v ./...
+	go install gotest.tools/gotestsum@latest
+	go install github.com/boumenot/gocover-cobertura@latest
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use --bin-dir $(LOCALBIN) -p path)" \
+		gotestsum --junitfile report.xml --format testname -- \
+		-coverprofile=coverage.out -covermode=count \
+		-ldflags "$(LDFLAGS)" -tags=integration \
+		./... $(TEST_ARGS)
+	go tool cover -func=coverage.out
+	gocover-cobertura < coverage.out > coverage.xml
+	@echo "Coverage report: coverage.out, coverage.xml"
 
 # Clean all build artifacts
 clean: clean-ui
@@ -179,44 +190,29 @@ fmt: goimports
 	@echo "✓ Formatted code"
 
 
-# Build custom agent gateway image with npx/uvx support
-docker-agentgateway:
-	@echo "Building custom age	nt gateway image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/agentgateway.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) .
-	echo "✓ Agent gateway image built successfully";
+# Build images using ko
+.PHONY: ko-build ko-server ko-controller
 
+KO_REGISTRY_PREFIX ?= $(KO_REGISTRY)/$(KO_DOCKER_REPO)
 
-docker-server:
-	@echo "Building server Docker image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/server.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
-	@echo "✓ Docker image built successfully"
+ko-server:
+	@echo "Building server image with ko..."
+	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/server ko build --tags=$(VERSION),latest cmd/server/main.go
+	@echo "✓ Server image built: $(KO_REGISTRY_PREFIX)/server:$(VERSION)"
 
-docker-controller:
-	@echo "Building controller Docker image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/controller.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/controller:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
-	@echo "✓ Controller image built: $(DOCKER_REGISTRY)/$(DOCKER_REPO)/controller:$(VERSION)"
+ko-controller:
+	@echo "Building controller image with ko..."
+	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/controller ko build --tags=$(VERSION),latest cmd/controller/main.go
+	@echo "✓ Controller image built: $(KO_REGISTRY_PREFIX)/controller:$(VERSION)"
 
+ko-build: ko-server ko-controller
+	@echo "✓ All images built with ko"
 
-docker-registry:
-	@echo "Building running local Docker registry..."
-	if docker inspect docker-registry >/dev/null 2>&1; then \
-		echo "Registry already running. Skipping build." ; \
-	else \
-		 docker run \
-		-d --restart=always -p "5001:5000" --name docker-registry "docker.io/library/registry:2" ; \
-	fi
-
-docker: docker-agentgateway docker-server
-
-docker-tag-as-dev:
-	@echo "Pulling and tagging as dev..."
-	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION)
-	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
-	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
-	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION)
-	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
-	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
-	@echo "✓ Docker image pulled successfully"
+ko-tag-as-dev:
+	@echo "Tagging images as dev with ko..."
+	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/server ko build --tags=dev,latest cmd/server/main.go
+	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/controller ko build --tags=dev,latest cmd/controller/main.go
+	@echo "✓ Images tagged as dev"
 
 bin/arctl-linux-amd64:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-linux-amd64 cmd/cli/main.go
