@@ -426,7 +426,7 @@ export default function AdminPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading registry data...</p>
+          <p className="text-muted-foreground">Loading inventory data...</p>
         </div>
       </div>
     )
@@ -437,7 +437,7 @@ export default function AdminPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold mb-2">Error Loading Registry</h2>
+          <h2 className="text-xl font-bold mb-2">Error Loading Inventory</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
           <Button onClick={fetchData}>Retry</Button>
         </div>
@@ -727,7 +727,7 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {groupedServers.length === 0
-                        ? "No servers in registry"
+                        ? "No servers in inventory"
                         : "No servers match your filters"}
                     </p>
                     <p className="text-sm mb-4">
@@ -810,7 +810,7 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {skills.length === 0
-                        ? "No skills in registry"
+                        ? "No skills in inventory"
                         : "No skills match your filters"}
                     </p>
                     <p className="text-sm mb-4">
@@ -892,7 +892,7 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {agents.length === 0
-                        ? "No agents in registry"
+                        ? "No agents in inventory"
                         : "No agents match your filters"}
                     </p>
                     <p className="text-sm mb-4">
@@ -974,12 +974,12 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {models.length === 0
-                        ? "No models in registry"
+                        ? "No models in inventory"
                         : "No models match your filters"}
                     </p>
                     <p className="text-sm mb-4">
                       {models.length === 0
-                        ? "Add models to the registry to get started"
+                        ? "Add models to the inventory to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {models.length === 0 && (

@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="68" failures="0" errors="9" time="9.726164">
+<testsuites tests="71" failures="0" errors="9" time="31.902560">
 	<testsuite tests="0" failures="0" time="0.000000" name="" timestamp="0001-01-01T00:00:00Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/api/v1alpha1" timestamp="2026-02-02T13:48:38Z">
+	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/api/v1alpha1" timestamp="2026-02-02T17:46:52Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.005000" name="github.com/agentregistry-dev/agentregistry/cmd/controller" timestamp="2026-02-02T13:48:40Z">
+	<testsuite tests="0" failures="0" time="0.005000" name="github.com/agentregistry-dev/agentregistry/cmd/controller" timestamp="2026-02-02T17:46:53Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="57" failures="0" time="5.599000" name="github.com/agentregistry-dev/agentregistry/internal/controller" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="60" failures="0" time="27.072000" name="github.com/agentregistry-dev/agentregistry/internal/controller" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -41,7 +41,10 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName/user/skill:latest" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName/simple-skill:1.0" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestMCPServerCatalogReconciler_LatestVersionTracking" time="5.210000"></testcase>
+		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDiscoveryConfigReconciler_MultiNamespaceDiscovery" time="7.820000"></testcase>
+		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDiscoveryConfigReconciler_MultipleEnvironments" time="7.440000"></testcase>
+		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDiscoveryConfigReconciler_InformerLifecycle" time="5.610000"></testcase>
+		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestMCPServerCatalogReconciler_LatestVersionTracking" time="5.780000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/both_nil" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/a_nil" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/b_nil" time="0.000000"></testcase>
@@ -77,22 +80,22 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestEnsureVPrefix/#00" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestEnsureVPrefix" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/mcp/registryserver" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/mcp/registryserver" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="7" failures="0" time="0.624000" name="github.com/agentregistry-dev/agentregistry/internal/runtime" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="7" failures="0" time="0.001000" name="github.com/agentregistry-dev/agentregistry/internal/runtime" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -104,12 +107,12 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime" name="TestValidateRuntime" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime" name="TestSupportedRuntimes" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="4" failures="0" time="0.860000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="4" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -118,27 +121,27 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" name="TestTranslateRuntimeConfig_LocalMCP" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" name="TestTranslateRuntimeConfig_AgentWithMCPServers" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry/utils" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry/utils" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/utils" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/utils" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/version" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/version" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/pkg/models" timestamp="2026-02-02T13:48:43Z">
+	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/pkg/models" timestamp="2026-02-02T17:46:57Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>

@@ -92,7 +92,7 @@ export function AddModelDialog({ open, onOpenChange, onModelAdded }: AddModelDia
         <DialogHeader>
           <DialogTitle>Add Model</DialogTitle>
           <DialogDescription>
-            Add a new model to the registry
+            Add a new model to the inventory
           </DialogDescription>
         </DialogHeader>
 

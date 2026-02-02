@@ -19,6 +19,7 @@ Agent Registry is a **Kubernetes-native controller** that provides a centralized
 ### Key Features
 - **CRD-based storage** - Catalog entries stored as Kubernetes Custom Resources
 - **Auto-discovery** - Automatically indexes deployed resources
+- **Multi-cluster discovery** - Discover resources across multiple clusters with workload identity
 - **HTTP API** - REST API embedded in controller for catalog access
 - **Web UI** - Next.js interface for browsing and managing catalogs
 - **Declarative deployment** - GitOps-ready resource management
@@ -37,7 +38,7 @@ agentregistry/
 ├── cmd/
 │   └── controller/          # Controller entry point (ONLY binary)
 ├── internal/
-│   ├── controller/          # 8 K8s reconcilers
+│   ├── controller/          # 9 K8s reconcilers (including DiscoveryConfig)
 │   ├── httpapi/            # HTTP API server (embedded in controller)
 │   ├── mcp/                # MCP server implementation
 │   ├── runtime/            # Runtime deployment logic
@@ -68,7 +69,7 @@ Everything is **Kubernetes-native** now.
 
 The controller is a **single binary** that runs:
 
-1. **8 Kubernetes Reconcilers:**
+1. **9 Kubernetes Reconcilers:**
    - `MCPServerCatalogReconciler` - Manages MCP server catalog entries
    - `AgentCatalogReconciler` - Manages agent catalog entries
    - `SkillCatalogReconciler` - Manages skill catalog entries
@@ -77,6 +78,7 @@ The controller is a **single binary** that runs:
    - `AgentDiscoveryReconciler` - Auto-discovers deployed Agents
    - `SkillDiscoveryReconciler` - Auto-discovers skills from agents
    - `ModelDiscoveryReconciler` - Auto-discovers ModelConfig resources
+   - `DiscoveryConfigReconciler` - Multi-cluster discovery with workload identity (see [docs/AUTODISCOVERY.md](docs/AUTODISCOVERY.md))
 
 2. **HTTP API Server** (embedded, port 8080):
    - Public endpoints: `/v0/servers`, `/v0/agents`, `/v0/skills`, `/v0/models`
@@ -103,6 +105,7 @@ agentregistry.dev/v1alpha1:
 - AgentCatalog
 - SkillCatalog
 - RegistryDeployment
+- DiscoveryConfig (for multi-cluster autodiscovery)
 
 kagent.dev/v1alpha2:
 - Agent
@@ -237,18 +240,54 @@ Coverage breakdown:
 - ✅ Controller helper functions (name generation, version comparison)
 - ✅ Runtime translation to K8s resources
 - ✅ Basic reconciler logic
+- ✅ DiscoveryConfig multi-namespace and multi-environment discovery
 
 ### What Needs Tests
 - ❌ HTTP API handlers (0% coverage)
 - ❌ Most controller reconcilers
 - ❌ MCP server implementation
 
+### Testing Best Practices
+
+**IMPORTANT: Use envtest, NOT fake clients!**
+
+All controller tests MUST use the existing `SetupTestEnv` helper from `testhelper_test.go`:
+
+```go
+func TestYourReconciler(t *testing.T) {
+    if testing.Short() {
+        t.Skip("Skipping integration test in short mode")
+    }
+
+    // Use envtest helper (NOT fake.NewClientBuilder!)
+    helper := SetupTestEnv(t, 60*time.Second, false)
+    defer helper.Cleanup(t)
+
+    // Use helper.Client for all operations
+    err := helper.Client.Create(ctx, obj)
+
+    // Create reconciler with real client
+    reconciler := &YourReconciler{
+        Client: helper.Client,
+        Scheme: helper.Scheme,
+        Logger: logger,
+    }
+}
+```
+
+**Why envtest?**
+- ✅ Uses real etcd + kube-apiserver (same as production)
+- ✅ Tests with actual Kubernetes behavior
+- ✅ Validates CRD schemas and webhooks
+- ✅ Proper field indexing and caching
+- ❌ Fake clients miss critical K8s behavior
+
 ## Common Tasks
 
 ### Adding a New CRD Field
 
 1. Update `api/v1alpha1/*_types.go`
-2. Run `make generate` (if using kubebuilder)
+2. Run `make generate` to generate deepcopy methods and CRD manifests
 3. Update controller reconciler in `internal/controller/`
 4. Update API handlers in `internal/httpapi/handlers/`
 5. Update UI components in `ui/components/`
@@ -273,6 +312,29 @@ Coverage breakdown:
 - **Node.js**: 18+
 - **Kubernetes**: 1.27+
 - **Docker**: For container builds (optional)
+
+## Multi-Cluster Discovery
+
+The project supports **autodiscovery across multiple clusters** using workload identity:
+
+### Quick Start
+
+1. **Create DiscoveryConfig:**
+   ```bash
+   kubectl apply -f config/samples/discoveryconfig_example.yaml
+   ```
+
+2. **Check status:**
+   ```bash
+   kubectl get discoveryconfig multi-cluster-discovery -o yaml
+   ```
+
+3. **View discovered resources:**
+   ```bash
+   kubectl get mcpservercatalog -l agentregistry.dev/discovered=true
+   ```
+
+See [docs/AUTODISCOVERY.md](docs/AUTODISCOVERY.md) for complete documentation.
 
 ## Notes
 

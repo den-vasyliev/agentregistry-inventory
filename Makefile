@@ -49,6 +49,13 @@ version: ## Show version information
 
 ##@ Development
 
+generate: ## Generate CRD manifests and deepcopy code
+	@echo "Generating CRD manifests and code..."
+	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./api/v1alpha1"
+	@controller-gen crd paths="./api/v1alpha1" output:crd:artifacts:config=config/crd
+	@echo "✓ Generation complete"
+
 build-ui: ## Build UI static export
 	@echo "Building UI..."
 	@cd ui && npm install && npm run build:export
@@ -68,14 +75,27 @@ run: build ## Build and run controller locally
 	@echo "Running controller..."
 	@./bin/controller
 
-dev: ## Run controller in development mode with live reload
-	@echo "Starting controller in development mode..."
-	@echo "To run UI dev server in parallel, open another terminal and run: make dev-ui"
-	@go run -ldflags "$(LDFLAGS)" cmd/controller/main.go
+dev: ## Run both controller and UI in development mode
+	@echo "Starting controller and UI in development mode..."
+	@trap 'kill 0' EXIT; \
+	go run -ldflags "$(LDFLAGS)" cmd/controller/main.go & \
+	cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev & \
+	wait
 
 dev-ui: ## Run Next.js UI dev server (for UI development)
 	@echo "Starting Next.js dev server..."
 	@cd ui && npm install && npm run dev
+
+dev-down: ## Stop all running controller and UI processes
+	@echo "Stopping controller and UI processes..."
+	@pkill -f "go run.*cmd/controller/main.go" || true
+	@pkill -f "bin/controller" || true
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:8082 | xargs kill -9 2>/dev/null || true
+	@pkill -f "next dev" || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@echo "✓ All dev processes stopped"
 
 ##@ Testing & Quality
 

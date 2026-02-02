@@ -1,0 +1,275 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: discoveryconfigs.agentregistry.dev
+spec:
+  group: agentregistry.dev
+  names:
+    kind: DiscoveryConfig
+    listKind: DiscoveryConfigList
+    plural: discoveryconfigs
+    singular: discoveryconfig
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.environments
+      name: Environments
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Connected")].status
+      name: Connected
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DiscoveryConfig is the Schema for the discoveryconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DiscoveryConfigSpec defines the desired state of DiscoveryConfig
+            properties:
+              environments:
+                description: Environments is a list of environments to discover resources
+                  from
+                items:
+                  description: Environment represents a target cluster/namespace for
+                    resource discovery
+                  properties:
+                    cluster:
+                      description: Cluster contains cluster connection information
+                      properties:
+                        caData:
+                          description: |-
+                            CAData is the base64-encoded certificate authority data
+                            If not provided, will use workload identity for authentication
+                          type: string
+                        endpoint:
+                          description: |-
+                            Endpoint is the cluster API server endpoint
+                            If not provided, will be auto-discovered using provider APIs
+                          type: string
+                        name:
+                          description: Name is the cluster name
+                          type: string
+                        namespace:
+                          description: Namespace is the default namespace for this
+                            cluster
+                          type: string
+                        projectId:
+                          description: ProjectID is the GCP project ID (for GCP workload
+                            identity)
+                          type: string
+                        region:
+                          description: Region is the cluster region (alternative to
+                            Zone)
+                          type: string
+                        serviceAccount:
+                          description: ServiceAccount is the service account to use
+                            for workload identity
+                          type: string
+                        useWorkloadIdentity:
+                          default: true
+                          description: UseWorkloadIdentity enables workload identity
+                            for cluster authentication
+                          type: boolean
+                        zone:
+                          description: Zone is the cluster zone/region
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    discoveryEnabled:
+                      default: true
+                      description: DiscoveryEnabled enables/disables discovery for
+                        this environment
+                      type: boolean
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are additional labels to apply to discovered
+                        resources
+                      type: object
+                    name:
+                      description: Name is a unique identifier for this environment
+                      type: string
+                    namespaces:
+                      description: Namespaces is a list of namespaces to discover
+                        in. Empty means all namespaces.
+                      items:
+                        type: string
+                      type: array
+                    provider:
+                      description: Provider is the cloud provider (gcp, aws, azure)
+                      type: string
+                    registry:
+                      description: Registry contains container registry information
+                        for this environment
+                      properties:
+                        prefix:
+                          description: Prefix is the registry path prefix for images
+                          type: string
+                        url:
+                          description: URL is the registry URL (e.g., "europe-docker.pkg.dev/project-id")
+                          type: string
+                        useWorkloadIdentity:
+                          default: true
+                          description: UseWorkloadIdentity enables workload identity
+                            for registry authentication
+                          type: boolean
+                      required:
+                      - url
+                      type: object
+                    resourceTypes:
+                      description: |-
+                        ResourceTypes specifies which types to discover (MCPServer, Agent, Skill, ModelConfig)
+                        Empty means all types
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - cluster
+                  - name
+                  type: object
+                type: array
+            required:
+            - environments
+            type: object
+          status:
+            description: DiscoveryConfigStatus defines the observed state of DiscoveryConfig
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the DiscoveryConfig's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environments:
+                description: Environments contains the status of each environment
+                items:
+                  description: EnvironmentStatus represents the status of discovery
+                    for a specific environment
+                  properties:
+                    connected:
+                      description: Connected indicates if connection to the cluster
+                        is successful
+                      type: boolean
+                    discoveredResources:
+                      description: DiscoveredResources contains counts of discovered
+                        resources
+                      properties:
+                        agents:
+                          description: Agents is the count of discovered agents
+                          type: integer
+                        mcpServers:
+                          description: MCPServers is the count of discovered MCP servers
+                          type: integer
+                        models:
+                          description: Models is the count of discovered models
+                          type: integer
+                        skills:
+                          description: Skills is the count of discovered skills
+                          type: integer
+                      type: object
+                    error:
+                      description: Error contains error information if connection
+                        failed
+                      type: string
+                    lastSyncTime:
+                      description: LastSyncTime is the last time this environment
+                        was synced
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message contains human-readable status information
+                      type: string
+                    name:
+                      description: Name is the environment name
+                      type: string
+                  required:
+                  - connected
+                  - name
+                  type: object
+                type: array
+              lastSyncTime:
+                description: LastSyncTime is the last time discovery was synced
+                format: date-time
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

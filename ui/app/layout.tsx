@@ -8,7 +8,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
-  title: "artcl - agent registry",
+  title: "artcl - agent inventory",
   description: "Browse and manage MCP servers, agents, and skills",
   icons: {
     icon: "/icon.svg",

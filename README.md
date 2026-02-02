@@ -26,6 +26,7 @@ Agent Registry is a **Kubernetes controller** that brings governance and control
 - **📦 Centralized Catalog**: Discover and curate MCP servers, agents, skills, and models
 - **🔒 Control and Governance**: Manage and control custom collections of artifacts
 - **📊 Auto-Discovery**: Automatically index deployed resources into the catalog
+- **🌐 Multi-Cluster Discovery**: Discover resources across multiple clusters with workload identity
 - **🚀 Declarative Deployment**: GitOps-ready resource management
 - **🌐 HTTP API + UI**: Browse and manage catalogs via REST API and web interface
 
@@ -40,6 +41,7 @@ Agent Registry is a **Kubernetes controller** that brings governance and control
 - **🔐 OIDC Authentication**: Secure deployments with OIDC-based authentication
 - **📝 Git-Based Source**: Resources defined in Git for version control and audit trails
 - **🔍 Auto-Discovery**: Automatically discover deployed resources (gitless ops support)
+- **☁️ Multi-Cluster Support**: Discover resources across dev, staging, and production clusters using workload identity
 
 ## 💼 Usage Scenarios
 

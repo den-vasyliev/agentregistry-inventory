@@ -214,6 +214,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set up DiscoveryConfig reconciler (multi-cluster discovery configuration)
+	if err := (&controller.DiscoveryConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Logger: ctrlLogger.With().Str("controller", "discoveryconfig").Logger(),
+	}).SetupWithManager(mgr); err != nil {
+		log.Error().Err(err).Str("controller", "DiscoveryConfig").Msg("unable to create controller")
+		os.Exit(1)
+	}
+
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {
 		apiLogger := log.Logger.With().Str("component", "httpapi").Logger()

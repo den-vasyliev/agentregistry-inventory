@@ -41,7 +41,8 @@ func TestMCPServerCatalogReconciler_LatestVersionTracking(t *testing.T) {
 	// Create test catalogs with different versions
 	catalog1 := &agentregistryv1alpha1.MCPServerCatalog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-server-v1-0-0",
+			Name:      "test-server-v1-0-0",
+			Namespace: "default",
 		},
 		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
 			Name:    "test-server",
@@ -52,7 +53,8 @@ func TestMCPServerCatalogReconciler_LatestVersionTracking(t *testing.T) {
 
 	catalog2 := &agentregistryv1alpha1.MCPServerCatalog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-server-v2-0-0",
+			Name:      "test-server-v2-0-0",
+			Namespace: "default",
 		},
 		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
 			Name:    "test-server",
@@ -66,7 +68,7 @@ func TestMCPServerCatalogReconciler_LatestVersionTracking(t *testing.T) {
 	require.NoError(t, err)
 
 	// Re-fetch to get current ResourceVersion before status update
-	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog1.Name}, catalog1)
+	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog1.Name, Namespace: "default"}, catalog1)
 	require.NoError(t, err)
 
 	// Publish it
@@ -81,7 +83,7 @@ func TestMCPServerCatalogReconciler_LatestVersionTracking(t *testing.T) {
 	require.NoError(t, err)
 
 	// Re-fetch to get current ResourceVersion before status update
-	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog2.Name}, catalog2)
+	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog2.Name, Namespace: "default"}, catalog2)
 	require.NoError(t, err)
 
 	// Publish it
@@ -106,14 +108,14 @@ func TestMCPServerCatalogReconciler_LatestVersionTracking(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond, "cache should see both published catalogs")
 
 	// Reconcile to update latest version flags
-	_, err = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: catalog1.Name}})
+	_, err = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: catalog1.Name, Namespace: "default"}})
 	require.NoError(t, err)
 
 	// Verify v2 is marked as latest
 	var updatedCatalog1, updatedCatalog2 agentregistryv1alpha1.MCPServerCatalog
-	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog1.Name}, &updatedCatalog1)
+	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog1.Name, Namespace: "default"}, &updatedCatalog1)
 	require.NoError(t, err)
-	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog2.Name}, &updatedCatalog2)
+	err = helper.Client.Get(ctx, types.NamespacedName{Name: catalog2.Name, Namespace: "default"}, &updatedCatalog2)
 	require.NoError(t, err)
 
 	assert.False(t, updatedCatalog1.Status.IsLatest, "v1.0.0 should not be latest")
