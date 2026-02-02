@@ -97,10 +97,11 @@ export interface ServerJSON {
 }
 
 export interface RegistryExtensions {
-  status: 'active' | 'deprecated' | 'deleted'
+  status: 'active' | 'deprecated' | 'deleted' | 'pending_review'
   publishedAt: string
   updatedAt: string
   isLatest: boolean
+  reviewStatus?: 'pending' | 'approved' | 'rejected'
 }
 
 export interface DeploymentInfo {
@@ -138,6 +139,19 @@ export interface ImportRequest {
 export interface ImportResponse {
   success: boolean
   message: string
+}
+
+export interface SubmitRequest {
+  repositoryUrl: string
+}
+
+export interface SubmitResponse {
+  success: boolean
+  message: string
+  name?: string
+  kind?: string
+  version?: string
+  status?: string
 }
 
 export interface ServerStats {
@@ -852,6 +866,68 @@ class AdminApiClient {
       throw new Error(error.message || 'Failed to import models')
     }
     return response.json()
+  }
+
+  // ===== Submit API (GitOps Approval Workflow) =====
+
+  // Submit a resource from a repository for review
+  async submitResource(request: SubmitRequest): Promise<SubmitResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/v0/submit`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.message || 'Failed to submit resource')
+    }
+    return response.json()
+  }
+
+  // Approve a pending server (same as publish)
+  async approveServer(serverName: string, version: string): Promise<void> {
+    return this.publishServerStatus(serverName, version)
+  }
+
+  // Reject a pending server (delete it)
+  async rejectServer(serverName: string, version: string): Promise<void> {
+    return this.deleteServer(serverName, version)
+  }
+
+  // Approve a pending agent (same as publish)
+  async approveAgent(agentName: string, version: string): Promise<void> {
+    return this.publishAgentStatus(agentName, version)
+  }
+
+  // Reject a pending agent (delete it)
+  async rejectAgent(agentName: string, version: string): Promise<void> {
+    const encodedName = encodeURIComponent(agentName)
+    const encodedVersion = encodeURIComponent(version)
+    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to reject agent')
+    }
+  }
+
+  // Approve a pending skill (same as publish)
+  async approveSkill(skillName: string, version: string): Promise<void> {
+    return this.publishSkillStatus(skillName, version)
+  }
+
+  // Reject a pending skill (delete it)
+  async rejectSkill(skillName: string, version: string): Promise<void> {
+    const encodedName = encodeURIComponent(skillName)
+    const encodedVersion = encodeURIComponent(version)
+    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to reject skill')
+    }
   }
 
   // ===== Deployments API =====
