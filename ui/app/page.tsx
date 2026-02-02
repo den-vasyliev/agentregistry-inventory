@@ -16,12 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ServerCard } from "@/components/server-card"
 import { SkillCard } from "@/components/skill-card"
 import { AgentCard } from "@/components/agent-card"
@@ -30,31 +24,19 @@ import { ServerDetail } from "@/components/server-detail"
 import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
 import { ModelDetail } from "@/components/model-detail"
-import { ImportDialog } from "@/components/import-dialog"
-import { AddServerDialog } from "@/components/add-server-dialog"
-import { ImportSkillsDialog } from "@/components/import-skills-dialog"
-import { AddSkillDialog } from "@/components/add-skill-dialog"
-import { ImportAgentsDialog } from "@/components/import-agents-dialog"
-import { AddAgentDialog } from "@/components/add-agent-dialog"
-import { AddModelDialog } from "@/components/add-model-dialog"
-import { ImportModelsDialog } from "@/components/import-models-dialog"
+import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
   Search,
-  Download,
   RefreshCw,
-  Plus,
   Zap,
   Bot,
   Brain,
-  Eye,
   ArrowUpDown,
-  X,
-  ChevronDown,
   Filter,
-  Package,
+  GitPullRequest,
 } from "lucide-react"
 
 // Grouped server type
@@ -80,14 +62,7 @@ export default function AdminPage() {
   const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
-  const [importDialogOpen, setImportDialogOpen] = useState(false)
-  const [addServerDialogOpen, setAddServerDialogOpen] = useState(false)
-  const [importSkillsDialogOpen, setImportSkillsDialogOpen] = useState(false)
-  const [addSkillDialogOpen, setAddSkillDialogOpen] = useState(false)
-  const [importAgentsDialogOpen, setImportAgentsDialogOpen] = useState(false)
-  const [addAgentDialogOpen, setAddAgentDialogOpen] = useState(false)
-  const [addModelDialogOpen, setAddModelDialogOpen] = useState(false)
-  const [importModelsDialogOpen, setImportModelsDialogOpen] = useState(false)
+  const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
@@ -323,6 +298,67 @@ export default function AdminPage() {
       toast.success(`Successfully published ${model.name}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to publish model")
+    }
+  }
+
+  // Approval handlers for GitOps workflow (Option C)
+  const handleApproveServer = async (server: ServerResponse) => {
+    try {
+      await adminApiClient.approveServer(server.server.name, server.server.version)
+      await fetchData()
+      toast.success(`Approved and published ${server.server.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve server")
+    }
+  }
+
+  const handleRejectServer = async (server: ServerResponse) => {
+    try {
+      await adminApiClient.rejectServer(server.server.name, server.server.version)
+      await fetchData()
+      toast.success(`Rejected ${server.server.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject server")
+    }
+  }
+
+  const handleApproveAgent = async (agentResponse: AgentResponse) => {
+    try {
+      await adminApiClient.approveAgent(agentResponse.agent.name, agentResponse.agent.version)
+      await fetchData()
+      toast.success(`Approved and published ${agentResponse.agent.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve agent")
+    }
+  }
+
+  const handleRejectAgent = async (agentResponse: AgentResponse) => {
+    try {
+      await adminApiClient.rejectAgent(agentResponse.agent.name, agentResponse.agent.version)
+      await fetchData()
+      toast.success(`Rejected ${agentResponse.agent.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject agent")
+    }
+  }
+
+  const handleApproveSkill = async (skill: SkillResponse) => {
+    try {
+      await adminApiClient.approveSkill(skill.skill.name, skill.skill.version)
+      await fetchData()
+      toast.success(`Approved and published ${skill.skill.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve skill")
+    }
+  }
+
+  const handleRejectSkill = async (skill: SkillResponse) => {
+    try {
+      await adminApiClient.rejectSkill(skill.skill.name, skill.skill.version)
+      await fetchData()
+      toast.success(`Rejected ${skill.skill.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject skill")
     }
   }
 
@@ -598,65 +634,14 @@ export default function AdminPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setAddServerDialogOpen(true)}>
-                    <span className="mr-2 h-4 w-4 flex items-center justify-center">
-                      <MCPIcon />
-                    </span>
-                    Add Server
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddSkillDialogOpen(true)}>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Add Skill
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddAgentDialogOpen(true)}>
-                    <Bot className="mr-2 h-4 w-4" />
-                    Add Agent
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddModelDialogOpen(true)}>
-                    <Brain className="mr-2 h-4 w-4" />
-                    Add Model
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Import
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
-                    <span className="mr-2 h-4 w-4 flex items-center justify-center">
-                      <MCPIcon />
-                    </span>
-                    Import Servers
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportSkillsDialogOpen(true)}>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Import Skills
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportAgentsDialogOpen(true)}>
-                    <Bot className="mr-2 h-4 w-4" />
-                    Import Agents
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportModelsDialogOpen(true)}>
-                    <Brain className="mr-2 h-4 w-4" />
-                    Import Models
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="default"
+                className="gap-2"
+                onClick={() => setSubmitResourceDialogOpen(true)}
+              >
+                <GitPullRequest className="h-4 w-4" />
+                Submit
+              </Button>
 
               <Button
                 variant="ghost"
@@ -740,17 +725,17 @@ export default function AdminPage() {
                     </p>
                     <p className="text-sm mb-4">
                       {groupedServers.length === 0
-                        ? "Import servers from external registries to get started"
+                        ? "Submit a server to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {groupedServers.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Servers
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Server
                       </Button>
                     )}
                   </div>
@@ -768,6 +753,9 @@ export default function AdminPage() {
                           onClick={() => handleServerClick(server)}
                           showPublish={true}
                           onPublish={handlePublish}
+                          showApproval={true}
+                          onApprove={handleApproveServer}
+                          onReject={handleRejectServer}
                         />
                       ))}
                   </div>
@@ -823,17 +811,17 @@ export default function AdminPage() {
                     </p>
                     <p className="text-sm mb-4">
                       {skills.length === 0
-                        ? "Import skills from external sources to get started"
+                        ? "Submit a skill to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {skills.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportSkillsDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Skills
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Skill
                       </Button>
                     )}
                   </div>
@@ -850,6 +838,9 @@ export default function AdminPage() {
                           onClick={() => setSelectedSkill(skill)}
                           showPublish={true}
                           onPublish={handlePublishSkill}
+                          showApproval={true}
+                          onApprove={handleApproveSkill}
+                          onReject={handleRejectSkill}
                         />
                       ))}
                   </div>
@@ -905,17 +896,17 @@ export default function AdminPage() {
                     </p>
                     <p className="text-sm mb-4">
                       {agents.length === 0
-                        ? "Import agents from external sources to get started"
+                        ? "Submit an agent to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {agents.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportAgentsDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Agents
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Agent
                       </Button>
                     )}
                   </div>
@@ -932,6 +923,9 @@ export default function AdminPage() {
                           onClick={() => setSelectedAgent(agent)}
                           showPublish={true}
                           onPublish={handlePublishAgent}
+                          showApproval={true}
+                          onApprove={handleApproveAgent}
+                          onReject={handleRejectAgent}
                         />
                       ))}
                   </div>
@@ -994,10 +988,10 @@ export default function AdminPage() {
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setAddModelDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Plus className="h-4 w-4" />
-                        Add Model
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Model
                       </Button>
                     )}
                   </div>
@@ -1047,52 +1041,11 @@ export default function AdminPage() {
         </Tabs>
       </div>
 
-      {/* Server Dialogs */}
-      <ImportDialog
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
-        onImportComplete={fetchData}
-      />
-      <AddServerDialog
-        open={addServerDialogOpen}
-        onOpenChange={setAddServerDialogOpen}
-        onServerAdded={fetchData}
-      />
 
-      {/* Skill Dialogs */}
-      <ImportSkillsDialog
-        open={importSkillsDialogOpen}
-        onOpenChange={setImportSkillsDialogOpen}
-        onImportComplete={fetchData}
-      />
-      <AddSkillDialog
-        open={addSkillDialogOpen}
-        onOpenChange={setAddSkillDialogOpen}
-        onSkillAdded={fetchData}
-      />
-
-      {/* Agent Dialogs */}
-      <ImportAgentsDialog
-        open={importAgentsDialogOpen}
-        onOpenChange={setImportAgentsDialogOpen}
-        onImportComplete={fetchData}
-      />
-      <AddAgentDialog
-        open={addAgentDialogOpen}
-        onOpenChange={setAddAgentDialogOpen}
-        onAgentAdded={fetchData}
-      />
-
-      {/* Model Dialogs */}
-      <AddModelDialog
-        open={addModelDialogOpen}
-        onOpenChange={setAddModelDialogOpen}
-        onModelAdded={fetchData}
-      />
-      <ImportModelsDialog
-        open={importModelsDialogOpen}
-        onOpenChange={setImportModelsDialogOpen}
-        onImportComplete={fetchData}
+      {/* Submit Resource Dialog (GitOps Workflow) */}
+      <SubmitResourceDialog
+        open={submitResourceDialogOpen}
+        onOpenChange={setSubmitResourceDialogOpen}
       />
 
     </main>

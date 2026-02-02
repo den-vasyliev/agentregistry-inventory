@@ -10,25 +10,31 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, CheckCircle2, XCircle } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, CheckCircle2, XCircle, Clock, Check, X } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
   onDelete?: (server: ServerResponse) => void
   onPublish?: (server: ServerResponse) => void
   onDeploy?: (server: ServerResponse) => void
+  onApprove?: (server: ServerResponse) => void
+  onReject?: (server: ServerResponse) => void
   showDelete?: boolean
   showPublish?: boolean
   showDeploy?: boolean
   showExternalLinks?: boolean
+  showApproval?: boolean
   onClick?: () => void
   versionCount?: number
 }
 
-export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, onClick, versionCount }: ServerCardProps) {
+export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, onReject, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, showApproval = false, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   const deployment = _meta?.deployment
+
+  // Check if this is a pending review submission
+  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
 
   // Extract metadata
   const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -126,7 +132,49 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showDeploy && onDeploy && (
+          {showApproval && isPendingReview && onApprove && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onApprove(server)
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Approve and publish this server</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showApproval && isPendingReview && onReject && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReject(server)
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Reject
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reject this submission</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showDeploy && onDeploy && !isPendingReview && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -147,7 +195,7 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
               </TooltipContent>
             </Tooltip>
           )}
-          {showPublish && onPublish && (
+          {showPublish && onPublish && !isPendingReview && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -234,7 +282,24 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, showDelete =
           )}
         </div>
 
-        {deployment && (
+        {isPendingReview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                Pending Review
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>This resource is awaiting approval</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {deployment && !isPendingReview && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Badge

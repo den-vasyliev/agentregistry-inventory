@@ -10,22 +10,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle, BadgeCheck } from "lucide-react"
+import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle, BadgeCheck, Clock, Check, X } from "lucide-react"
 
 interface AgentCardProps {
   agent: AgentResponse
   onDelete?: (agent: AgentResponse) => void
   onPublish?: (agent: AgentResponse) => void
+  onApprove?: (agent: AgentResponse) => void
+  onReject?: (agent: AgentResponse) => void
   showDelete?: boolean
   showPublish?: boolean
   showExternalLinks?: boolean
+  showApproval?: boolean
   onClick?: () => void
 }
 
-export function AgentCard({ agent, onDelete, onPublish, showDelete = false, showPublish = false, onClick }: AgentCardProps) {
+export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, showDelete = false, showPublish = false, showApproval = false, onClick }: AgentCardProps) {
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   const deployment = _meta?.deployment
+
+  // Check if this is a pending review submission
+  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
 
   // Extract metadata
   const publisherMetadata = (agentData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -92,7 +98,23 @@ export function AgentCard({ agent, onDelete, onPublish, showDelete = false, show
                   {agentData.language}
                 </Badge>
               )}
-              {deployment && (
+              {isPendingReview && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
+                    >
+                      <Clock className="h-3 w-3 mr-1" />
+                      Pending Review
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>This agent is awaiting approval</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {deployment && !isPendingReview && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
@@ -117,7 +139,49 @@ export function AgentCard({ agent, onDelete, onPublish, showDelete = false, show
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showPublish && onPublish && (
+          {showApproval && isPendingReview && onApprove && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onApprove(agent)
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Approve and publish this agent</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showApproval && isPendingReview && onReject && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReject(agent)
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Reject
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reject this submission</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showPublish && onPublish && !isPendingReview && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
