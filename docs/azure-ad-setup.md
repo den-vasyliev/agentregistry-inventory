@@ -1,6 +1,6 @@
 # Azure AD Authentication Setup
 
-This guide explains how to configure Azure AD authentication for the Agent Registry UI.
+This guide explains how to configure Azure AD authentication for the Agent Registry web UI.
 
 ## Prerequisites
 
