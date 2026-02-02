@@ -1,6 +1,6 @@
-# Contributing to arctl
+# Contributing to Agent Registry
 
-Thank you for your interest in contributing to arctl! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Agent Registry! This document provides guidelines and instructions for contributing.
 
 ## Getting Started
 
@@ -13,68 +13,82 @@ Thank you for your interest in contributing to arctl! This document provides gui
 
 ### Prerequisites
 
-- Go 1.22 or later
-- Node.js 18 or later
-- npm or yarn
-- make (optional but recommended)
+- **Go 1.25+** (for controller development)
+- **Node.js 18+** (for UI development)
+- **Kubernetes cluster** (local via kind/minikube or remote)
+- **kubectl** configured to access your cluster
+- **make** (for build automation)
 
 ### Initial Setup
 
 ```bash
-# Run the setup script
-./setup.sh
+# Clone and setup
+git clone https://github.com/agentregistry-dev/agentregistry.git
+cd agentregistry
 
-# Or manually:
+# Download Go dependencies
 go mod download
+
+# Install UI dependencies
 cd ui && npm install && cd ..
-make build
+
+# Build controller
+make build-controller
 ```
 
 ## Development Workflow
 
-### Working on the CLI
+### Quick Start - Run Everything
 
 ```bash
-# Make changes to cmd/*.go or internal/**/*.go
+# Start controller + UI in one command
+make dev
 
-# Build quickly (without UI rebuild)
-go build -o bin/arctl main.go
+# Access:
+# - UI: http://localhost:3000
+# - API: http://localhost:8080
+# - Metrics: http://localhost:8081
+```
 
-# Test your changes
-./bin/arctl <command>
+### Working on the Controller
 
-# Run tests
-go test ./...
+```bash
+# Make changes to cmd/controller/ or internal/controller/
+
+# Quick build (Go only)
+go build -o bin/controller cmd/controller/main.go
+
+# Run controller
+./bin/controller --enable-http-api=true
+
+# Or use make
+make dev-controller
 ```
 
 ### Working on the UI
 
 ```bash
-# Start development server with hot reload
+# Start UI development server (hot reload)
 make dev-ui
+
 # Opens at http://localhost:3000
+# Connects to controller API at localhost:8080
 
 # Make changes to ui/app/**/*.tsx
-
-# When ready to test with CLI:
-make build-ui
-make build-cli
-./bin/arctl ui
+# Changes auto-reload in browser
 ```
 
 ### Working on Both
 
 ```bash
-# Terminal 1: UI dev server
+# Terminal 1: Controller
+make dev-controller
+
+# Terminal 2: UI
 make dev-ui
 
-# Terminal 2: CLI development
-go build -o bin/arctl main.go
-./bin/arctl <command>
-
-# When ready for integration test:
-make build
-./bin/arctl ui
+# Or run both in parallel
+make dev
 ```
 
 ## Code Style
@@ -89,101 +103,113 @@ make build
 
 ```bash
 # Format code
-gofmt -w .
+make fmt
 
 # Run linter
-golangci-lint run
+make lint
 ```
 
 ### TypeScript/React
 
-- Follow Next.js and React best practices
+- Follow Next.js 14 and React best practices
 - Use TypeScript for type safety
 - Use functional components with hooks
 - Keep components small and reusable
 
 ```bash
 # Lint UI code
-cd ui
-npm run lint
+cd ui && npm run lint
 ```
 
 ## Testing
 
-### Go Tests
+### Controller Tests
 
 ```bash
-# Run all tests
-go test ./...
+# Run all tests with coverage
+make test
 
-# Run with coverage
-go test -cover ./...
+# Run controller tests only
+make test-controller
 
-# Run specific test
-go test -run TestFunctionName ./...
+# View coverage report
+go tool cover -html=coverage.out
 ```
 
-### UI Tests
+### Test Structure
 
-```bash
-cd ui
-npm test
-```
+- Unit tests: `internal/controller/*_test.go`
+- Use `envtest` for controller tests with fake K8s API
+- Current coverage: 22%
 
 ## Adding New Features
 
-### New CLI Command
+### New Kubernetes Reconciler
 
-1. Create `cmd/mycommand.go`:
+1. Create `internal/controller/myresource_controller.go`:
 
 ```go
-package cmd
+package controller
 
 import (
-    "fmt"
-    "github.com/spf13/cobra"
+    "context"
+    ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var myCmd = &cobra.Command{
-    Use:   "my-command",
-    Short: "Description",
-    Run: func(cmd *cobra.Command, args []string) {
-        fmt.Println("Implementation")
-    },
+type MyResourceReconciler struct {
+    client.Client
+    Scheme *runtime.Scheme
+    Logger zerolog.Logger
 }
 
-func init() {
-    rootCmd.AddCommand(myCmd)
+func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+    // Implementation
+    return ctrl.Result{}, nil
+}
+
+func (r *MyResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+    return ctrl.NewControllerManagedBy(mgr).
+        For(&MyResourceCRD{}).
+        Complete(r)
 }
 ```
 
-2. Add tests
-3. Update documentation
-4. Build and test
+2. Register in `cmd/controller/main.go`
+3. Add tests in `internal/controller/myresource_controller_test.go`
+4. Update documentation
 
-### New API Endpoint
+### New CRD
 
-1. Add handler in `internal/api/server.go`:
+1. Define CRD in `api/v1alpha1/myresource_types.go`
+2. Run code generation (if using kubebuilder markers)
+3. Create YAML in `api/v1alpha1/`
+4. Add reconciler (see above)
+5. Update Helm chart
+
+### New HTTP API Endpoint
+
+1. Add handler in `internal/httpapi/handlers/myhandler.go`:
 
 ```go
-func getMyData(c *gin.Context) {
-    data, err := database.GetMyData()
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, data)
+package handlers
+
+func NewMyHandler(c client.Client, cache cache.Cache, logger zerolog.Logger) *MyHandler {
+    return &MyHandler{client: c, cache: cache, logger: logger}
+}
+
+func (h *MyHandler) RegisterRoutes(api huma.API, prefix string, admin bool) {
+    huma.Register(api, huma.Operation{
+        OperationID: "getMyResources",
+        Method:      http.MethodGet,
+        Path:        prefix + "/my-resources",
+    }, h.GetMyResources)
 }
 ```
 
-2. Register route:
-
-```go
-api.GET("/my-data", getMyData)
-```
-
-3. Add database methods
-4. Add tests
+2. Register in `internal/httpapi/server.go`
+3. Add tests
+4. Update API documentation
 
 ### New UI Component
 
@@ -193,7 +219,11 @@ api.GET("/my-data", getMyData)
 import { Card } from "@/components/ui/card"
 
 export function MyComponent() {
-  return <Card>Content</Card>
+  return (
+    <Card>
+      <h2>My Component</h2>
+    </Card>
+  )
 }
 ```
 
@@ -207,24 +237,28 @@ export default function Page() {
 }
 ```
 
-3. Build and test
+3. Test in browser with `make dev-ui`
 
-## Database Changes
+## CRD Changes
 
-When adding/modifying database schema:
+When modifying CRD schemas:
 
-1. Update schema in `internal/database/database.go`
-2. Add/update models in `internal/models/models.go`
-3. Add migration logic if needed
-4. Update query methods
-5. Test with fresh database
+1. Update `api/v1alpha1/*_types.go`
+2. Update corresponding reconciler in `internal/controller/`
+3. Update API handlers in `internal/httpapi/handlers/`
+4. Update UI components if needed
+5. Test reconciliation logic
+6. Update examples in `docs/` or `charts/`
 
 ## Documentation
 
 Update documentation when adding features:
 
-- `README.md` - Overview and commands
-- Inline code comments
+- `README.md` - Overview, quick start, examples
+- `CLAUDE.md` - Developer guide for Claude Code
+- `DEVELOPMENT.md` - Architecture details
+- Inline code comments for exported functions
+- OpenAPI docs (auto-generated from Huma)
 
 ## Commit Messages
 
@@ -238,7 +272,7 @@ body
 footer
 ```
 
-Types:
+**Types:**
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation
@@ -247,29 +281,33 @@ Types:
 - `test`: Tests
 - `chore`: Maintenance
 
-Examples:
+**Examples:**
 ```
-feat(cli): add search command
-fix(api): handle empty registry list
-docs: update quickstart guide
-refactor(db): simplify query methods
+feat(controller): add ModelCatalog reconciler
+fix(api): handle empty catalog lists
+docs: update CRD examples in README
+refactor(httpapi): simplify handler registration
+test(controller): add AgentCatalog reconciler tests
 ```
 
 ## Pull Request Process
 
 1. Update documentation
 2. Add/update tests
-3. Ensure CI passes
-4. Update CHANGELOG.md
-5. Request review
+3. Ensure tests pass (`make test`)
+4. Ensure code is formatted (`make fmt`)
+5. Ensure linting passes (`make lint`)
+6. Request review
 
 ### PR Checklist
 
 - [ ] Code follows style guidelines
 - [ ] Tests added/updated
 - [ ] Documentation updated
-- [ ] CI passes
-- [ ] Commits are clean and meaningful
+- [ ] `make test` passes
+- [ ] `make lint` passes
+- [ ] Commits follow conventional commits
+- [ ] PR description explains the change
 
 ## Building for Release
 
@@ -278,10 +316,12 @@ refactor(db): simplify query methods
 make all
 
 # Test the binary
-./bin/arctl version
-./bin/arctl ui
+./bin/controller --version
 
-# Create release
+# Build container image
+make ko-controller
+
+# Tag and push
 git tag -a v1.0.0 -m "Release v1.0.0"
 git push origin v1.0.0
 ```
@@ -304,20 +344,33 @@ npm install
 npm run build
 ```
 
-### Embed Issues
-
-Ensure UI is built before Go build:
+### Controller Not Connecting to K8s
 
 ```bash
-make build-ui
-make build-cli
+# Check kubeconfig
+kubectl cluster-info
+
+# Verify CRDs are installed
+kubectl get crds | grep agentregistry.dev
+
+# Check controller logs
+kubectl logs -n agentregistry deployment/agentregistry-controller
+```
+
+### NextAuth Errors in UI
+
+For development, ensure `ui/.env.local` exists:
+
+```bash
+AUTH_SECRET=dev-secret-bypass-only-not-for-production
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ## Getting Help
 
-- Open an issue for bugs
-- Start a discussion for questions
-- Join our Discord (if available)
+- 🐛 **Report bugs**: [GitHub Issues](https://github.com/agentregistry-dev/agentregistry/issues)
+- 💬 **Ask questions**: [GitHub Discussions](https://github.com/agentregistry-dev/agentregistry/discussions)
+- 💬 **Chat**: [Discord Server](https://discord.gg/HTYNjF2y2t)
 
 ## Code of Conduct
 
@@ -325,7 +378,12 @@ make build-cli
 - Welcome newcomers
 - Give constructive feedback
 - Focus on what's best for the project
+- Follow the [Contributor Covenant](https://www.contributor-covenant.org/)
 
+## License
 
-Thank you for contributing! 🎉
+By contributing, you agree that your contributions will be licensed under the MIT License.
 
+---
+
+Thank you for contributing to Agent Registry! 🎉
