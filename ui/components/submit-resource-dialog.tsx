@@ -109,14 +109,8 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
       if (formData.language) (manifest.agent as Record<string, string>).language = formData.language
       if (formData.modelProvider) (manifest.agent as Record<string, string>).modelProvider = formData.modelProvider
       if (formData.modelName) (manifest.agent as Record<string, string>).modelName = formData.modelName
-    } else if (formData.kind === "skill") {
-      if (formData.packageIdentifier) {
-        manifest.packages = [{
-          type: formData.packageType,
-          identifier: formData.packageIdentifier,
-        }]
-      }
     }
+    // Skills don't have package information - they're metadata only
 
     // Convert to YAML-like format (simple implementation)
     return formatAsYaml(manifest)
@@ -420,32 +414,10 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
 
                 {/* Skill specific fields */}
                 <TabsContent value="skill" className="mt-0 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="skillPackageType">Package Type</Label>
-                      <Select
-                        value={formData.packageType}
-                        onValueChange={(v) => setFormData(prev => ({ ...prev, packageType: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="npm">NPM</SelectItem>
-                          <SelectItem value="pypi">PyPI</SelectItem>
-                          <SelectItem value="oci">OCI/Docker</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="skillPackageIdentifier">Package Identifier</Label>
-                    <Input
-                      id="skillPackageIdentifier"
-                      placeholder="@org/skill-package"
-                      value={formData.packageIdentifier}
-                      onChange={(e) => setFormData(prev => ({ ...prev, packageIdentifier: e.target.value }))}
-                    />
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      Skills are typically discovered from deployed agents. The name, version, title, and description fields above are sufficient for manual skill registration.
+                    </p>
                   </div>
                 </TabsContent>
               </div>
