@@ -26,7 +26,7 @@ export function SkillCard({ skill, onDelete, onPublish, showDelete = false, show
   const official = _meta?.['io.modelcontextprotocol.registry/official']
 
   // Extract metadata
-  const publisherMetadata = skillData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const publisherMetadata = (skillData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const identityData = publisherMetadata?.identity
 
   // Get owner from metadata or extract from repository URL
@@ -34,7 +34,7 @@ export function SkillCard({ skill, onDelete, onPublish, showDelete = false, show
     // Try to get email from metadata first
     if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
     if (identityData?.email) return identityData.email
-    if (official?.submitter) return official.submitter
+    if ((official as any)?.submitter) return (official as any).submitter
 
     // Fallback to extracting owner/org from GitHub repository URL
     if (skillData.repository?.url) {

@@ -1,145 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="564" failures="0" errors="37" time="13.760162">
+<testsuites tests="68" failures="0" errors="9" time="9.378916">
 	<testsuite tests="0" failures="0" time="0.000000" name="" timestamp="0001-01-01T00:00:00Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/api/v1alpha1" timestamp="2026-01-31T16:55:31Z">
+	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/api/v1alpha1" timestamp="2026-02-02T13:35:44Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.017000" name="github.com/agentregistry-dev/agentregistry/cmd/cli" timestamp="2026-01-31T16:55:32Z">
+	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/cmd/controller" timestamp="2026-02-02T13:35:44Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/cmd/controller" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/cmd/server" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/cli" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/docker" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.012000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/adk/python" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.012000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/common" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/project" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/tui" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/tui/theme" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/cli/agent/utils" timestamp="2026-01-31T16:55:32Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="4" failures="0" time="0.170000" name="github.com/agentregistry-dev/agentregistry/internal/cli/configure" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/cli/configure" name="TestVSCodeConfigurer_GetConfigPath" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/cli/configure" name="TestVSCodeConfigurer_GetClientName" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/cli/configure" name="TestVSCodeConfigurer_CreateConfig" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/cli/configure" name="TestVSCodeConfigurer_CreateConfig_MergesExisting" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/build" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/frameworks" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/frameworks/common" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/frameworks/golang" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/frameworks/python" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.011000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/manifest" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/cli/mcp/templates" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/internal/cli/skill" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/internal/cli/skill/templates" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/client" timestamp="2026-01-31T16:55:33Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="57" failures="0" time="8.517000" name="github.com/agentregistry-dev/agentregistry/internal/controller" timestamp="2026-01-31T16:55:36Z">
+	<testsuite tests="57" failures="0" time="6.517000" name="github.com/agentregistry-dev/agentregistry/internal/controller" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -165,7 +41,7 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName/user/skill:latest" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName/simple-skill:1.0" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestGenerateSkillCatalogName" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestMCPServerCatalogReconciler_LatestVersionTracking" time="8.130000"></testcase>
+		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestMCPServerCatalogReconciler_LatestVersionTracking" time="5.610000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/both_nil" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/a_nil" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestDeploymentRefEqual/b_nil" time="0.000000"></testcase>
@@ -201,553 +77,22 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestEnsureVPrefix/#00" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/controller" name="TestEnsureVPrefix" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi" timestamp="2026-01-31T16:55:36Z">
+	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers" timestamp="2026-01-31T16:55:36Z">
+	<testsuite tests="0" failures="0" time="0.008000" name="github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/mcp/registryserver" timestamp="2026-01-31T16:55:36Z">
+	<testsuite tests="0" failures="0" time="0.010000" name="github.com/agentregistry-dev/agentregistry/internal/mcp/registryserver" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="75" failures="0" time="0.668000" name="github.com/agentregistry-dev/agentregistry/internal/printer" timestamp="2026-01-31T16:55:36Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNew/Table_output" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNew/Wide_output" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNew/JSON_output" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNew/YAML_output" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNew" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestSetOutput" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON/Simple_object" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON/Array" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON/Nested_object" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON_InvalidData" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintSuccess" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintError" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintWarning" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintInfo" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestamp/Specific_time" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestamp/Zero_time" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestamp" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestampShort/Specific_time" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestampShort/Zero_time" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatTimestampShort" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/5_days_ago" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/1_day_ago" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/3_hours_ago" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/45_minutes_ago" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/30_seconds_ago" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge/Just_now" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge_EdgeCases" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatAge_FutureTime" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintJSON_ComplexStruct" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter/No_options" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter/With_no_headers" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter/With_wide" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter/With_JSON_output" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter/Multiple_options" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestNewTablePrinter_NilWriter" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestSetHeaders" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow/String_values" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow/Mixed_types" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow/With_nil" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow/Empty_row" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_BasicTable" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_NoHeaders" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_EmptyTable" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_OnlyHeaders" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestPrintTable" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/String_shorter_than_max" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/String_equal_to_max" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/String_longer_than_max" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/Max_length_3" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/Max_length_1" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/Empty_string" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString/Unicode_string" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestTruncateString" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatStatus/Installed" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatStatus/Not_installed" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestFormatStatus" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestEmptyValueOrDefault/Non-empty_value" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestEmptyValueOrDefault/Empty_value" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestEmptyValueOrDefault/Both_empty" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestEmptyValueOrDefault/Whitespace_value" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestEmptyValueOrDefault" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithNoHeaders" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithWide" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithOutputType/Table" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithOutputType/Wide" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithOutputType/JSON" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithOutputType/YAML" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestWithOutputType" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_MultipleRows" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestRender_SpecialCharacters" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/printer" name="TestAddRow_TypeConversion" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="18" failures="0" time="0.550000" name="github.com/agentregistry-dev/agentregistry/internal/registry" timestamp="2026-01-31T16:55:36Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestNewClient" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_Success" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_InvalidJSON" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_NonOKStatus/NotFound" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_NonOKStatus/InternalError" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_NonOKStatus/Unauthorized" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_NonOKStatus/BadRequest" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_NonOKStatus" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestValidateRegistry_InvalidURL" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_SinglePage" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_MultiplePages" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_FilterInactiveServers" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_EmptyStatus" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_HTTPError" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_InvalidJSON" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_WithProgressBar" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_EmptyRegistry" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry" name="TestFetchAllServers_PaginationLimit" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="8" failures="0" time="0.897000" name="github.com/agentregistry-dev/agentregistry/internal/registry/api" timestamp="2026-01-31T16:55:36Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/root_path_should_not_redirect" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/path_without_trailing_slash_should_pass_through" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/path_with_trailing_slash_should_redirect" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/nested_path_with_trailing_slash_should_redirect" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/deep_nested_path_with_trailing_slash_should_redirect" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/path_with_query_params_and_no_trailing_slash_should_pass_through" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware/path_with_query_params_and_trailing_slash_should_redirect_preserving_query_params" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api" name="TestTrailingSlashMiddleware" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="7" failures="0" time="1.094000" name="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" timestamp="2026-01-31T16:55:36Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestHealthEndpoint/returns_health_status_with_github_client_id" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestHealthEndpoint/returns_health_status_without_github_client_id" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestHealthEndpoint" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestPingEndpoint" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestVersionEndpoint/returns_version_information" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestVersionEndpoint/returns_dev_version_information" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0" name="TestVersionEndpoint" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="154" failures="0" time="1.146000" name="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" timestamp="2026-01-31T16:55:37Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/successful_authentication" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/multiple_keys" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/invalid_domain_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/timestamp_too_old" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/timestamp_too_far_in_the_future" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/DNS_lookup_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken/no_MCP_TXT_records" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions/simple_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions/subdomain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions/multi-level_subdomain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions/single_part_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions/hyphenated_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/exact_domain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/subdomain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/deep_subdomain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/different_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/partial_domain_match_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/parent_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/edit_action_should_fail_(not_granted)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation/resource_without_package_separator_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_PermissionValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/successful_ECDSA_P-384_authentication" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/multiple_keys_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_signature_length" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/wrong_ECDSA_P-384_key_for_signature" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_key_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_key_compression_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ExchangeToken_ECDSAP384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_Permissions/simple_domain_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_Permissions/subdomain_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_Permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation/exact_domain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation/subdomain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation/deep_subdomain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation/different_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation/edit_action_should_fail_(not_granted)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_ECDSAP384_PermissionValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_api.example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_v1.api.example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Ed25519_vs_ECDSAP384_Equivalence" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Mixed_Algorithm_Support/multiple_algorithms_in_dns" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Mixed_Algorithm_Support/wrong_signature_for_algorithm" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDNSAuthHandler_Mixed_Algorithm_Support" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/successful_token_exchange_with_user_only" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/successful_token_exchange_with_organizations" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/invalid_token_returns_error" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/GitHub_API_error_on_user_fetch" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/GitHub_API_error_on_orgs_fetch" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/invalid_GitHub_username_returns_empty_permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/invalid_org_name_is_filtered_out" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken/malformed_JSON_response" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_ExchangeToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestJWTTokenValidation/generate_and_validate_token" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestJWTTokenValidation/token_expiration" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestJWTTokenValidation/invalid_signature" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestJWTTokenValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching/exact_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching/wildcard_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching/global_wildcard" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching/no_match_different_user" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching/no_match_different_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestPermissionResourceMatching" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/valid_username_only" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/valid_username_with_numbers" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/valid_username_with_org" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/invalid_username_with_spaces" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/invalid_username_with_special_chars" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames/valid_username_with_invalid_org" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestValidGitHubNames" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubHandler_Creation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestConcurrentTokenExchange" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubOIDCHandler_ExchangeToken/successful_token_exchange" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubOIDCHandler_ExchangeToken/validation_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubOIDCHandler_ExchangeToken/invalid_repository_owner_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestGitHubOIDCHandler_ExchangeToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestBuildPermissionsFromOIDC/valid_repository_owner" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestBuildPermissionsFromOIDC/invalid_repository_owner_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestBuildPermissionsFromOIDC/user_repository" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestBuildPermissionsFromOIDC" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/successful_authentication" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/invalid_domain_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/invalid_timestamp_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/timestamp_too_old" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/timestamp_too_far_in_the_future" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/invalid_signature_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/signature_wrong_length" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/HTTP_key_fetch_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/invalid_key_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/invalid_base64_key" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/wrong_key_size" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken/signature_verification_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher_FetchKey" time="0.020000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher/oversized_body" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher/non-OK_status" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher/connection_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher/response_body_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher/success" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestDefaultHTTPKeyFetcher" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions/simple_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions/subdomain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions/multi-level_subdomain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions/single_part_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions/hyphenated_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/exact_domain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/subdomain_resource_should_fail_for_HTTP" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/deep_subdomain_resource_should_fail_for_HTTP" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/different_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/partial_domain_match_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/parent_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/edit_action_should_fail_(not_granted)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation/resource_without_package_separator_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_PermissionValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPvsDNS_PermissionDifferences/exact_domain_resource" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPvsDNS_PermissionDifferences/subdomain_resource" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPvsDNS_PermissionDifferences/deep_subdomain_resource" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPvsDNS_PermissionDifferences" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/successful_ECDSA_P-384_authentication" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_signature_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/ECDSA_P-384_signature_wrong_length" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/HTTP_ECDSA_P-384_key_fetch_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_key_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/invalid_base64_ECDSA_P-384_key" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/wrong_ECDSA_P-384_key_size" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/ECDSA_P-384_signature_verification_failure" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384/invalid_ECDSA_P-384_key_compression_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ExchangeToken_ECDSAP384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_Permissions/simple_domain_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_Permissions/subdomain_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_Permissions/hyphenated_domain_with_ECDSA_P-384" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_Permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation/exact_domain_resource_with_publish_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation/subdomain_resource_should_fail_for_HTTP" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation/deep_subdomain_resource_should_fail_for_HTTP" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation/different_domain_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation/edit_action_should_fail_(not_granted)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_ECDSAP384_PermissionValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_api.example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Ed25519_vs_ECDSAP384_Equivalence/domain_v1.api.example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Ed25519_vs_ECDSAP384_Equivalence" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Algorithm_Support/single_ed25519_key" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Algorithm_Support/single_ecdsa_p384_key" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Algorithm_Support/http_response_with_extra_content" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Algorithm_Support/wrong_signature_for_single_key" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestHTTPAuthHandler_Algorithm_Support" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestNoneHandler_GetAnonymousToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestOIDCHandler_ExchangeToken/successful_token_exchange_with_publish_permissions" time="0.050000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestOIDCHandler_ExchangeToken/failed_validation_with_invalid_hosted_domain" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/api/handlers/v0/auth" name="TestOIDCHandler_ExchangeToken" time="0.060000"></testcase>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.015000" name="github.com/agentregistry-dev/agentregistry/internal/registry/api/router" timestamp="2026-01-31T16:55:37Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.015000" name="github.com/agentregistry-dev/agentregistry/internal/registry/config" timestamp="2026-01-31T16:55:37Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.014000" name="github.com/agentregistry-dev/agentregistry/internal/registry/seed" timestamp="2026-01-31T16:55:37Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="5" failures="0" time="0.185000" name="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" timestamp="2026-01-31T16:55:38Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" name="TestNewMetrics/Valid_Meter" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" name="TestNewMetrics" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" name="TestNewPrometheusMeterProvider/Successful_creation_of_meter_provider" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" name="TestNewPrometheusMeterProvider/Error_on_resource_creation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/telemetry" name="TestNewPrometheusMeterProvider" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/registry/types" timestamp="2026-01-31T16:55:38Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="158" failures="0" time="2.327000" name="github.com/agentregistry-dev/agentregistry/internal/registry/validators" timestamp="2026-01-31T16:55:38Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Schema_version_is_required" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Schema_version_rejects_old_schema_(2025-01-27)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Schema_version_accepts_current_schema_(2025-10-17)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_top-level_version_ranges" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/rejects_package_version_ranges" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_allows_specific_versions_(semver)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_allows_specific_non-semver_versions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_wildcard_and_x-range" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_wildcard_*" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_allows_freeform_version_with_hyphen_not_a_range" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_hyphen_range_of_two_versions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_OR_range_with_two_versions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/Version_rejects_comparator_with_space" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_name_with_two_slashes" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_name_with_three_slashes" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/valid_server_detail_with_all_fields" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_invalid_repository_source" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_invalid_GitHub_URL_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_invalid_GitLab_URL_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_valid_repository_subfolder" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_repository_subfolder_containing_path_traversal" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_repository_subfolder_starting_with_slash" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_repository_subfolder_ending_with_slash" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_repository_subfolder_containing_invalid_characters" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_repository_subfolder_containing_empty_segments" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_valid_websiteUrl" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_invalid_websiteUrl_-_no_scheme" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_invalid_websiteUrl_-_invalid_scheme" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_malformed_websiteUrl" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_websiteUrl_that_matches_namespace_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_websiteUrl_subdomain_that_matches_namespace" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_with_websiteUrl_that_does_not_match_namespace" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/package_with_spaces_in_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/package_with_reserved_version_&#39;latest&#39;" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/multiple_packages_with_one_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/remote_with_invalid_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/remote_with_missing_scheme" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/remote_with_localhost_url" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/remote_with_localhost_url_with_port" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/multiple_remotes_with_one_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_detail_with_nil_packages_and_remotes" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate/server_detail_with_empty_packages_and_remotes_slices" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/valid_match_-_example.com_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/valid_match_-_subdomain_mcp.example.com" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/valid_match_-_api_subdomain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/invalid_-_wrong_domain" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/invalid_-_different_domain_entirely" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/invalid_URL_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/empty_remotes_array" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/multiple_valid_remotes_-_different_subdomains" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch/one_valid,_one_invalid_remote" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RemoteNamespaceMatch" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/valid_namespace/name_format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/valid_complex_namespace" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/empty_server_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/missing_slash_separator" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/empty_namespace_part" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/empty_name_part" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat/multiple_slashes_-_should_be_rejected" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_ServerNameFormat" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/single_slash_-_valid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/two_slashes_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/three_slashes_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/many_slashes_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/double_slash_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/trailing_slash_counts_as_two_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/no_slash_-_still_invalid_for_different_reason" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/complex_valid_namespace_with_single_slash" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName/complex_namespace_with_multiple_slashes_-_invalid" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_MultipleSlashesInServerName" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_--directory" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_--port" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_-v" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_-p" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_config" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_verbose" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments/Valid_output-format" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidNamedArguments" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidPositionalArguments/ValidPositional_0" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidPositionalArguments/ValidPositional_1" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidPositionalArguments/ValidPositional_2" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidPositionalArguments" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_contains_description" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_contains_value" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_contains_dollar" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_contains_brackets" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_empty_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames/Invalid_has_spaces" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidNamedArgumentNames" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidValueFields/Invalid_value_starts_with_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidValueFields/Invalid_default_starts_with_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidValueFields/Invalid_value_starts_with_name_complex" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidValueFields/Invalid_default_starts_with_name_complex" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_InvalidValueFields" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields/Valid_value_without_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields/Valid_default_without_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields/Valid_value_with_var" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields/Valid_absolute_path" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields/Valid_contains_but_not_starts_with_name" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateArgument_ValidValueFields" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_stdio_without_URL_should_pass" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_stdio_with_URL_(should_fail)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_streamable-http_with_valid_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_streamable-http_with_templated_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_streamable-http_without_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_streamable-http_with_templated_URL_missing_variables" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_sse_with_valid_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_sse_without_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_unsupported_type" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_streamable-http_with_valid_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_streamable-http_without_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_sse_with_valid_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_sse_without_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_stdio_not_supported" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_unsupported_type" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/package_transport_allows_localhost_URLs" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation/remote_transport_rejects_localhost_URLs" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_TransportValidation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_npm" time="0.080000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_npm#01" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_pypi" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_pypi#01" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_oci" time="1.020000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_nuget" time="0.070000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_nuget#01" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_mcpb_github" time="0.070000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/valid_mcpb_gitlab" time="0.680000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_mcpb_no_hash" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_maven" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_cargo" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_gem" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_unknown" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_blank" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_docker" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_github" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_mix_1" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_mix_2" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls/invalid_mix_3" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidate_RegistryTypesAndUrls" time="2.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Valid_title_without_MCP_suffix" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Valid_title_with_multiple_words" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Empty_title_is_allowed_(optional_field)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Allows_title_with_&#39;MCP_Server&#39;_suffix" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Allows_title_with_&#39;MCP&#39;_suffix" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Allows_title_with_&#39;mcp_server&#39;_suffix_(lowercase)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Allows_title_with_hyphenated_&#39;MCP&#39;_suffix" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Allows_&#39;MCP&#39;_in_the_middle_of_title" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Rejects_title_with_only_whitespace" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Accepts_valid_icon_with_HTTPS_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Accepts_icon_with_all_optional_fields" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Accepts_icon_with_&#39;any&#39;_size_for_SVG" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Accepts_icon_with_dark_theme" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Accepts_multiple_icons" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Rejects_icon_with_HTTP_URL_(not_HTTPS)" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Rejects_icon_with_data_URI" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle/Rejects_icon_with_relative_URL" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators" name="TestValidateTitle" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="46" failures="0" time="3.511000" name="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" timestamp="2026-01-31T16:55:38Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/empty_package_identifier_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/empty_file_SHA256_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/both_empty_identifier_and_file_SHA256_should_fail_with_file_SHA256_error_first" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/valid_MCPB_package_should_pass" time="0.220000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/valid_MCPB_package_should_pass#01" time="0.170000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/MCPB_package_without_file_hash_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/non-existent_.mcpb_package_should_fail_accessibility_check" time="0.190000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/invalid_URL_without_mcp_anywhere_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/invalid_URL_format_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB/non-existent_file_should_fail_accessibility_check" time="0.110000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB" time="0.690000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB_OptionalFields/MCPB_package_with_optional_version_field_should_pass" time="0.020000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB_OptionalFields/MCPB_package_without_version_field_should_pass" time="0.020000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB_OptionalFields/MCPB_package_with_registryBaseUrl_should_be_rejected" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB_OptionalFields/MCPB_package_with_both_version_and_registryBaseUrl_should_fail_on_registryBaseUrl" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateMCPB_OptionalFields" time="0.040000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/empty_package_identifier_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/empty_package_version_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/both_empty_identifier_and_version_should_fail_with_identifier_error_first" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/non-existent_package_should_fail" time="0.250000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/real_package_without_mcpName_should_fail" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/real_package_without_mcpName_should_fail#01" time="0.040000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/real_package_without_mcpName_should_fail#02" time="0.040000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/real_package_with_incorrect_mcpName_should_fail" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/real_package_with_correct_mcpName_should_pass" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/scoped_package_that_doesn&#39;t_exist_should_fail" time="0.180000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/scoped_package_without_mcpName_should_fail" time="0.410000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages/scoped_package_with_mcpName_should_pass" time="0.270000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNPM_RealPackages" time="1.280000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/empty_package_identifier_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/empty_package_version_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/both_empty_identifier_and_version_should_fail_with_identifier_error_first" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/non-existent_package_should_fail" time="0.150000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/real_package_without_version_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/real_package_with_non-existent_version_should_fail" time="0.470000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/real_package_without_server_name_in_README_should_fail" time="0.040000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/real_package_without_server_name_in_README_should_fail#01" time="0.120000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages/real_package_with_server_name_in_README_should_pass" time="0.030000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidateNuGet_RealPackages" time="0.800000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/empty_package_identifier_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/empty_package_version_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/non-existent_package_should_fail" time="0.180000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/real_package_without_MCP_server_name_should_fail" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/real_package_with_different_server_name_should_fail" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages/real_package_with_server_name_in_README_should_pass" time="0.010000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/registry/validators/registries" name="TestValidatePyPI_RealPackages" time="0.220000"></testcase>
-	</testsuite>
-	<testsuite tests="7" failures="0" time="0.706000" name="github.com/agentregistry-dev/agentregistry/internal/runtime" timestamp="2026-01-31T16:55:38Z">
+	<testsuite tests="7" failures="0" time="0.329000" name="github.com/agentregistry-dev/agentregistry/internal/runtime" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -759,12 +104,12 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime" name="TestValidateRuntime" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime" name="TestSupportedRuntimes" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api" timestamp="2026-01-31T16:55:38Z">
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="4" failures="0" time="0.553000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="4" failures="0" time="0.555000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
@@ -773,73 +118,27 @@
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" name="TestTranslateRuntimeConfig_LocalMCP" time="0.000000"></testcase>
 		<testcase classname="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent" name="TestTranslateRuntimeConfig_AgentWithMCPServers" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.007000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry/utils" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="0" failures="0" time="0.009000" name="github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry/utils" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/internal/utils" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/internal/utils" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/version" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/internal/version" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.005000" name="github.com/agentregistry-dev/agentregistry/pkg/cli" timestamp="2026-01-31T16:55:39Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.005000" name="github.com/agentregistry-dev/agentregistry/pkg/models" timestamp="2026-01-31T16:55:39Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.005000" name="github.com/agentregistry-dev/agentregistry/pkg/printer" timestamp="2026-01-31T16:55:39Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.004000" name="github.com/agentregistry-dev/agentregistry/pkg/registry" timestamp="2026-01-31T16:55:39Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-	</testsuite>
-	<testsuite tests="21" failures="0" time="1.145000" name="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" timestamp="2026-01-31T16:55:39Z">
-		<properties>
-			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
-		</properties>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/generate_and_verify_valid_token" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/token_with_custom_claims" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/expired_token_should_fail_validation" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/invalid_token_signature_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/malformed_token_should_fail" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken/multiple_permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_GenerateAndVerifyToken" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/exact_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/wildcard_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/global_wildcard" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/wrong_action" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/no_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/multiple_permissions_with_match" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission/empty_permissions" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_HasPermission" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestNewJWTManager_InvalidKeySize" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_BlockedNamespaces/blocked_namespace_should_deny_token" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_BlockedNamespaces/non-blocked_namespace_should_allow_token" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_BlockedNamespaces/multiple_permissions_with_one_blocked_should_deny_token" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_BlockedNamespaces/global_admin_permissions_should_bypass_denylist" time="0.000000"></testcase>
-		<testcase classname="github.com/agentregistry-dev/agentregistry/pkg/registry/auth" name="TestJWTManager_BlockedNamespaces" time="0.000000"></testcase>
-	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="github.com/agentregistry-dev/agentregistry/pkg/types" timestamp="2026-01-31T16:55:39Z">
+	<testsuite tests="0" failures="0" time="0.006000" name="github.com/agentregistry-dev/agentregistry/pkg/models" timestamp="2026-02-02T13:35:47Z">
 		<properties>
 			<property name="go.version" value="go1.25.1 darwin/arm64"></property>
 		</properties>

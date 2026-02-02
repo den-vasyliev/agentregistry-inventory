@@ -74,7 +74,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   
   // Extract metadata
-  const publisherMetadata = serverData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
   const overallScore = publisherMetadata?.score
   const openSSFScore = publisherMetadata?.scorecard?.openssf
@@ -176,7 +176,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
     // Try to get email from metadata first
     if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
     if (identityData?.email) return identityData.email
-    if (official?.submitter) return official.submitter
+    if ((official as any)?.submitter) return (official as any).submitter
 
     // Fallback to extracting owner/org from GitHub repository URL
     if (serverData.repository?.url) {
@@ -639,7 +639,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
                           <p className="text-xs text-muted-foreground mb-1">Ecosystems</p>
                           <div className="text-sm font-bold space-y-1">
                             {Object.entries(scanData.dependency_health.ecosystems).map(([key, value]) => (
-                              <div key={key}>{key}: {value}</div>
+                              <div key={key}>{key}: {String(value)}</div>
                             ))}
                           </div>
                         </div>
