@@ -499,13 +499,13 @@ export default function PublishedPage() {
                   No published resources
                 </p>
                 <p className="text-sm mb-6">
-                  Publish MCP servers, skills, or agents from the Registry to see them here.
+                  Publish MCP servers, skills, or agents from the Inventory to see them here.
                 </p>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
                 >
-                  Go to Registry
+                  Go to Inventory
                 </Link>
               </div>
             </Card>
@@ -847,7 +847,7 @@ export default function PublishedPage() {
               Are you sure you want to unpublish <strong>{itemToUnpublish?.name}</strong> (version {itemToUnpublish?.version})?
               <br />
               <br />
-              This will change its status to unpublished. The resource will still exist in the registry but won&apos;t be visible to public users.
+              This will change its status to unpublished. The resource will still exist in the inventory but won&apos;t be visible to public users.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

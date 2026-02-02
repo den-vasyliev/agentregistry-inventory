@@ -203,6 +203,8 @@ func generateCatalogName(namespace, name string) string {
 	if len(combined) > 63 {
 		combined = combined[:63]
 	}
+	// K8s names must end with alphanumeric, not hyphen
+	combined = strings.TrimRight(combined, "-")
 	return combined
 }
 

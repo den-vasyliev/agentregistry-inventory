@@ -1,0 +1,185 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: modelcatalogs.agentregistry.dev
+spec:
+  group: agentregistry.dev
+  names:
+    kind: ModelCatalog
+    listKind: ModelCatalogList
+    plural: modelcatalogs
+    shortNames:
+    - mcat
+    - modelcat
+    singular: modelcatalog
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.provider
+      name: Provider
+      type: string
+    - jsonPath: .spec.model
+      name: Model
+      type: string
+    - jsonPath: .status.published
+      name: Published
+      type: boolean
+    - jsonPath: .status.ready
+      name: Ready
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ModelCatalog is the Schema for the modelcatalogs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ModelCatalogSpec defines the desired state of ModelCatalog
+            properties:
+              baseUrl:
+                description: BaseURL is the API endpoint URL
+                type: string
+              description:
+                description: Description of the model configuration
+                type: string
+              model:
+                description: Model is the model identifier
+                type: string
+              name:
+                description: Name is the canonical name of the model config
+                type: string
+              provider:
+                description: Provider is the model provider (OpenAI, Anthropic, Ollama,
+                  etc.)
+                type: string
+              sourceRef:
+                description: SourceRef references the deployed ModelConfig resource
+                properties:
+                  kind:
+                    description: Kind is the resource kind (e.g., MCPServer)
+                    type: string
+                  name:
+                    description: Name is the resource name
+                    type: string
+                  namespace:
+                    description: Namespace is the resource namespace
+                    type: string
+                required:
+                - kind
+                - name
+                - namespace
+                type: object
+            required:
+            - model
+            - name
+            - provider
+            type: object
+          status:
+            description: ModelCatalogStatus defines the observed state of ModelCatalog
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                items:
+                  description: CatalogCondition contains details for the current condition
+                    of this resource
+                  properties:
+                    lastTransitionTime:
+                      description: LastTransitionTime is the last time the condition
+                        transitioned
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message is a human-readable message indicating
+                        details about the transition
+                      type: string
+                    reason:
+                      description: Reason is a brief reason for the condition's last
+                        transition
+                      type: string
+                    status:
+                      description: Status is the status of the condition (True, False,
+                        Unknown)
+                      type: string
+                    type:
+                      description: Type is the type of condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              message:
+                description: Message provides additional status information
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the generation last observed by
+                  the controller
+                format: int64
+                type: integer
+              published:
+                description: Published indicates whether this model config is published
+                  and visible
+                type: boolean
+              publishedAt:
+                description: PublishedAt is the timestamp when this was published
+                format: date-time
+                type: string
+              ready:
+                description: Ready indicates if the model config is ready for use
+                type: boolean
+              status:
+                description: Status is the lifecycle status (active, deprecated, deleted)
+                type: string
+              usedBy:
+                description: UsedBy lists the agents that reference this model config
+                items:
+                  description: ModelUsageRef represents a reference to an agent using
+                    this model
+                  properties:
+                    kind:
+                      description: Kind of the resource (e.g., Agent)
+                      type: string
+                    name:
+                      description: Name of the agent
+                      type: string
+                    namespace:
+                      description: Namespace of the agent
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
+            required:
+            - published
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

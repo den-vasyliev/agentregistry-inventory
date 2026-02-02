@@ -100,7 +100,7 @@ export function AddSkillDialog({ open, onOpenChange, onSkillAdded }: AddSkillDia
         <DialogHeader>
           <DialogTitle>Add Skill</DialogTitle>
           <DialogDescription>
-            Add a new skill to the registry
+            Add a new skill to the inventory
           </DialogDescription>
         </DialogHeader>
 

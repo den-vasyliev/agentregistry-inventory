@@ -190,7 +190,7 @@ export function AddAgentDialog({ open, onOpenChange, onAgentAdded }: AddAgentDia
 
     return `# Generated Application manifest for Agent
 # Save as application.yaml, commit and push to your repository
-# Import using the "Import" option in the registry UI
+# Import using the "Import" option in the inventory UI
 
 ${toYaml(manifest)}
 `
@@ -264,7 +264,7 @@ ${toYaml(manifest)}
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Download the manifest as <code className="bg-background px-1 py-0.5 rounded">application.yaml</code></li>
                   <li>Commit and push to your Git repository</li>
-                  <li>Import from repository using the &ldquo;Import&rdquo; option in the registry UI</li>
+                  <li>Import from repository using the &ldquo;Import&rdquo; option in the inventory UI</li>
                 </ol>
               </div>
 

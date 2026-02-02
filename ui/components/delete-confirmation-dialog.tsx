@@ -40,7 +40,7 @@ export function DeleteConfirmationDialog({
             <DialogTitle>{title}</DialogTitle>
           </div>
           <DialogDescription className="text-base">
-            {description || `Are you sure you want to remove "${itemName}" from the registry?`}
+            {description || `Are you sure you want to remove "${itemName}" from the inventory?`}
             <br />
             <span className="text-destructive font-medium">This action cannot be undone.</span>
           </DialogDescription>

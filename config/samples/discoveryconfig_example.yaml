@@ -1,0 +1,79 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: multi-cluster-discovery
+spec:
+  environments:
+    # Development environment
+    - name: dev
+      cluster:
+        name: dev-cluster
+        namespace: default
+        projectId: my-project-dev
+        zone: us-central1
+        useWorkloadIdentity: true
+      provider: gcp
+      registry:
+        url: gcr.io/my-project
+        prefix: dev
+        useWorkloadIdentity: true
+      discoveryEnabled: true
+      namespaces:
+        - default
+        - team-a
+      resourceTypes:
+        - MCPServer
+        - Agent
+        - ModelConfig
+      labels:
+        environment: dev
+        managed-by: agentregistry
+
+    # Staging environment
+    - name: staging
+      cluster:
+        name: staging-cluster
+        namespace: default
+        projectId: my-project-staging
+        zone: us-central1
+        useWorkloadIdentity: true
+      provider: gcp
+      registry:
+        url: gcr.io/my-project
+        prefix: staging
+        useWorkloadIdentity: true
+      discoveryEnabled: true
+      namespaces:
+        - default
+      resourceTypes:
+        - MCPServer
+        - Agent
+        - ModelConfig
+      labels:
+        environment: staging
+        managed-by: agentregistry
+
+    # Production environment
+    - name: prod
+      cluster:
+        name: prod-cluster
+        namespace: production
+        projectId: my-project-prod
+        zone: us-central1
+        useWorkloadIdentity: true
+      provider: gcp
+      registry:
+        url: gcr.io/my-project
+        prefix: prod
+        useWorkloadIdentity: true
+      discoveryEnabled: true
+      namespaces:
+        - production
+        - default
+      resourceTypes:
+        - MCPServer
+        - Agent
+        - ModelConfig
+      labels:
+        environment: prod
+        managed-by: agentregistry
