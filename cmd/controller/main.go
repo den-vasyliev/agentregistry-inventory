@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/cluster"
 	"github.com/agentregistry-dev/agentregistry/internal/controller"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi"
 	"github.com/agentregistry-dev/agentregistry/internal/version"
@@ -223,6 +224,11 @@ func main() {
 		log.Error().Err(err).Str("controller", "DiscoveryConfig").Msg("unable to create controller")
 		os.Exit(1)
 	}
+
+	// Initialize remote client factory for multi-cluster discovery
+	clusterFactory := cluster.NewFactory(mgr.GetClient(), ctrlLogger)
+	controller.RemoteClientFactory = clusterFactory.CreateClientFunc()
+	log.Info().Msg("initialized remote client factory for multi-cluster discovery")
 
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {

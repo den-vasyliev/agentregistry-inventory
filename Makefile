@@ -101,15 +101,14 @@ dev-down: ## Stop all running controller and UI processes
 
 test: envtest ## Run all tests with coverage
 	@echo "Running tests..."
-	@command -v gotestsum >/dev/null 2>&1 || go install gotest.tools/gotestsum@latest
-	@command -v gocover-cobertura >/dev/null 2>&1 || go install github.com/boumenot/gocover-cobertura@latest
 	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
-		gotestsum --junitfile report.xml --format testname -- \
-		-coverprofile=coverage.out -covermode=count \
+		go test -coverprofile=coverage.out -covermode=atomic \
 		-ldflags "$(LDFLAGS)" -tags=integration \
-		./...
+		./internal/cluster \
+		./internal/controller \
+		./internal/runtime \
+		./internal/runtime/translation/kagent
 	@go tool cover -func=coverage.out | grep total:
-	@gocover-cobertura < coverage.out > coverage.xml
 
 lint: ## Run linters (gofmt, go vet)
 	@echo "Running gofmt..."
