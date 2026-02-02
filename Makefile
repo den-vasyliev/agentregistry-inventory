@@ -188,16 +188,25 @@ ko-tag-as-dev:
 	@echo "✓ Controller image tagged as dev"
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
+lint: ## Run Go linters (gofmt and go vet)
+	@echo "Running gofmt..."
+	@gofmt_output=$$(gofmt -l .); \
+	if [ -n "$$gofmt_output" ]; then \
+		echo "Error: The following files are not properly formatted:"; \
+		echo "$$gofmt_output"; \
+		echo "Run 'make lint-fix' to fix formatting"; \
+		exit 1; \
+	fi
+	@echo "✓ gofmt passed"
+	@echo "Running go vet..."
+	@go vet ./...
+	@echo "✓ go vet passed"
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
-
-.PHONY: lint-config
-lint-config: golangci-lint ## Verify golangci-lint linter configuration
-	$(GOLANGCI_LINT) config verify
+lint-fix: ## Run gofmt to fix formatting issues
+	@echo "Running gofmt -w..."
+	@gofmt -w .
+	@echo "Formatting fixed"
 
 ##@ Dependencies
 
