@@ -175,47 +175,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set up MCPServer discovery reconciler (auto-creates catalog from deployed MCPServers)
-	if err := (&controller.MCPServerDiscoveryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: ctrlLogger.With().Str("controller", "mcpserver-discovery").Logger(),
-	}).SetupWithManager(mgr); err != nil {
-		log.Error().Err(err).Str("controller", "MCPServerDiscovery").Msg("unable to create controller")
-		os.Exit(1)
-	}
-
-	// Set up Agent discovery reconciler (auto-creates catalog from deployed Agents)
-	if err := (&controller.AgentDiscoveryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: ctrlLogger.With().Str("controller", "agent-discovery").Logger(),
-	}).SetupWithManager(mgr); err != nil {
-		log.Error().Err(err).Str("controller", "AgentDiscovery").Msg("unable to create controller")
-		os.Exit(1)
-	}
-
-	// Set up Skill discovery reconciler (auto-creates catalog from Agent skill refs)
-	if err := (&controller.SkillDiscoveryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: ctrlLogger.With().Str("controller", "skill-discovery").Logger(),
-	}).SetupWithManager(mgr); err != nil {
-		log.Error().Err(err).Str("controller", "SkillDiscovery").Msg("unable to create controller")
-		os.Exit(1)
-	}
-
-	// Set up Model discovery reconciler (auto-creates catalog from ModelConfig)
-	if err := (&controller.ModelDiscoveryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: ctrlLogger.With().Str("controller", "model-discovery").Logger(),
-	}).SetupWithManager(mgr); err != nil {
-		log.Error().Err(err).Str("controller", "ModelDiscovery").Msg("unable to create controller")
-		os.Exit(1)
-	}
-
-	// Set up DiscoveryConfig reconciler (multi-cluster discovery configuration)
+	// Set up DiscoveryConfig reconciler (discovers resources from target clusters)
 	if err := (&controller.DiscoveryConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),

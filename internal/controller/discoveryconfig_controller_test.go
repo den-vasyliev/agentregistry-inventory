@@ -223,16 +223,16 @@ func TestDiscoveryConfigReconciler_MultiNamespaceDiscovery(t *testing.T) {
 			assert.Equal(t, "Filesystem MCP Server", catalog.Spec.Title)
 			assert.Equal(t, "Provides filesystem access", catalog.Spec.Description)
 			assert.Equal(t, "1.0.0", catalog.Spec.Version)
-			assert.Equal(t, "dev/ed210/filesystem-server", catalog.Spec.Name)
+			assert.Equal(t, "ed210/filesystem-server", catalog.Spec.Name)
 			assert.Equal(t, "stdio", catalog.Spec.Packages[0].Transport.Type)
-			assert.Contains(t, catalog.Name, "dev-ed210-filesystem-server")
+			assert.Contains(t, catalog.Name, "ed210-filesystem-server")
 		}
 
 		if sourceName == "github-server" && sourceNS == "default" {
 			foundGithub = true
 			assert.Equal(t, "2.0.0", catalog.Spec.Version)
 			assert.Equal(t, "streamable-http", catalog.Spec.Packages[0].Transport.Type)
-			assert.Contains(t, catalog.Name, "dev-default-github-server")
+			assert.Contains(t, catalog.Name, "default-github-server")
 		}
 	}
 

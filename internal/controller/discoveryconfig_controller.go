@@ -318,7 +318,8 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 	mcpServer *kmcpv1alpha1.MCPServer,
 	env *agentregistryv1alpha1.Environment,
 ) error {
-	catalogName := generateCatalogName(fmt.Sprintf("%s-%s", env.Name, mcpServer.Namespace), mcpServer.Name)
+	// Catalog name: namespace-name (environment/cluster info in labels)
+	catalogName := generateCatalogName(mcpServer.Namespace, mcpServer.Name)
 
 	// Extract version
 	version := "latest"
@@ -364,7 +365,7 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-			Name:        fmt.Sprintf("%s/%s/%s", env.Name, mcpServer.Namespace, mcpServer.Name),
+			Name:        fmt.Sprintf("%s/%s", mcpServer.Namespace, mcpServer.Name),
 			Version:     version,
 			Title:       title,
 			Description: description,
@@ -402,7 +403,8 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	agent *kagentv1alpha2.Agent,
 	env *agentregistryv1alpha1.Environment,
 ) error {
-	catalogName := generateAgentCatalogName(fmt.Sprintf("%s-%s", env.Name, agent.Namespace), agent.Name)
+	// Catalog name: namespace-name (environment/cluster info in labels)
+	catalogName := generateAgentCatalogName(agent.Namespace, agent.Name)
 
 	// Extract version
 	version := "latest"
@@ -436,7 +438,7 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
-			Name:        fmt.Sprintf("%s/%s/%s", env.Name, agent.Namespace, agent.Name),
+			Name:        fmt.Sprintf("%s/%s", agent.Namespace, agent.Name),
 			Version:     version,
 			Title:       title,
 			Description: description,
@@ -465,7 +467,8 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 	model *kagentv1alpha2.ModelConfig,
 	env *agentregistryv1alpha1.Environment,
 ) error {
-	catalogName := generateModelCatalogName(fmt.Sprintf("%s-%s", env.Name, model.Namespace), model.Name)
+	// Catalog name: namespace-name (environment/cluster info in labels)
+	catalogName := generateModelCatalogName(model.Namespace, model.Name)
 
 	// Build labels
 	labels := make(map[string]string)
@@ -486,7 +489,7 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.ModelCatalogSpec{
-			Name:     fmt.Sprintf("%s/%s/%s", env.Name, model.Namespace, model.Name),
+			Name:     fmt.Sprintf("%s/%s", model.Namespace, model.Name),
 			Provider: string(model.Spec.Provider),
 			Model:    model.Spec.Model,
 			SourceRef: &agentregistryv1alpha1.SourceReference{
