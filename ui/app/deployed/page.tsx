@@ -328,6 +328,20 @@ export default function DeployedPage() {
                               External
                             </Badge>
                           )}
+                          {item.status && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.status === "Running"
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                  : item.status === "Failed"
+                                  ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                  : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                              }
+                            >
+                              {item.status}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -428,6 +442,20 @@ export default function DeployedPage() {
                           ) : (
                             <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">
                               External
+                            </Badge>
+                          )}
+                          {item.status && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.status === "Running"
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                  : item.status === "Failed"
+                                  ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                  : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                              }
+                            >
+                              {item.status}
                             </Badge>
                           )}
                         </div>
