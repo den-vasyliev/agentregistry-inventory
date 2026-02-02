@@ -2,8 +2,22 @@
 REGISTRY ?= ghcr.io/den-vasyliev/agentregistry-enterprise
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BASE_VERSION ?= $(shell cat VERSION 2>/dev/null || echo "0.1.0")
-VERSION ?= v$(BASE_VERSION)-$(GIT_COMMIT)
+
+# Auto-increment version based on git tags
+LAST_TAG ?= $(shell git describe --tags --abbrev=0 2>/dev/null)
+COMMITS_SINCE_TAG ?= $(shell git rev-list $(LAST_TAG)..HEAD --count 2>/dev/null || echo "0")
+# Use VERSION file as fallback if no tags exist
+BASE_VERSION ?= $(shell if [ -n "$(LAST_TAG)" ]; then echo $(LAST_TAG) | sed 's/^v//'; else cat VERSION 2>/dev/null || echo "0.2.1"; fi)
+
+# If on a tag, use that tag; otherwise auto-increment patch version
+ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)
+# Not on a tag - auto-increment patch version
+NEXT_VERSION := $(shell echo $(BASE_VERSION) | awk -F. '{$$3=$$3+1; print $$1"."$$2"."$$3}')
+VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)
+else
+# On a tag - use the tag as-is
+VERSION ?= $(LAST_TAG)
+endif
 
 LDFLAGS := \
 	-s -w \
@@ -100,9 +114,18 @@ fmt: ## Format Go code
 
 ko-controller: build-ui ## Build and push controller image using ko
 	@echo "Building and pushing controller image..."
-	@KO_DOCKER_REPO=$(REGISTRY) ko build --tags=$(BASE_VERSION),latest --bare cmd/controller/main.go
+	@echo "Version: $(VERSION)"
+	@echo "Base Version: $(BASE_VERSION)"
+	@echo "Git Commit: $(GIT_COMMIT)"
+	@KO_DOCKER_REPO=$(REGISTRY) ko build \
+		--tags=$(VERSION),$(NEXT_VERSION),latest \
+		--bare \
+		--image-label org.opencontainers.image.version=$(VERSION) \
+		--image-label org.opencontainers.image.revision=$(GIT_COMMIT) \
+		cmd/controller/main.go
 	@echo "✓ Images pushed:"
-	@echo "  $(REGISTRY):$(BASE_VERSION)"
+	@echo "  $(REGISTRY):$(VERSION)"
+	@echo "  $(REGISTRY):$(NEXT_VERSION)"
 	@echo "  $(REGISTRY):latest"
 
 image: build ## Build container image locally
