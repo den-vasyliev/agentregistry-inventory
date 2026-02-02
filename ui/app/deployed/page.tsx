@@ -64,10 +64,8 @@ export default function DeployedPage() {
   const fetchDeployments = async () => {
     try {
       setError(null)
-      // Use authenticated client if session available
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       // listDeployments now returns both managed and external K8s resources
       const deployData = await client.listDeployments()
       setDeployments(deployData)
@@ -109,10 +107,8 @@ export default function DeployedPage() {
 
     try {
       setRemoving(true)
-      // Use authenticated client for admin operation
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       await client.removeDeployment(serverToRemove.name, serverToRemove.version, serverToRemove.resourceType)
       // Remove from local state
       setDeployments(prev => prev.filter(d => d.serverName !== serverToRemove.name || d.version !== serverToRemove.version || d.resourceType !== serverToRemove.resourceType))

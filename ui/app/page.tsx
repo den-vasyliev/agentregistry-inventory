@@ -276,9 +276,8 @@ export default function AdminPage() {
   // Handle server publishing
   const handlePublish = async (server: ServerResponse) => {
     try {
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       await client.publishServerStatus(server.server.name, server.server.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${server.server.name}`)
@@ -289,9 +288,8 @@ export default function AdminPage() {
 
   const handlePublishSkill = async (skill: SkillResponse) => {
     try {
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       await client.publishSkillStatus(skill.skill.name, skill.skill.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${skill.skill.name}`)
@@ -304,9 +302,8 @@ export default function AdminPage() {
     const {agent } = agentResponse;
 
     try {
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       await client.publishAgentStatus(agent.name, agent.version)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${agent.name}`)
@@ -319,9 +316,8 @@ export default function AdminPage() {
     const { model } = modelResponse
 
     try {
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       await client.publishModelStatus(model.name)
       await fetchData() // Refresh data
       toast.success(`Successfully published ${model.name}`)
