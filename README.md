@@ -107,14 +107,42 @@ kubectl get pods -n agentregistry
 kubectl get mcpservercatalogs,agentcatalogs,skillcatalogs,modelcatalogs -A
 ```
 
+### Building from Source
+
+```bash
+# Build controller binary (includes embedded UI)
+make build
+
+# Build container image locally
+make image
+
+# Build and push to registry
+REGISTRY=ghcr.io/yourorg/agentregistry-enterprise make push
+
+# Full release build (clean, test, lint, build, push)
+make release
+```
+
+Available make targets:
+- `make help` - Show all available targets
+- `make build` - Build controller binary
+- `make test` - Run tests with coverage
+- `make lint` - Run linters
+- `make image` - Build container image
+- `make push` - Push to registry
+- `make release` - Full release workflow
+
 ### Development Setup
 
 ```bash
-# Build controller
-make build-controller
+# Build controller (includes UI)
+make build
 
-# Run controller + UI locally
+# Run in development mode
 make dev
+
+# Run UI dev server (in another terminal for live reload)
+make dev-ui
 
 # Access:
 # - UI: http://localhost:3000
@@ -345,17 +373,17 @@ crds:
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run all tests with coverage
 make test
 
-# Run controller tests only
-make test-controller
+# Run linters
+make lint
 
-# View coverage in browser
-make coverage
+# Format code
+make fmt
 ```
 
-Current test coverage: **22%** (focused on controller logic and runtime translation)
+Current test coverage: **17%** (focused on controller logic and runtime translation)
 
 ## 🤝 Contributing
 
