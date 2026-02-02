@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/claude-code) when working with code in this repository.
 
+## Git Workflow
+
+**IMPORTANT: Always use this command to push changes:**
+
+```bash
+git push origin HEAD:enterprise-controller
+```
+
+This repository uses `enterprise-controller` as the working branch, not `main`.
+
 ## Project Overview
 
 Agent Registry is a **Kubernetes-native controller** that provides a centralized registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, and skills.
