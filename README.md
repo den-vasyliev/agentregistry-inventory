@@ -12,6 +12,10 @@
 </div>
 
 
+## 🏢 Enterprise Scale, Not Just CLI
+
+In enterprise, you need **scale and multi-user access for AI resources**. Agent Registry runs as a **Kubernetes service** that provides a centralized catalog for teams to discover, deploy, and manage AI resources.
+
 ##  What is Agent Registry?
 
 Agent Registry is a **Kubernetes controller** that brings governance and control to AI artifacts and infrastructure. It provides a secure, centralized registry where teams can publish, discover, and deploy AI artifacts using Kubernetes Custom Resource Definitions (CRDs).
