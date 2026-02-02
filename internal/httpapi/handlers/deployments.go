@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -328,10 +329,9 @@ func (h *DeploymentHandler) updateDeploymentConfig(ctx context.Context, input *U
 
 	// Merge config
 	if deployment.Spec.Config == nil {
-		deployment.Spec.Config = make(map[string]string)
-	}
-	for k, v := range input.Body.Config {
-		deployment.Spec.Config[k] = v
+		deployment.Spec.Config = maps.Clone(input.Body.Config)
+	} else {
+		maps.Copy(deployment.Spec.Config, input.Body.Config)
 	}
 
 	if err := h.client.Update(ctx, &deployment); err != nil {

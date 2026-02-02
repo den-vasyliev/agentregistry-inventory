@@ -233,7 +233,7 @@ func parseSkillRef(ref string) (name, version string) {
 func generateSkillCatalogName(name, version string) string {
 	// Remove registry prefix for shorter names
 	shortName := name
-	if idx := strings.Index(name, "/"); idx != -1 {
+	if strings.Contains(name, "/") {
 		// Keep only the last two parts (org/skill)
 		parts := strings.Split(name, "/")
 		if len(parts) >= 2 {

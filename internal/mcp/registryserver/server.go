@@ -7,7 +7,7 @@ import (
 
 // NewServer constructs an MCP server that exposes read-only discovery tools backed by Kubernetes CRDs.
 // TODO: Implement with Kubernetes client to query Application CRDs
-func NewServer(_ interface{}) *mcp.Server {
+func NewServer(_ any) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentregistry-mcp",
 		Version: version.Version,

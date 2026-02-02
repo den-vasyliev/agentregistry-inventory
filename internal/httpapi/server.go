@@ -26,12 +26,12 @@ import (
 
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
-	client               client.Client
-	cache                cache.Cache
-	logger               zerolog.Logger
-	mux                  *http.ServeMux
-	api                  huma.API
-	authEnabled          bool
+	client      client.Client
+	cache       cache.Cache
+	logger      zerolog.Logger
+	mux         *http.ServeMux
+	api         huma.API
+	authEnabled bool
 	allowedTokens        map[string]bool // Simple token allowlist for now
 }
 

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
@@ -393,10 +394,7 @@ func (r *RegistryDeploymentReconciler) convertCatalogToAgent(catalog *agentregis
 	}
 
 	// Build environment variables
-	env := make(map[string]string)
-	for k, v := range deployment.Spec.Config {
-		env[k] = v
-	}
+	env := maps.Clone(deployment.Spec.Config)
 
 	// Set standard agent environment variables
 	env["KAGENT_URL"] = "http://localhost"
