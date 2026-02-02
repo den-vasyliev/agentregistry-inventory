@@ -4,23 +4,22 @@ metadata:
   name: multi-cluster-discovery
 spec:
   environments:
-    # Development environment
+    # Remote GKE cluster - Development environment
     - name: dev
       cluster:
-        name: dev-cluster
-        namespace: default
-        projectId: my-project-dev
-        zone: us-central1
+        name: panda
+        namespace: ops
+        projectId: gfk-eco-ops-black-9258
+        zone: europe-west3
         useWorkloadIdentity: true
       provider: gcp
       registry:
-        url: gcr.io/my-project
-        prefix: dev
+        url: europe-docker.pkg.dev/gfk-eco-shared-blue
+        prefix: newron-dev
         useWorkloadIdentity: true
       discoveryEnabled: true
       namespaces:
-        - default
-        - team-a
+        - ops
       resourceTypes:
         - MCPServer
         - Agent
@@ -29,18 +28,18 @@ spec:
         environment: dev
         managed-by: agentregistry
 
-    # Staging environment
+    # Remote GKE cluster - Staging environment
     - name: staging
       cluster:
-        name: staging-cluster
+        name: panda
         namespace: default
-        projectId: my-project-staging
-        zone: us-central1
+        projectId: gfk-eco-ops-black-9258
+        zone: europe-west3
         useWorkloadIdentity: true
       provider: gcp
       registry:
-        url: gcr.io/my-project
-        prefix: staging
+        url: europe-docker.pkg.dev/gfk-eco-shared-blue
+        prefix: newron-staging
         useWorkloadIdentity: true
       discoveryEnabled: true
       namespaces:
@@ -53,23 +52,22 @@ spec:
         environment: staging
         managed-by: agentregistry
 
-    # Production environment
+    # Remote GKE cluster - Production environment
     - name: prod
       cluster:
-        name: prod-cluster
-        namespace: production
-        projectId: my-project-prod
-        zone: us-central1
+        name: panda
+        namespace: kagent
+        projectId: gfk-eco-ops-black-9258
+        zone: europe-west3
         useWorkloadIdentity: true
       provider: gcp
       registry:
-        url: gcr.io/my-project
-        prefix: prod
+        url: europe-docker.pkg.dev/gfk-eco-shared-blue
+        prefix: newron-prod
         useWorkloadIdentity: true
       discoveryEnabled: true
       namespaces:
-        - production
-        - default
+        - kagent
       resourceTypes:
         - MCPServer
         - Agent

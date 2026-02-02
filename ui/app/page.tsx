@@ -326,6 +326,14 @@ export default function AdminPage() {
     }
   }
 
+  // Reset all page numbers when search query changes
+  useEffect(() => {
+    setCurrentPageServers(1)
+    setCurrentPageSkills(1)
+    setCurrentPageAgents(1)
+    setCurrentPageModels(1)
+  }, [searchQuery])
+
   // Filter and sort servers based on search query and sort option
   useEffect(() => {
     let filtered = [...groupedServers]
