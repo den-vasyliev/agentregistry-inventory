@@ -34,3 +34,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# build-time auth backup directories
+.auth-api-backup/
+.auth-pages-backup/
+.auth-backup/
+

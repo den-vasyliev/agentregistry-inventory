@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "NEXT_PUBLIC_API_URL=http://localhost:8080 next dev",
     "build": "next build",
+    "prebuild:export": "[ -d app/api/auth ] && mv app/api/auth .auth-api-backup || true; [ -d app/auth ] && mv app/auth .auth-pages-backup || true",
     "build:export": "NEXT_BUILD_EXPORT=true next build",
+    "postbuild:export": "[ -d .auth-api-backup ] && mv .auth-api-backup app/api/auth || true; [ -d .auth-pages-backup ] && mv .auth-pages-backup app/auth || true",
     "start": "next start",
     "lint": "npx eslint ."
   },
