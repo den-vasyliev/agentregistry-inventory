@@ -499,7 +499,7 @@ export function SubmitResourceDialog({ trigger, onSubmitted }: SubmitResourceDia
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                 <li>Save this file as <code className="bg-muted px-1 rounded">.agentregistry.yaml</code> in your repository root</li>
                 <li>Commit and push to your repository</li>
-                <li>Click "Continue to Apply" below</li>
+                <li>Click &ldquo;Continue to Apply&rdquo; below</li>
               </ol>
             </div>
 

@@ -12,7 +12,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
     }),
   ] : [],
   callbacks: {
@@ -29,10 +29,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token
     },
     async session({ session, token }) {
-      // Add token info to session
-      session.accessToken = token.accessToken as string
-      session.user.email = token.email as string
-      session.user.name = token.name as string
+      // Add user info to session
+      if (token.email) session.user.email = token.email as string
+      if (token.name) session.user.name = token.name as string
       return session
     },
   },

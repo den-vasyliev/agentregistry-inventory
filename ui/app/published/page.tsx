@@ -200,7 +200,6 @@ export default function PublishedPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
-        runtime: deployRuntime,
       })
 
       setItemToDeploy(null)
@@ -247,9 +246,7 @@ export default function PublishedPage() {
 
   const handlePublish = async (server: ServerResponse) => {
     try {
-      const client = session?.accessToken
-        
-        
+      const client = adminApiClient
       await client.publishServerStatus(server.server.name, server.server.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${server.server.name}`)
@@ -260,9 +257,7 @@ export default function PublishedPage() {
 
   const handlePublishSkill = async (skill: SkillResponse) => {
     try {
-      const client = session?.accessToken
-        
-        
+      const client = adminApiClient
       await client.publishSkillStatus(skill.skill.name, skill.skill.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${skill.skill.name}`)
@@ -275,9 +270,7 @@ export default function PublishedPage() {
     const { agent } = agentResponse
 
     try {
-      const client = session?.accessToken
-        
-        
+      const client = adminApiClient
       await client.publishAgentStatus(agent.name, agent.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${agent.name}`)
@@ -528,9 +521,9 @@ export default function PublishedPage() {
                   const deployed = isDeployed(server.name, server.version, 'server')
 
                   // Extract owner from metadata or repository URL
-                  const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] as any
                   const identityData = publisherMetadata?.identity
-                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
                     (server.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
 
                   return (
@@ -645,9 +638,9 @@ export default function PublishedPage() {
                   const deployed = isDeployed(agent.name, agent.version, 'agent')
 
                   // Extract owner from metadata or repository URL
-                  const publisherMetadata = agent._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const publisherMetadata = (agent as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
                   const identityData = publisherMetadata?.identity
-                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
                     (agent.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
 
                   return (
@@ -761,9 +754,9 @@ export default function PublishedPage() {
                   const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
 
                   // Extract owner from metadata or repository URL
-                  const publisherMetadata = skill._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const publisherMetadata = (skill as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
                   const identityData = publisherMetadata?.identity
-                  const owner = publisherMetadata?.contact_email || identityData?.email || meta?.submitter ||
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
                     (skill.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
 
                   return (
