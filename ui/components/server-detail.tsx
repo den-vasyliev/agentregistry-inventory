@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { ServerResponse, adminApiClient } from "@/lib/admin-api"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -220,9 +221,11 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-start gap-4 flex-1">
             {icon && (
-              <img 
-                src={icon.src} 
-                alt="Server icon" 
+              <Image
+                src={icon.src}
+                alt="Server icon"
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded flex-shrink-0 mt-1"
               />
             )}
