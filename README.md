@@ -1,13 +1,13 @@
 <div align="center">
   <picture>
-    <img alt="agentregistry" src="./img/agentregistry-logo.svg" height="150"/>
+    <img alt="agentregistry enterprise" src="./img/agentregistry-enterprise-logo.svg" height="180"/>
   </picture>
 
   [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
   [![Discord](https://img.shields.io/discord/1435836734666707190?label=Join%20Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/HTYNjF2y2t)
 
-  ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, and skills.
+  ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, skills, and models.
 </div>
 
 
@@ -23,6 +23,18 @@ Agent Registry is a **Kubernetes controller** that brings governance and control
 - **📊 Auto-Discovery**: Automatically index deployed resources into the catalog
 - **🚀 Declarative Deployment**: GitOps-ready resource management
 - **🌐 HTTP API + UI**: Browse and manage catalogs via REST API and web interface
+
+### 🏢 Enterprise Benefits
+
+- **📋 Centralized Inventory**: Complete catalog of all AI resources across the organization
+- **👥 Developer Platform**: Teams can discover, reuse, and contribute new AI resources
+- **✅ Review & Approval**: Built-in workflow for reviewing and approving resources before deployment
+- **📈 Usage Analytics**: Track usage statistics and popularity rankings for AI resources
+- **🔴 Real-Time Status**: Monitor health and status of deployed resources in real-time
+- **🎯 Managed & Custom**: Support both managed (curated) and custom (team-owned) resources
+- **🔐 OIDC Authentication**: Secure deployments with OIDC-based authentication
+- **📝 Git-Based Source**: Resources defined in Git for version control and audit trails
+- **🔍 Auto-Discovery**: Automatically discover deployed resources (gitless ops support)
 
 ## 🏗️ Architecture
 
@@ -52,6 +64,7 @@ Agent Registry consists of:
 │ - MCPServerCatalog  │
 │ - AgentCatalog      │
 │ - SkillCatalog      │
+│ - ModelCatalog      │
 │ - RegistryDeployment│
 └─────────────────────┘
 ```
@@ -80,7 +93,7 @@ kubectl apply -f charts/agentregistry/
 
 # Verify deployment
 kubectl get pods -n agentregistry
-kubectl get mcpservercatalogs,agentcatalogs,skillcatalogs -A
+kubectl get mcpservercatalogs,agentcatalogs,skillcatalogs,modelcatalogs -A
 ```
 
 ### Development Setup
@@ -160,6 +173,23 @@ spec:
   image: "ghcr.io/skills/terraform:1.0.0"
 ```
 
+#### ModelCatalog
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: gemini-2-0-flash
+  namespace: agentregistry
+spec:
+  name: "gemini-2.0-flash"
+  version: "1.0.0"
+  title: "Gemini 2.0 Flash"
+  description: "Google's fast multimodal AI model"
+  provider: "google"
+  modelType: "chat"
+```
+
 ### Deployment
 
 Deploy catalog entries to Kubernetes using **RegistryDeployment**:
@@ -193,6 +223,24 @@ The controller includes **discovery reconcilers** that automatically index deplo
 - **ModelDiscovery** - Indexes ModelConfig resources
 
 Resources deployed directly (without going through the catalog) are automatically discovered and cataloged.
+
+## 💼 Usage Scenarios
+
+### Developer Workflow
+
+Developers can discover and use AI resources from the registry:
+
+<div align="center">
+  <img src="./img/dev-scenario.png" alt="Developer Scenario" width="800"/>
+</div>
+
+### Operator Workflow
+
+Operators manage and deploy resources via GitOps:
+
+<div align="center">
+  <img src="./img/operator-scenario.png" alt="Operator Scenario" width="800"/>
+</div>
 
 ## 🔌 HTTP API
 
@@ -310,9 +358,8 @@ make test
 # Run controller tests only
 make test-controller
 
-# View coverage
-make test
-go tool cover -html=coverage.out
+# View coverage in browser
+make coverage
 ```
 
 Current test coverage: **22%** (focused on controller logic and runtime translation)

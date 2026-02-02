@@ -255,6 +255,14 @@ test-coverage: envtest ## Run all tests with coverage
 	go tool cover -func=coverage.out
 	@echo "Coverage report: coverage.out"
 
+.PHONY: coverage
+coverage: ## View test coverage in browser
+	@if [ ! -f coverage.out ]; then \
+		echo "Coverage file not found. Running tests first..."; \
+		$(MAKE) test; \
+	fi
+	go tool cover -html=coverage.out
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
