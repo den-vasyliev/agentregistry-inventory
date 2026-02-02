@@ -502,7 +502,7 @@ func sanitizeCRName(name string) string {
 func (h *SubmitHandler) respondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"success": false,
 		"message": message,
 	})

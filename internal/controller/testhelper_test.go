@@ -146,7 +146,7 @@ func (h *TestEnvHelper) Cleanup(t *testing.T) {
 }
 
 // SetupReconcilers sets up all catalog reconcilers for testing
-func (h *TestEnvHelper) SetupReconcilers(t *testing.T, logger interface{}) {
+func (h *TestEnvHelper) SetupReconcilers(t *testing.T, logger any) {
 	// Note: In actual tests, you would pass a proper slog.Logger
 	// For now, we'll skip this since the logger setup needs discussion
 }
