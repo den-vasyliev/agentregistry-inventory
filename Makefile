@@ -18,7 +18,7 @@ LDFLAGS := \
 # Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-.PHONY: help install-ui build-ui clean-ui build-controller build dev-ui test clean fmt lint all ko-controller ko-build ko-tag-as-dev
+.PHONY: help install-ui build-ui clean-ui build-controller build dev dev-ui dev-controller test clean fmt lint all ko-controller ko-build ko-tag-as-dev
 
 # Default target
 help:
@@ -28,7 +28,9 @@ help:
 	@echo "  clean-ui             - Clean UI build artifacts"
 	@echo "  build-controller     - Build the controller binary"
 	@echo "  build                - Build UI and controller"
-	@echo "  dev-ui               - Run Next.js in development mode"
+	@echo "  dev                  - Run controller + UI in development mode"
+	@echo "  dev-ui               - Run Next.js in development mode only"
+	@echo "  dev-controller       - Run controller in development mode only"
 	@echo "  test                 - Run Go tests"
 	@echo "  clean                - Clean all build artifacts"
 	@echo "  all                  - Clean and build everything"
@@ -111,6 +113,22 @@ build: build-ui build-controller
 dev-ui:
 	@echo "Starting Next.js development server..."
 	cd ui && npm run dev
+
+# Run controller in development mode
+dev-controller: build-controller
+	@echo "Starting controller with HTTP API..."
+	./bin/controller --enable-http-api=true
+
+# Run both UI and controller for development (parallel)
+dev: build-controller
+	@echo "Starting development environment..."
+	@echo "  Controller API: http://localhost:8080"
+	@echo "  UI: http://localhost:3000"
+	@echo ""
+	@echo "Press Ctrl+C to stop both services"
+	@trap 'kill 0' EXIT; \
+		./bin/controller --enable-http-api=true & \
+		cd ui && npm run dev
 
 # Run Go tests
 test: envtest
