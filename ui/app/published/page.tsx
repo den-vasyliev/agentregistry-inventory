@@ -70,6 +70,7 @@ export default function PublishedPage() {
   const [currentPageServers, setCurrentPageServers] = useState(1)
   const [currentPageSkills, setCurrentPageSkills] = useState(1)
   const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const itemsPerPage = 5
 
   const fetchPublished = async () => {
@@ -459,18 +460,13 @@ export default function PublishedPage() {
 
             {/* Action Button */}
             <div className="ml-auto">
-              <SubmitResourceDialog
-                trigger={
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Submit Resource
-                  </Button>
-                }
-                onSubmitted={() => {
-                  // Refresh the list
-                  fetchPublished()
-                }}
-              />
+              <Button
+                className="gap-2"
+                onClick={() => setSubmitResourceDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Submit Resource
+              </Button>
             </div>
           </div>
 
@@ -903,6 +899,12 @@ export default function PublishedPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Submit Resource Dialog (GitOps Workflow) */}
+      <SubmitResourceDialog
+        open={submitResourceDialogOpen}
+        onOpenChange={setSubmitResourceDialogOpen}
+      />
     </main>
   )
 }

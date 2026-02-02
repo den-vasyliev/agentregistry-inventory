@@ -48,6 +48,7 @@ interface ManifestData {
   language?: string
   modelProvider?: string
   modelName?: string
+  mcpServers?: string  // Comma-separated list of MCP server names
   // Common
   repositoryUrl?: string
 }
@@ -70,6 +71,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
     language: "",
     modelProvider: "",
     modelName: "",
+    mcpServers: "",
     repositoryUrl: "",
   })
 
@@ -109,6 +111,17 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
       if (formData.language) (manifest.agent as Record<string, string>).language = formData.language
       if (formData.modelProvider) (manifest.agent as Record<string, string>).modelProvider = formData.modelProvider
       if (formData.modelName) (manifest.agent as Record<string, string>).modelName = formData.modelName
+
+      // MCP servers for agent tools/skills
+      if (formData.mcpServers) {
+        const serverNames = formData.mcpServers.split(',').map(s => s.trim()).filter(s => s)
+        if (serverNames.length > 0) {
+          manifest.mcpServers = serverNames.map(name => ({
+            type: "registry",
+            name: name,
+          }))
+        }
+      }
     }
     // Skills don't have package information - they're metadata only
 
@@ -219,6 +232,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
       language: "",
       modelProvider: "",
       modelName: "",
+      mcpServers: "",
       repositoryUrl: "",
     })
   }
@@ -305,39 +319,21 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
 
                 {/* MCP Server specific fields */}
                 <TabsContent value="mcp-server" className="mt-0 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="packageType">Package Type</Label>
-                      <Select
-                        value={formData.packageType}
-                        onValueChange={(v) => setFormData(prev => ({ ...prev, packageType: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="npm">NPM</SelectItem>
-                          <SelectItem value="pypi">PyPI</SelectItem>
-                          <SelectItem value="oci">OCI/Docker</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="transport">Transport</Label>
-                      <Select
-                        value={formData.transport}
-                        onValueChange={(v) => setFormData(prev => ({ ...prev, transport: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="stdio">stdio</SelectItem>
-                          <SelectItem value="sse">SSE</SelectItem>
-                          <SelectItem value="websocket">WebSocket</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="packageType">Package Type</Label>
+                    <Select
+                      value={formData.packageType}
+                      onValueChange={(v) => setFormData(prev => ({ ...prev, packageType: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="npm">NPM</SelectItem>
+                        <SelectItem value="pypi">PyPI</SelectItem>
+                        <SelectItem value="oci">OCI/Docker</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="packageIdentifier">Package Identifier</Label>
@@ -347,6 +343,9 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
                       value={formData.packageIdentifier}
                       onChange={(e) => setFormData(prev => ({ ...prev, packageIdentifier: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Local MCP servers use stdio transport (standard input/output)
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="remoteUrl">Remote URL (optional)</Label>
@@ -356,6 +355,9 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
                       value={formData.remoteUrl}
                       onChange={(e) => setFormData(prev => ({ ...prev, remoteUrl: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      For remote MCP servers over HTTP with SSE streaming
+                    </p>
                   </div>
                 </TabsContent>
 
@@ -409,6 +411,19 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
                         onChange={(e) => setFormData(prev => ({ ...prev, modelName: e.target.value }))}
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mcpServers">MCP Servers (Tools/Skills) *</Label>
+                    <Textarea
+                      id="mcpServers"
+                      placeholder="Enter MCP server names from registry, comma-separated (e.g., brave-search, sqlite, filesystem)"
+                      value={formData.mcpServers}
+                      onChange={(e) => setFormData(prev => ({ ...prev, mcpServers: e.target.value }))}
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Agents need at least one MCP server to provide tools/skills. Reference servers from the Agent Registry catalog.
+                    </p>
                   </div>
                 </TabsContent>
 
