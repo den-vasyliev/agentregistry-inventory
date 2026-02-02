@@ -2,7 +2,7 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/* ]
   pull_request:
     branches: [ main ]
 
@@ -44,29 +44,11 @@ jobs:
     - name: Build UI
       run: make build-ui
 
-    - name: Download Go dependencies
-      run: go mod download
-
     - name: Run Tests
-      run: |
-        make test
+      run: make test
 
-    - name: Build Go CLI
-      run: |
-        go build -v -o bin/arctl cmd/cli/main.go
-        go build -v -o bin/arctl-server cmd/server/main.go
-
-    # TODO: reenable this later when version is fast
-    # - name: Verify binary
-    #   run: |
-    #     ./bin/arctl version
-    #     ./bin/arctl-server version
-
-    # - name: Upload artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: arctl
-    #     path: bin/arctl
+    - name: Build Controller
+      run: make build-controller
 
   lint:
     runs-on: ubuntu-latest
@@ -90,4 +72,3 @@ jobs:
 
     - name: Lint UI
       run: cd ui && npm run lint
-
