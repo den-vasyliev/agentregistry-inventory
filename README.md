@@ -45,13 +45,44 @@ Agent Registry is a **Kubernetes controller** that brings governance and control
 
 ## 💼 Usage Scenarios
 
-### Operator Workflow
+### A. Operator Workflow
 
 Operators manage and deploy AI resources using GitOps principles:
 
 <div align="center">
   <img src="./img/operator-scenario.png" alt="Operator Workflow" width="800"/>
 </div>
+
+### B. Developer Workflow
+
+Developers discover and use AI resources from the catalog:
+
+<div align="center">
+  <img src="./img/dev-scenario.png" alt="Developer Workflow" width="800"/>
+</div>
+
+### C. GitOps Approval Workflow
+
+Onboard new resources through a controlled GitOps process with review and approval:
+
+1. **Fill the Form** - Click "Submit" in the UI and fill in resource details
+2. **Generate Manifest** - UI generates the `.agentregistry.yaml` manifest
+3. **Open PR** - Redirects to GitHub to create a PR with the manifest
+4. **CI/CD Creates Resource** - After merge, pipeline submits the resource in `pending_review` state
+5. **Review & Approve** - Team reviews and approves/rejects in the Inventory UI
+
+This workflow ensures all resources go through proper review before being published to the catalog.
+
+### D. Multi-Cluster Discovery
+
+Automatically discover and catalog resources across multiple clusters:
+
+1. **Configure DiscoveryConfig** - Define clusters, namespaces, and resource types to discover
+2. **Workload Identity** - Use cloud provider workload identity for secure authentication
+3. **Automatic Cataloging** - Resources are automatically added to the central catalog
+4. **Cross-Environment Visibility** - View resources from dev, staging, and production in one place
+
+See [Multi-Cluster Autodiscovery](docs/AUTODISCOVERY.md) for detailed configuration.
 
 ## 🏗️ Architecture
 
@@ -72,7 +103,7 @@ Agent Registry consists of:
 ┌─────────────────────┐
 │   Controller        │
 │   - HTTP API :8080  │
-│   - 8 Reconcilers   │
+│   - 9 Reconcilers   │
 └──────────┬──────────┘
            │ K8s API
            ▼
@@ -83,6 +114,7 @@ Agent Registry consists of:
 │ - SkillCatalog      │
 │ - ModelCatalog      │
 │ - RegistryDeployment│
+│ - DiscoveryConfig   │
 └─────────────────────┘
 ```
 
@@ -262,12 +294,45 @@ The controller automatically:
 
 The controller includes **discovery reconcilers** that automatically index deployed resources:
 
+- **DiscoveryConfigReconciler** - Multi-cluster discovery with workload identity
 - **MCPServerDiscovery** - Indexes deployed MCPServers
 - **AgentDiscovery** - Indexes deployed Agents
 - **SkillDiscovery** - Indexes skills referenced by Agents
 - **ModelDiscovery** - Indexes ModelConfig resources
 
 Resources deployed directly (without going through the catalog) are automatically discovered and cataloged.
+
+#### Multi-Cluster Discovery
+
+Use **DiscoveryConfig** to discover resources across multiple clusters:
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: multi-cluster-discovery
+spec:
+  environments:
+    - name: dev
+      cluster:
+        name: dev-cluster
+        projectId: my-gcp-project
+        zone: us-central1
+        useWorkloadIdentity: true
+      provider: gcp
+      discoveryEnabled: true
+      namespaces:
+        - default
+        - ai-workloads
+      resourceTypes:
+        - MCPServer
+        - Agent
+        - ModelConfig
+      labels:
+        environment: dev
+```
+
+See [Multi-Cluster Autodiscovery](docs/AUTODISCOVERY.md) for complete documentation.
 
 ## 🔌 HTTP API
 
@@ -389,7 +454,7 @@ make lint
 make fmt
 ```
 
-Current test coverage: **17%** (focused on controller logic and runtime translation)
+Current test coverage: **22%** (focused on controller logic and runtime translation)
 
 ## 🤝 Contributing
 

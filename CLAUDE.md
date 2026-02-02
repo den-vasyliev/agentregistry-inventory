@@ -81,9 +81,9 @@ The controller is a **single binary** that runs:
    - `DiscoveryConfigReconciler` - Multi-cluster discovery with workload identity (see [docs/AUTODISCOVERY.md](docs/AUTODISCOVERY.md))
 
 2. **HTTP API Server** (embedded, port 8080):
-   - Public endpoints: `/v0/servers`, `/v0/agents`, `/v0/skills`, `/v0/models`
-   - Admin endpoints: `/admin/v0/*` for management
-   - **Authentication disabled by default** (`authEnabled: false`)
+   - Public endpoints: `/v0/servers`, `/v0/agents`, `/v0/skills`, `/v0/models` (read-only)
+   - Admin endpoints: `/admin/v0/*` for management (requires auth)
+   - **Authentication enabled by default** - tokens read from Secret `agentregistry-api-tokens`
 
 3. **Metrics & Health:**
    - Metrics: `:8081`
