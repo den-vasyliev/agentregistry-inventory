@@ -190,10 +190,8 @@ export default function PublishedPage() {
     try {
       setDeploying(true)
 
-      // Use authenticated client for admin operation
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
 
       // Deploy server or agent
       await client.deployServer({
@@ -222,10 +220,8 @@ export default function PublishedPage() {
     try {
       setUnpublishing(true)
 
-      // Use authenticated client for admin operation
-      const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
 
       if (itemToUnpublish.type === 'server') {
         await client.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
@@ -252,8 +248,8 @@ export default function PublishedPage() {
   const handlePublish = async (server: ServerResponse) => {
     try {
       const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+        
+        
       await client.publishServerStatus(server.server.name, server.server.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${server.server.name}`)
@@ -265,8 +261,8 @@ export default function PublishedPage() {
   const handlePublishSkill = async (skill: SkillResponse) => {
     try {
       const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+        
+        
       await client.publishSkillStatus(skill.skill.name, skill.skill.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${skill.skill.name}`)
@@ -280,8 +276,8 @@ export default function PublishedPage() {
 
     try {
       const client = session?.accessToken
-        ? createAuthenticatedClient(session.accessToken)
-        : adminApiClient
+        
+        
       await client.publishAgentStatus(agent.name, agent.version)
       await fetchPublished() // Refresh data
       toast.success(`Successfully published ${agent.name}`)
