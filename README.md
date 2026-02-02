@@ -5,6 +5,7 @@
 
   [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  [![Test Coverage](https://img.shields.io/badge/coverage-22%25-yellow.svg)](https://github.com/agentregistry-dev/agentregistry)
   [![Discord](https://img.shields.io/discord/1435836734666707190?label=Join%20Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/HTYNjF2y2t)
 
   ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, skills, and models.
@@ -35,6 +36,16 @@ Agent Registry is a **Kubernetes controller** that brings governance and control
 - **🔐 OIDC Authentication**: Secure deployments with OIDC-based authentication
 - **📝 Git-Based Source**: Resources defined in Git for version control and audit trails
 - **🔍 Auto-Discovery**: Automatically discover deployed resources (gitless ops support)
+
+## 💼 Usage Scenarios
+
+### Operator Workflow
+
+Operators manage and deploy AI resources using GitOps principles:
+
+<div align="center">
+  <img src="./img/operator-scenario.png" alt="Operator Workflow" width="800"/>
+</div>
 
 ## 🏗️ Architecture
 
@@ -223,24 +234,6 @@ The controller includes **discovery reconcilers** that automatically index deplo
 - **ModelDiscovery** - Indexes ModelConfig resources
 
 Resources deployed directly (without going through the catalog) are automatically discovered and cataloged.
-
-## 💼 Usage Scenarios
-
-### Developer Workflow
-
-Developers can discover and use AI resources from the registry:
-
-<div align="center">
-  <img src="./img/dev-scenario.png" alt="Developer Scenario" width="800"/>
-</div>
-
-### Operator Workflow
-
-Operators manage and deploy resources via GitOps:
-
-<div align="center">
-  <img src="./img/operator-scenario.png" alt="Operator Scenario" width="800"/>
-</div>
 
 ## 🔌 HTTP API
 
