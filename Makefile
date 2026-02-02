@@ -18,7 +18,7 @@ LDFLAGS := \
 # Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-.PHONY: help install-ui build-ui clean-ui build-cli build-controller build install dev-ui test clean fmt lint all release-cli ko-server ko-controller ko-build ko-tag-as-dev
+.PHONY: help install-ui build-ui clean-ui build-server build-controller build dev-ui test clean fmt lint all ko-server ko-controller ko-build ko-tag-as-dev
 
 # Default target
 help:
@@ -26,17 +26,15 @@ help:
 	@echo "  install-ui           - Install UI dependencies"
 	@echo "  build-ui             - Build the Next.js UI"
 	@echo "  clean-ui             - Clean UI build artifacts"
-	@echo "  build-cli            - Build the Go CLI"
+	@echo "  build-server         - Build the server binary"
 	@echo "  build-controller     - Build the controller binary"
-	@echo "  build                - Build both UI and Go CLI"
-	@echo "  install              - Install the CLI to GOPATH/bin"
+	@echo "  build                - Build UI, server, and controller"
 	@echo "  dev-ui               - Run Next.js in development mode"
 	@echo "  test                 - Run Go tests"
 	@echo "  clean                - Clean all build artifacts"
 	@echo "  all                  - Clean and build everything"
 	@echo "  fmt                  - Run the formatter"
 	@echo "  lint                 - Run the linter"
-	@echo "  release              - Build and release the CLI"
 	@echo "  ko-build             - Build all images with ko (server, controller)"
 	@echo "  ko-server            - Build server image with ko"
 	@echo "  ko-controller        - Build controller image with ko"
@@ -100,16 +98,6 @@ clean-ui:
 	git clean -xdf ./ui/.next/
 	@echo "UI artifacts cleaned"
 
-# Build the Go CLI
-build-cli:
-	@echo "Building Go CLI..."
-	@echo "Downloading Go dependencies..."
-	go mod download
-	@echo "Building binary..."
-	go build -ldflags "$(LDFLAGS)" \
-		-o bin/arctl cmd/cli/main.go
-	@echo "Binary built successfully: bin/arctl"
-
 # Build the Go server (with embedded UI)
 build-server:
 	@echo "Building Go server..."
@@ -130,16 +118,11 @@ build-controller:
 		-o bin/controller cmd/controller/main.go
 	@echo "Binary built successfully: bin/controller"
 
-# Build everything (UI + Go)
-build: build-ui build-cli
+# Build everything (UI + server + controller)
+build: build-ui build-server build-controller
 	@echo "Build complete!"
-	@echo "Run './bin/arctl --help' to get started"
-
-# Install the CLI to GOPATH/bin
-install: build
-	@echo "Installing arctl to GOPATH/bin..."
-	go install
-	@echo "Installation complete! Run 'arctl --help' to get started"
+	@echo "Server: ./bin/arctl-server"
+	@echo "Controller: ./bin/controller"
 
 # Run Next.js in development mode
 dev-ui:
@@ -171,12 +154,6 @@ clean: clean-ui
 all: clean build 
 	@echo "Clean build complete!"
 
-# Quick development build (skips cleaning)
-dev-build: build-ui
-	@echo "Building Go CLI (development mode)..."
-	go build -o bin/arctl cmd/cli/main.go
-	@echo "Development build complete!"
-
 # Run controller locally (for development)
 # Usage: make run-controller KUBECONFIG=~/.kube/config
 run-controller: build-controller
@@ -198,13 +175,13 @@ KO_REGISTRY_PREFIX ?= $(KO_REGISTRY)/$(KO_DOCKER_REPO)
 ko-server:
 	@echo "Building server image with ko..."
 	mkdir -p bin/images
-	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/server ko build --oci-layout-path=bin/images/server cmd/server/main.go
+	KO_DOCKER_REPO=ko.local ko build --oci-layout-path=bin/images/server cmd/server/main.go
 	@echo "✓ Server image built: bin/images/server"
 
 ko-controller:
 	@echo "Building controller image with ko..."
 	mkdir -p bin/images
-	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/controller ko build --oci-layout-path=bin/images/controller cmd/controller/main.go
+	KO_DOCKER_REPO=ko.local ko build --oci-layout-path=bin/images/controller cmd/controller/main.go
 	@echo "✓ Controller image built: bin/images/controller"
 
 ko-build: ko-server ko-controller
@@ -215,42 +192,6 @@ ko-tag-as-dev:
 	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/server ko build --tags=dev,latest cmd/server/main.go
 	KO_DOCKER_REPO=$(KO_REGISTRY_PREFIX)/controller ko build --tags=dev,latest cmd/controller/main.go
 	@echo "✓ Images tagged as dev"
-
-bin/arctl-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-linux-amd64 cmd/cli/main.go
-
-bin/arctl-linux-amd64.sha256: bin/arctl-linux-amd64
-	sha256sum bin/arctl-linux-amd64 > bin/arctl-linux-amd64.sha256
-
-bin/arctl-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-linux-arm64 cmd/cli/main.go
-
-bin/arctl-linux-arm64.sha256: bin/arctl-linux-arm64
-	sha256sum bin/arctl-linux-arm64 > bin/arctl-linux-arm64.sha256
-
-bin/arctl-darwin-amd64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-darwin-amd64 cmd/cli/main.go
-
-bin/arctl-darwin-amd64.sha256: bin/arctl-darwin-amd64
-	sha256sum bin/arctl-darwin-amd64 > bin/arctl-darwin-amd64.sha256
-
-bin/arctl-darwin-arm64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-darwin-arm64 cmd/cli/main.go
-
-bin/arctl-darwin-arm64.sha256: bin/arctl-darwin-arm64
-	sha256sum bin/arctl-darwin-arm64 > bin/arctl-darwin-arm64.sha256
-
-bin/arctl-windows-amd64.exe:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-windows-amd64.exe cmd/cli/main.go
-
-bin/arctl-windows-amd64.exe.sha256: bin/arctl-windows-amd64.exe
-	sha256sum bin/arctl-windows-amd64.exe > bin/arctl-windows-amd64.exe.sha256
-
-release-cli: bin/arctl-linux-amd64.sha256  
-release-cli: bin/arctl-linux-arm64.sha256  
-release-cli: bin/arctl-darwin-amd64.sha256  
-release-cli: bin/arctl-darwin-arm64.sha256  
-release-cli: bin/arctl-windows-amd64.exe.sha256
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

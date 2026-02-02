@@ -6,7 +6,6 @@ import (
 	"maps"
 	"sync"
 
-	"github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/common"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
@@ -163,29 +162,6 @@ func (r *agentRegistryRuntime) ReconcileAll(
 		agent.ResolvedMCPServers = resolvedConfigs
 
 		desiredState.Agents = append(desiredState.Agents, agent)
-
-		// Convert back to PythonMCPServer for local runtime backward compatibility
-		var pythonServers []common.PythonMCPServer
-		for _, cfg := range resolvedConfigs {
-			pythonServers = append(pythonServers, common.PythonMCPServer{
-				Name:    cfg.Name,
-				Type:    cfg.Type,
-				URL:     cfg.URL,
-				Headers: cfg.Headers,
-			})
-		}
-
-		if err := common.RefreshMCPConfig(
-			&common.MCPConfigTarget{
-				BaseDir:   r.runtimeDir,
-				AgentName: req.RegistryAgent.Name,
-				Version:   req.RegistryAgent.Version,
-			},
-			pythonServers,
-			r.verbose,
-		); err != nil {
-			return fmt.Errorf("failed to refresh resolved MCP server config for agent %s: %w", req.RegistryAgent.Name, err)
-		}
 	}
 
 	runtimeCfg, err := r.runtimeTranslator.TranslateRuntimeConfig(ctx, desiredState)
