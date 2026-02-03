@@ -72,6 +72,11 @@ func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err := r.Update(ctx, &deployment); err != nil {
 			return ctrl.Result{}, err
 		}
+		// Re-fetch after the finalizer write so the rest of this loop
+		// works against the latest resourceVersion.
+		if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil {
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
 	}
 
 	// Reconcile based on resource type
