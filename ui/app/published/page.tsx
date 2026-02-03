@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -12,8 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket } from "lucide-react"
+import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, BadgeCheck, Bot, Zap } from "lucide-react"
+import MCPIcon from "@/components/icons/mcp"
+import { ServerDetail } from "@/components/server-detail"
+import { SkillDetail } from "@/components/skill-detail"
+import { AgentDetail } from "@/components/agent-detail"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -36,17 +44,37 @@ type DeploymentResponse = {
 }
 
 export default function PublishedPage() {
+  const { data: session } = useSession()
+  const [activeTab, setActiveTab] = useState("mcp")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
   const [agents, setAgents] = useState<AgentResponse[]>([])
+  const [filteredServers, setFilteredServers] = useState<ServerResponse[]>([])
+  const [filteredSkills, setFilteredSkills] = useState<SkillResponse[]>([])
+  const [filteredAgents, setFilteredAgents] = useState<AgentResponse[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
   const [deployments, setDeployments] = useState<DeploymentResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [unpublishing, setUnpublishing] = useState(false)
   const [deploying, setDeploying] = useState(false)
-  const [deployRuntime, setDeployRuntime] = useState<'local' | 'kubernetes'>('local')
+  const [deployRuntime] = useState<'kubernetes'>('kubernetes')
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
+  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
+    { name: "agentregistry", namespace: "agentregistry" }
+  ])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
+  const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
+  const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
+
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageSkills, setCurrentPageSkills] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const itemsPerPage = 5
 
   const fetchPublished = async () => {
     try {
@@ -115,9 +143,43 @@ export default function PublishedPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Filter by search query and sort by name for stable ordering
+  useEffect(() => {
+    const query = searchQuery.toLowerCase()
+    setFilteredServers(
+      servers
+        .filter(s =>
+          s.server.name.toLowerCase().includes(query) ||
+          s.server.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.server.name.localeCompare(b.server.name))
+    )
+    setFilteredSkills(
+      skills
+        .filter(s =>
+          s.skill.name.toLowerCase().includes(query) ||
+          s.skill.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.skill.name.localeCompare(b.skill.name))
+    )
+    setFilteredAgents(
+      agents
+        .filter(a =>
+          a.agent.name.toLowerCase().includes(query) ||
+          a.agent.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.agent.name.localeCompare(b.agent.name))
+    )
+  }, [searchQuery, servers, skills, agents])
+
   // Check if a resource is currently deployed (check both name and version)
   const isDeployed = (name: string, version: string, type: 'server' | 'agent') => {
     return deployments.some(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
+  }
+
+  const getDeploymentStatus = (name: string, version: string, type: 'server' | 'agent') => {
+    const d = deployments.find(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
+    return d?.status || null
   }
 
   const handleUnpublish = async (name: string, version: string, type: 'server' | 'skill' | 'agent') => {
@@ -131,7 +193,33 @@ export default function PublishedPage() {
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
     setItemToDeploy({ name, version, type })
-    setDeployRuntime('local')
+  }
+
+  // Fetch environments when deploy dialog opens
+  useEffect(() => {
+    if (itemToDeploy) {
+      fetchEnvironments()
+    }
+  }, [itemToDeploy])
+
+  const fetchEnvironments = async () => {
+    console.log("=== fetchEnvironments called")
+    setLoadingEnvironments(true)
+    try {
+      const envs = await adminApiClient.listEnvironments()
+      console.log("=== API returned environments:", envs)
+      if (envs && envs.length > 0) {
+        setEnvironments(envs)
+        setDeployNamespace(envs[0].namespace)
+        console.log("=== Set environments to:", envs)
+      } else {
+        console.log("=== No environments returned from API")
+      }
+    } catch (err) {
+      console.error("=== Failed to fetch environments:", err)
+    } finally {
+      setLoadingEnvironments(false)
+    }
   }
 
   const confirmDeploy = async () => {
@@ -140,18 +228,21 @@ export default function PublishedPage() {
     try {
       setDeploying(true)
 
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
+
       // Deploy server or agent
-      await adminApiClient.deployServer({
+      await client.deployServer({
         serverName: itemToDeploy.name,
         version: itemToDeploy.version,
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
-        runtime: deployRuntime,
+        namespace: deployNamespace,
       })
 
       setItemToDeploy(null)
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployRuntime}!`)
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
       // Refresh deployments to update the UI
       await fetchPublished()
     } catch (err) {
@@ -167,14 +258,17 @@ export default function PublishedPage() {
     try {
       setUnpublishing(true)
 
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
+
       if (itemToUnpublish.type === 'server') {
-        await adminApiClient.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishServerStatus(itemToUnpublish.name, itemToUnpublish.version)
         setServers(prev => prev.filter(s => s.server.name !== itemToUnpublish.name || s.server.version !== itemToUnpublish.version))
       } else if (itemToUnpublish.type === 'skill') {
-        await adminApiClient.unpublishSkillStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishSkillStatus(itemToUnpublish.name, itemToUnpublish.version)
         setSkills(prev => prev.filter(s => s.skill.name !== itemToUnpublish.name || s.skill.version !== itemToUnpublish.version))
       } else if (itemToUnpublish.type === 'agent') {
-        await adminApiClient.unpublishAgentStatus(itemToUnpublish.name, itemToUnpublish.version)
+        await client.unpublishAgentStatus(itemToUnpublish.name, itemToUnpublish.version)
         setAgents(prev => prev.filter(a => a.agent.name !== itemToUnpublish.name || a.agent.version !== itemToUnpublish.version))
       }
 
@@ -190,6 +284,37 @@ export default function PublishedPage() {
   }
 
   const totalPublished = servers.length + skills.length + agents.length
+
+  // Show server detail view if a server is selected
+  if (selectedServer) {
+    return (
+      <ServerDetail
+        server={selectedServer}
+        onClose={() => setSelectedServer(null)}
+        onServerCopied={fetchPublished}
+      />
+    )
+  }
+
+  // Show skill detail view if a skill is selected
+  if (selectedSkill) {
+    return (
+      <SkillDetail
+        skill={selectedSkill}
+        onClose={() => setSelectedSkill(null)}
+      />
+    )
+  }
+
+  // Show agent detail view if an agent is selected
+  if (selectedAgent) {
+    return (
+      <AgentDetail
+        agent={selectedAgent}
+        onClose={() => setSelectedAgent(null)}
+      />
+    )
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -300,13 +425,39 @@ export default function PublishedPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Published Resources</h1>
-            <p className="text-muted-foreground">
-              View and manage MCP servers, skills, and agents that are currently published in the registry.
-            </p>
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center gap-4 mb-8">
+            <TabsList>
+              <TabsTrigger value="mcp" className="gap-2">
+                <span className="h-4 w-4 flex items-center justify-center">
+                  <MCPIcon />
+                </span>
+                Servers
+              </TabsTrigger>
+              <TabsTrigger value="agents" className="gap-2">
+                <Bot className="h-4 w-4" />
+                Agents
+              </TabsTrigger>
+              <TabsTrigger value="skills" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Skills
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search published resources..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
+            </div>
+
           </div>
 
           {error && (
@@ -334,183 +485,366 @@ export default function PublishedPage() {
                   No published resources
                 </p>
                 <p className="text-sm mb-6">
-                  Publish MCP servers, skills, or agents from the Admin panel to see them here.
+                  Publish MCP servers, skills, or agents from the Inventory to see them here.
                 </p>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
                 >
-                  Go to Admin Panel
+                  Go to Inventory
                 </Link>
               </div>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {/* MCP Servers Section */}
-              {servers.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">MCP Servers ({servers.length})</h2>
-                  {servers.map((serverResponse) => {
-                    const server = serverResponse.server
-                    const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    const deployed = isDeployed(server.name, server.version, 'server')
-                    return (
-                      <Card key={`${server.name}-${server.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{server.name}</h3>
-                            </div>
+            <>
 
-                            <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
+              <TabsContent value="mcp" className="space-y-4">
+                {filteredServers
+                  .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                  .map((serverResponse) => {
+                  const server = serverResponse.server
+                  const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
+                  const deployed = isDeployed(server.name, server.version, 'server')
+                  const deploymentStatus = getDeploymentStatus(server.name, server.version, 'server')
 
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {server.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] as any
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
+                    (server.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
+
+                  return (
+                    <Card
+                      key={`${server.name}-${server.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedServer(serverResponse)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{server.name}</h3>
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                              {server.remotes && server.remotes.length > 0 ? "Remote MCP Server" : "MCP Server"}
+                            </Badge>
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
+                              </Badge>
+                            ) : !deployed ? (
+                              <Badge variant="secondary" className="bg-muted">
+                                Not Deployed
+                              </Badge>
+                            ) : null}
                           </div>
 
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleDeploy(server.name, server.version, 'server')}
-                              disabled={deploying || deployed}
-                            >
-                              <Rocket className="h-4 w-4 mr-2" />
-                              {deployed ? 'Already Deployed' : 'Deploy'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnpublish(server.name, server.version, 'server')}
-                              disabled={unpublishing}
-                            >
-                              Unpublish
-                            </Button>
+                          <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {server.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
 
-              {/* Skills Section */}
-              {skills.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">Skills ({skills.length})</h2>
-                  {skills.map((skillResponse) => {
-                    const skill = skillResponse.skill
-                    const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    return (
-                      <Card key={`${skill.name}-${skill.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
-                            </div>
-
-                            <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {skill.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeploy(server.name, server.version, 'server')
+                            }}
+                            disabled={deploying || deployed}
+                          >
+                            {deployed ? (
+                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                            ) : (
+                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                            )}
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="ml-4"
-                            onClick={() => handleUnpublish(skill.name, skill.version, 'skill')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleUnpublish(server.name, server.version, 'server')
+                            }}
                             disabled={unpublishing}
                           >
                             Unpublish
                           </Button>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
+                      </div>
+                    </Card>
+                  )
+                })}
+                {filteredServers.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                      disabled={currentPageServers === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageServers} of {Math.ceil(filteredServers.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(filteredServers.length / itemsPerPage), p + 1))}
+                      disabled={currentPageServers >= Math.ceil(filteredServers.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
 
-              {/* Agents Section */}
-              {agents.length > 0 && (
-                <>
-                  <h2 className="text-xl font-semibold mt-6 mb-3">Agents ({agents.length})</h2>
-                  {agents.map((agentResponse) => {
-                    const agent = agentResponse.agent
-                    const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
-                    const deployed = isDeployed(agent.name, agent.version, 'agent')
-                    return (
-                      <Card key={`${agent.name}-${agent.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-xl font-semibold">{agent.name}</h3>
-                            </div>
+              <TabsContent value="agents" className="space-y-4">
+                {filteredAgents
+                  .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                  .map((agentResponse) => {
+                  const agent = agentResponse.agent
+                  const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
+                  const deployed = isDeployed(agent.name, agent.version, 'agent')
+                  const deploymentStatus = getDeploymentStatus(agent.name, agent.version, 'agent')
 
-                            <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = (agent as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
+                    (agent.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
 
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Package className="h-4 w-4" />
-                                <span>Version: {agent.version}</span>
-                              </div>
-                              {meta?.publishedAt && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
+                  return (
+                    <Card
+                      key={`${agent.name}-${agent.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedAgent(agentResponse)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{agent.name}</h3>
+                            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
+                              Agent
+                            </Badge>
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
+                              </Badge>
+                            ) : !deployed ? (
+                              <Badge variant="secondary" className="bg-muted">
+                                Not Deployed
+                              </Badge>
+                            ) : null}
                           </div>
 
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleDeploy(agent.name, agent.version, 'agent')}
-                              disabled={deploying || deployed}
-                            >
-                              <Rocket className="h-4 w-4 mr-2" />
-                              {deployed ? 'Already Deployed' : 'Deploy'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnpublish(agent.name, agent.version, 'agent')}
-                              disabled={unpublishing}
-                            >
-                              Unpublish
-                            </Button>
+                          <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {agent.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </Card>
-                    )
-                  })}
-                </>
-              )}
-            </div>
+
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeploy(agent.name, agent.version, 'agent')
+                            }}
+                            disabled={deploying || deployed}
+                          >
+                            {deployed ? (
+                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                            ) : (
+                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleUnpublish(agent.name, agent.version, 'agent')
+                            }}
+                            disabled={unpublishing}
+                          >
+                            Unpublish
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+                {filteredAgents.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                      disabled={currentPageAgents === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageAgents} of {Math.ceil(filteredAgents.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(filteredAgents.length / itemsPerPage), p + 1))}
+                      disabled={currentPageAgents >= Math.ceil(filteredAgents.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="skills" className="space-y-4">
+                {filteredSkills
+                  .slice((currentPageSkills - 1) * itemsPerPage, currentPageSkills * itemsPerPage)
+                  .map((skillResponse) => {
+                  const skill = skillResponse.skill
+                  const meta = skillResponse._meta?.['io.modelcontextprotocol.registry/official']
+
+                  // Extract owner from metadata or repository URL
+                  const publisherMetadata = (skill as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+                  const identityData = publisherMetadata?.identity
+                  const owner = publisherMetadata?.contact_email || identityData?.email || (meta as any)?.submitter ||
+                    (skill.repository?.url?.match(/github\.com\/([^\/]+)/)?.[1]) || null
+
+                  return (
+                    <Card
+                      key={`${skill.name}-${skill.version}`}
+                      className="p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedSkill(skillResponse)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                              Skill
+                            </Badge>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>Version: {skill.version}</span>
+                            </div>
+                            {meta?.publishedAt && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>Published: {new Date(meta.publishedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {owner && (
+                              <div className="flex items-center gap-2 text-primary font-medium">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Owner: {owner}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-4"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUnpublish(skill.name, skill.version, 'skill')
+                          }}
+                          disabled={unpublishing}
+                        >
+                          Unpublish
+                        </Button>
+                      </div>
+                    </Card>
+                  )
+                })}
+                {filteredSkills.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageSkills(p => Math.max(1, p - 1))}
+                      disabled={currentPageSkills === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageSkills} of {Math.ceil(filteredSkills.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageSkills(p => Math.min(Math.ceil(filteredSkills.length / itemsPerPage), p + 1))}
+                      disabled={currentPageSkills >= Math.ceil(filteredSkills.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </>
           )}
-        </div>
+        </Tabs>
       </div>
 
       {/* Unpublish Confirmation Dialog */}
@@ -522,7 +856,7 @@ export default function PublishedPage() {
               Are you sure you want to unpublish <strong>{itemToUnpublish?.name}</strong> (version {itemToUnpublish?.version})?
               <br />
               <br />
-              This will change its status to unpublished. The resource will still exist in the registry but won&apos;t be visible to public users.
+              This will change its status to unpublished. The resource will still exist in the inventory but won&apos;t be visible to public users.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -545,7 +879,9 @@ export default function PublishedPage() {
       </Dialog>
 
       {/* Deploy Confirmation Dialog */}
-      <Dialog open={!!itemToDeploy} onOpenChange={(open) => !open && setItemToDeploy(null)}>
+      <Dialog open={!!itemToDeploy} onOpenChange={(open) => {
+        if (!open) setItemToDeploy(null)
+      }}>
         <DialogContent onClose={() => setItemToDeploy(null)}>
           <DialogHeader>
             <DialogTitle>Deploy Resource</DialogTitle>
@@ -556,17 +892,29 @@ export default function PublishedPage() {
               This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-4">
-            <Label htmlFor="deploy-runtime">Deployment destination</Label>
-            <Select value={deployRuntime} onValueChange={(value) => setDeployRuntime(value as 'local' | 'kubernetes')}>
-              <SelectTrigger id="deploy-runtime">
-                <SelectValue placeholder="Select destination" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">Local (Docker Compose)</SelectItem>
-                <SelectItem value="kubernetes">Kubernetes</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Deployment destination</Label>
+              <p className="text-sm text-muted-foreground">Kubernetes</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
+              <Select value={deployNamespace} onValueChange={setDeployNamespace} disabled={loadingEnvironments}>
+                <SelectTrigger id="deploy-namespace">
+                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env.namespace} value={env.namespace}>
+                      {env.name}/{env.namespace}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which namespace/environment to deploy to
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -586,7 +934,7 @@ export default function PublishedPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </main>
   )
 }
-

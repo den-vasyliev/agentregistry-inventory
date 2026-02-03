@@ -10,12 +10,7 @@ on:
         description: 'Version number'
 
 jobs:
-  docker:
-    strategy:
-      matrix:
-        image:
-          - agentgateway
-          - server
+  controller-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,19 +36,12 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        platforms: linux/amd64,linux/arm64
-        version: v0.23.0
-        use: 'true'
-    - name: 'Build Images'
+    - name: Install ko
+      uses: ko-build/setup-ko@v0.7
+
+    - name: Build and Push Controller Image
       env:
-        DOCKER_BUILD_ARGS: "--push --platform linux/amd64,linux/arm64"
-        DOCKER_BUILDER: "docker buildx"
-        DOCKER_REGISTRY: "ghcr.io" # prod for releases, local for dev
+        KO_DOCKER_REPO: ghcr.io/${{ github.repository_owner }}/agentregistry
       run: |
         # if workflow_dispatch is used, use the version input
         if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -61,11 +49,11 @@ jobs:
         else
           export VERSION=$(echo "$GITHUB_REF" | cut -c12-)
         fi
-        make docker-${{ matrix.image }}
+        make ko-controller
 
   release:
     needs:
-    - docker
+    - controller-image
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -79,17 +67,20 @@ jobs:
       with:
         go-version-file: "go.mod"
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.9.x
+
     - name: Build Release Artifacts
-      env:
-        DOCKER_REGISTRY: "ghcr.io" # prod for releases
-      run: |  
+      run: |
         # if workflow_dispatch is used, use the version input
         if [ -n "${{ github.event.inputs.version }}" ]; then
           export VERSION=${{ github.event.inputs.version }}
         else
           export VERSION=$(echo "$GITHUB_REF" | cut -c12-)
         fi
-        make release-cli
+        make build
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -97,6 +88,5 @@ jobs:
       with:
         generate_release_notes: true
         files: |
-          bin/arctl-*
-
-
+          bin/controller
+          charts/agentregistry/*.tgz

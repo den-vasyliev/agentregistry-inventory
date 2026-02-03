@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { adminApiClient } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Copy, Check } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { adminApiClient, createAuthenticatedClient } from "@/lib/admin-api"
+import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, Bot } from "lucide-react"
+import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -26,19 +30,31 @@ type DeploymentResponse = {
   config: Record<string, string>
   preferRemote: boolean
   resourceType: string // "mcp" or "agent"
+  k8sResourceType?: string // "MCPServer", "RemoteMCPServer", "Agent"
   runtime: string
+  environment?: string // Environment label (dev, staging, prod, etc.)
   isExternal?: boolean // true if not managed by registry
 }
 
 export default function DeployedPage() {
+  const { data: session } = useSession()
+  const [activeTab, setActiveTab] = useState("mcp")
   const [deployments, setDeployments] = useState<DeploymentResponse[]>([])
+  const [filteredDeployments, setFilteredDeployments] = useState<DeploymentResponse[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
   const [serverToRemove, setServerToRemove] = useState<{ name: string, version: string, resourceType: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const gatewayUrl = "http://localhost:21212/mcp"
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const itemsPerPage = 5
+
+  // Gateway URL - get from controller config or use default
+  const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "https://kagent.ops.gfknewron.com"
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(gatewayUrl)
@@ -50,8 +66,10 @@ export default function DeployedPage() {
   const fetchDeployments = async () => {
     try {
       setError(null)
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
       // listDeployments now returns both managed and external K8s resources
-      const deployData = await adminApiClient.listDeployments()
+      const deployData = await client.listDeployments()
       setDeployments(deployData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch deployments')
@@ -67,6 +85,19 @@ export default function DeployedPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Filter deployments by search query and sort by name for stable ordering
+  useEffect(() => {
+    const query = searchQuery.toLowerCase()
+    setFilteredDeployments(
+      deployments
+        .filter(d =>
+          d.serverName.toLowerCase().includes(query) ||
+          d.version.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.serverName.localeCompare(b.serverName))
+    )
+  }, [searchQuery, deployments])
+
   const handleRemove = async (serverName: string, version: string, resourceType: string) => {
     setServerToRemove({ name: serverName, version, resourceType })
   }
@@ -76,7 +107,9 @@ export default function DeployedPage() {
 
     try {
       setRemoving(true)
-      await adminApiClient.removeDeployment(serverToRemove.name, serverToRemove.version, serverToRemove.resourceType)
+      // Use admin client (auth is disabled by default in controller)
+      const client = adminApiClient
+      await client.removeDeployment(serverToRemove.name, serverToRemove.version, serverToRemove.resourceType)
       // Remove from local state
       setDeployments(prev => prev.filter(d => d.serverName !== serverToRemove.name || d.version !== serverToRemove.version || d.resourceType !== serverToRemove.resourceType))
       setServerToRemove(null)
@@ -88,9 +121,9 @@ export default function DeployedPage() {
     }
   }
 
-  const runningCount = deployments.length
-  const agents = deployments.filter(d => d.resourceType === 'agent')
-  const mcpServers = deployments.filter(d => d.resourceType === 'mcp')
+  const runningCount = filteredDeployments.length
+  const agents = filteredDeployments.filter(d => d.resourceType === 'agent')
+  const mcpServers = filteredDeployments.filter(d => d.resourceType === 'mcp')
 
   return (
     <main className="min-h-screen bg-background">
@@ -193,13 +226,34 @@ export default function DeployedPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Deployed Resources</h1>
-            <p className="text-muted-foreground">
-              Monitor and manage MCP servers and agents deployed on your system.
-            </p>
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center gap-4 mb-8">
+            <TabsList>
+              <TabsTrigger value="mcp" className="gap-2">
+                <span className="h-4 w-4 flex items-center justify-center">
+                  <MCPIcon />
+                </span>
+                Servers
+              </TabsTrigger>
+              <TabsTrigger value="agents" className="gap-2">
+                <Bot className="h-4 w-4" />
+                Agents
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search deployed resources..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
+            </div>
           </div>
 
           {error && (
@@ -240,182 +294,259 @@ export default function DeployedPage() {
                   No resources found
                 </p>
                 <p className="text-sm mb-6">
-                  Deploy MCP servers from the Admin panel to monitor them here.
+                  Deploy MCP servers from the Inventory to monitor them here.
                 </p>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
                 >
-                  Go to Admin Panel
+                  Go to Inventory
                 </Link>
               </div>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <>
 
-              {/* Agents */}
-              {agents.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    Agents
-                    <Badge variant="secondary" className="ml-2">{agents.length}</Badge>
-                  </h2>
-                  {agents.map((item) => (
-                    <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-xl font-semibold">{item.serverName}</h3>
-                            <Badge variant="outline">
-                              {item.runtime || "local"}
+              <TabsContent value="mcp" className="space-y-4">
+                {mcpServers
+                  .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                  .map((item) => (
+                  <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="text-xl font-semibold">{item.serverName}</h3>
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                            {item.k8sResourceType === "RemoteMCPServer" ? "Remote MCP Server" : "MCP Server"}
+                          </Badge>
+                          {item.environment && (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              {item.environment}
                             </Badge>
-                            {!item.isExternal ? (
-                              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                                Managed
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">
-                                External
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                Deployed: {new Date(item.deployedAt).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Package className="h-4 w-4" />
-                              <span>
-                                Version: {item.version}
-                                {item.config?.namespace && ` • ${item.config.namespace}`}
-                              </span>
-                            </div>
-                          </div>
-
-                          {Object.keys(item.config || {}).length > 0 && (
-                            <div className="mt-3 pt-3 border-t">
-                              <p className="text-xs text-muted-foreground mb-2">Configuration:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(item.config || {}).slice(0, 3).map(([key]) => (
-                                  <span key={key} className="text-xs px-2 py-1 bg-muted rounded">
-                                    {key}
-                                  </span>
-                                ))}
-                                {Object.keys(item.config || {}).length > 3 && (
-                                  <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground">
-                                    +{Object.keys(item.config || {}).length - 3} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                          )}
+                          <Badge variant="outline">
+                            {item.runtime || "local"}
+                          </Badge>
+                          {!item.isExternal ? (
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                              Managed
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">
+                              External
+                            </Badge>
+                          )}
+                          {item.status && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.status === "Running"
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                  : item.status === "Failed"
+                                  ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                  : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                              }
+                            >
+                              {item.status}
+                            </Badge>
                           )}
                         </div>
 
-                        {!item.isExternal && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="ml-4"
-                            onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
-                            disabled={removing}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove
-                          </Button>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              Deployed: {new Date(item.deployedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Package className="h-4 w-4" />
+                            <span>
+                              Version: {item.version}
+                              {item.config?.namespace && ` • ${item.config.namespace}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {Object.keys(item.config || {}).length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-muted-foreground mb-2">Configuration:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(item.config || {}).slice(0, 3).map(([key]) => (
+                                <span key={key} className="text-xs px-2 py-1 bg-muted rounded">
+                                  {key}
+                                </span>
+                              ))}
+                              {Object.keys(item.config || {}).length > 3 && (
+                                <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground">
+                                  +{Object.keys(item.config || {}).length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
 
-              {/* MCP Servers */}
-              {mcpServers.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    MCP Servers
-                    <Badge variant="secondary" className="ml-2">{mcpServers.length}</Badge>
-                  </h2>
-                  {mcpServers.map((item) => (
-                    <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-xl font-semibold">{item.serverName}</h3>
-                            <Badge variant="outline">
-                              {item.runtime || "local"}
+                      {!item.isExternal && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="ml-4"
+                          onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
+                          disabled={removing}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />Remove
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+                {mcpServers.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                      disabled={currentPageServers === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageServers} of {Math.ceil(mcpServers.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(mcpServers.length / itemsPerPage), p + 1))}
+                      disabled={currentPageServers >= Math.ceil(mcpServers.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="agents" className="space-y-4">
+                {agents
+                  .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                  .map((item) => (
+                  <Card key={`${item.serverName}-${item.version}`} className="p-6 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="text-xl font-semibold">{item.serverName}</h3>
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
+                            Agent
+                          </Badge>
+                          {item.environment && (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              {item.environment}
                             </Badge>
-                            {!item.isExternal ? (
-                              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                                Managed
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">
-                                External
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                Deployed: {new Date(item.deployedAt).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Package className="h-4 w-4" />
-                              <span>
-                                Version: {item.version}
-                                {item.config?.namespace && ` • ${item.config.namespace}`}
-                              </span>
-                            </div>
-                          </div>
-
-                          {Object.keys(item.config || {}).length > 0 && (
-                            <div className="mt-3 pt-3 border-t">
-                              <p className="text-xs text-muted-foreground mb-2">Configuration:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(item.config || {}).slice(0, 3).map(([key]) => (
-                                  <span key={key} className="text-xs px-2 py-1 bg-muted rounded">
-                                    {key}
-                                  </span>
-                                ))}
-                                {Object.keys(item.config || {}).length > 3 && (
-                                  <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground">
-                                    +{Object.keys(item.config || {}).length - 3} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                          )}
+                          <Badge variant="outline">
+                            {item.runtime || "local"}
+                          </Badge>
+                          {!item.isExternal ? (
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                              Managed
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">
+                              External
+                            </Badge>
+                          )}
+                          {item.status && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.status === "Running"
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                  : item.status === "Failed"
+                                  ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                  : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                              }
+                            >
+                              {item.status}
+                            </Badge>
                           )}
                         </div>
 
-                        {!item.isExternal && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="ml-4"
-                            onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
-                            disabled={removing}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove
-                          </Button>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              Deployed: {new Date(item.deployedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Package className="h-4 w-4" />
+                            <span>
+                              Version: {item.version}
+                              {item.config?.namespace && ` • ${item.config.namespace}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {Object.keys(item.config || {}).length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-muted-foreground mb-2">Configuration:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(item.config || {}).slice(0, 3).map(([key]) => (
+                                <span key={key} className="text-xs px-2 py-1 bg-muted rounded">
+                                  {key}
+                                </span>
+                              ))}
+                              {Object.keys(item.config || {}).length > 3 && (
+                                <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground">
+                                  +{Object.keys(item.config || {}).length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
 
-            </div>
+                      {!item.isExternal && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="ml-4"
+                          onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
+                          disabled={removing}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />Remove
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+                {agents.length > itemsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                      disabled={currentPageAgents === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPageAgents} of {Math.ceil(agents.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(agents.length / itemsPerPage), p + 1))}
+                      disabled={currentPageAgents >= Math.ceil(agents.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </>
           )}
-        </div>
+        </Tabs>
       </div>
 
       {/* Remove Confirmation Dialog */}

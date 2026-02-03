@@ -29,6 +29,10 @@ import {
   Upload,
   Github,
   ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Circle,
+  BadgeCheck,
 } from "lucide-react"
 
 interface AgentDetailProps {
@@ -39,9 +43,32 @@ interface AgentDetailProps {
 
 export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  
+
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+  const deployment = _meta?.deployment
+
+  // Extract metadata
+  const publisherMetadata = (agentData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const identityData = publisherMetadata?.identity
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if ((official as any)?.submitter) return (official as any).submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (agentData.repository?.url) {
+      const match = agentData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   // Handle ESC key to close
   useEffect(() => {
@@ -106,23 +133,25 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => onPublish && onPublish(agent)}
-                    className="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Publish
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Publish this agent to your registry</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {onPublish && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => onPublish(agent)}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Publish
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Publish this agent to your registry</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
@@ -131,6 +160,14 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
 
         {/* Quick Info */}
         <div className="flex flex-wrap gap-3 mb-6 text-sm">
+          {owner && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20">
+              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="text-muted-foreground">Owner:</span>
+              <span className="font-medium">{owner}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
             <Tag className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Version:</span>
@@ -138,10 +175,27 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
-            <Badge className="h-3.5 w-3.5 text-muted-foreground" />
+            <Circle className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Status:</span>
-            <span className="font-medium">{agentData.status}</span>
+            <span className="font-medium">{agentData.status || official?.status || 'unknown'}</span>
           </div>
+
+          {deployment && (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-md ${deployment.ready ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+              {deployment.ready ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-600" />
+              )}
+              <span className="text-muted-foreground">Deployment:</span>
+              <span className={`font-medium ${deployment.ready ? 'text-green-600' : 'text-red-600'}`}>
+                {deployment.ready ? 'Running' : 'Not Ready'}
+              </span>
+              {deployment.namespace && (
+                <span className="text-xs text-muted-foreground">({deployment.namespace})</span>
+              )}
+            </div>
+          )}
 
           {official?.publishedAt && (
             <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">

@@ -2,21 +2,15 @@ package runtime
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"maps"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sync"
 
-	"github.com/agentregistry-dev/agentregistry/internal/cli/agent/frameworks/common"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/kagent"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry"
 	v1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
-	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -168,29 +162,6 @@ func (r *agentRegistryRuntime) ReconcileAll(
 		agent.ResolvedMCPServers = resolvedConfigs
 
 		desiredState.Agents = append(desiredState.Agents, agent)
-
-		// Convert back to PythonMCPServer for local runtime backward compatibility
-		var pythonServers []common.PythonMCPServer
-		for _, cfg := range resolvedConfigs {
-			pythonServers = append(pythonServers, common.PythonMCPServer{
-				Name:    cfg.Name,
-				Type:    cfg.Type,
-				URL:     cfg.URL,
-				Headers: cfg.Headers,
-			})
-		}
-
-		if err := common.RefreshMCPConfig(
-			&common.MCPConfigTarget{
-				BaseDir:   r.runtimeDir,
-				AgentName: req.RegistryAgent.Name,
-				Version:   req.RegistryAgent.Version,
-			},
-			pythonServers,
-			r.verbose,
-		); err != nil {
-			return fmt.Errorf("failed to refresh resolved MCP server config for agent %s: %w", req.RegistryAgent.Name, err)
-		}
 	}
 
 	runtimeCfg, err := r.runtimeTranslator.TranslateRuntimeConfig(ctx, desiredState)
@@ -209,61 +180,7 @@ func (r *agentRegistryRuntime) ensureRuntime(
 	ctx context.Context,
 	cfg *api.AIRuntimeConfig,
 ) error {
-	switch cfg.Type {
-	case api.RuntimeConfigTypeLocal:
-		return r.ensureLocalRuntime(ctx, cfg.Local)
-	case api.RuntimeConfigTypeKubernetes:
-		return r.ensureKubernetesRuntime(ctx, cfg.Kubernetes)
-	default:
-		return fmt.Errorf("unsupported runtime config type: %v", cfg.Type)
-	}
-}
-
-func (r *agentRegistryRuntime) ensureLocalRuntime(
-	ctx context.Context,
-	cfg *api.LocalRuntimeConfig,
-) error {
-	// step 1: ensure the root runtime dir exists
-	if err := os.MkdirAll(r.runtimeDir, 0755); err != nil {
-		return fmt.Errorf("failed to create runtime directory: %w", err)
-	}
-	// step 2: write the docker compose yaml to the dir
-	dockerComposeYaml, err := cfg.DockerCompose.MarshalYAML()
-	if err != nil {
-		return fmt.Errorf("failed to marshal docker compose yaml: %w", err)
-	}
-	if r.verbose {
-		fmt.Printf("Docker Compose YAML:\n%s\n", string(dockerComposeYaml))
-	}
-	if err := os.WriteFile(filepath.Join(r.runtimeDir, "docker-compose.yaml"), dockerComposeYaml, 0644); err != nil {
-		return fmt.Errorf("failed to write docker compose yaml: %w", err)
-	}
-	// step 3: write the agentconfig yaml to the dir
-	agentGatewayYaml, err := yaml.Marshal(cfg.AgentGateway)
-	if err != nil {
-		return fmt.Errorf("failed to marshal agent config yaml: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(r.runtimeDir, "agent-gateway.yaml"), agentGatewayYaml, 0644); err != nil {
-		return fmt.Errorf("failed to write agent config yaml: %w", err)
-	}
-	if r.verbose {
-		fmt.Printf("Agent Gateway YAML:\n%s\n", string(agentGatewayYaml))
-	}
-	// step 4: start docker compose with -d --remove-orphans --force-recreate
-	// Using --force-recreate ensures all containers are recreated even if config hasn't changed
-	cmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans", "--force-recreate")
-	cmd.Dir = r.runtimeDir
-	if r.verbose {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	} else {
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-	}
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to start docker compose: %w", err)
-	}
-	return nil
+	return r.ensureKubernetesRuntime(ctx, cfg.Kubernetes)
 }
 
 func (r *agentRegistryRuntime) ensureKubernetesRuntime(

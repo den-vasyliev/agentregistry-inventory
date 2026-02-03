@@ -4,23 +4,22 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
     return [
       {
         source: '/admin/:path*',
-        destination: 'http://localhost:12121/admin/:path*',
+        destination: `${apiUrl}/admin/:path*`,
       },
       {
         source: '/v0/:path*',
-        destination: 'http://localhost:12121/v0/:path*',
+        destination: `${apiUrl}/v0/:path*`,
       },
       {
         source: '/v0.1/:path*',
-        destination: 'http://localhost:12121/v0.1/:path*',
+        destination: `${apiUrl}/v0.1/:path*`,
       },
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:12121/api/:path*',
-      },
+      // Don't proxy /api/auth/* - handled by NextAuth
+      // Only proxy other /api routes to backend if needed
     ]
   },
 }

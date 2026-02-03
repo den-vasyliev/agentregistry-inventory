@@ -23,6 +23,8 @@ go.work
 # Build artifacts
 bin/
 arctl
+controller
+demo
 
 # UI build artifacts
 internal/registry/api/ui/dist/

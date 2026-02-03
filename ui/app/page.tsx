@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,39 +16,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ServerCard } from "@/components/server-card"
 import { SkillCard } from "@/components/skill-card"
 import { AgentCard } from "@/components/agent-card"
+import { ModelCard } from "@/components/model-card"
 import { ServerDetail } from "@/components/server-detail"
 import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
-import { ImportDialog } from "@/components/import-dialog"
-import { AddServerDialog } from "@/components/add-server-dialog"
-import { ImportSkillsDialog } from "@/components/import-skills-dialog"
-import { AddSkillDialog } from "@/components/add-skill-dialog"
-import { ImportAgentsDialog } from "@/components/import-agents-dialog"
-import { AddAgentDialog } from "@/components/add-agent-dialog"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ServerStats } from "@/lib/admin-api"
+import { ModelDetail } from "@/components/model-detail"
+import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
   Search,
-  Download,
   RefreshCw,
-  Plus,
   Zap,
   Bot,
-  Eye,
+  Brain,
   ArrowUpDown,
-  X,
-  ChevronDown,
   Filter,
+  GitPullRequest,
 } from "lucide-react"
 
 // Grouped server type
@@ -57,31 +54,41 @@ interface GroupedServer extends ServerResponse {
 }
 
 export default function AdminPage() {
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("servers")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [groupedServers, setGroupedServers] = useState<GroupedServer[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
   const [agents, setAgents] = useState<AgentResponse[]>([])
+  const [models, setModels] = useState<ModelResponse[]>([])
   const [filteredServers, setFilteredServers] = useState<GroupedServer[]>([])
   const [filteredSkills, setFilteredSkills] = useState<SkillResponse[]>([])
   const [filteredAgents, setFilteredAgents] = useState<AgentResponse[]>([])
+  const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
-  const [importDialogOpen, setImportDialogOpen] = useState(false)
-  const [addServerDialogOpen, setAddServerDialogOpen] = useState(false)
-  const [importSkillsDialogOpen, setImportSkillsDialogOpen] = useState(false)
-  const [addSkillDialogOpen, setAddSkillDialogOpen] = useState(false)
-  const [importAgentsDialogOpen, setImportAgentsDialogOpen] = useState(false)
-  const [addAgentDialogOpen, setAddAgentDialogOpen] = useState(false)
+  const [filterSkillVerifiedOrg, setFilterSkillVerifiedOrg] = useState(false)
+  const [filterSkillVerifiedPublisher, setFilterSkillVerifiedPublisher] = useState(false)
+  const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' | 'model' } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
-  
+  const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
+
+  // Pagination state
+  const [currentPageServers, setCurrentPageServers] = useState(1)
+  const [currentPageSkills, setCurrentPageSkills] = useState(1)
+  const [currentPageAgents, setCurrentPageAgents] = useState(1)
+  const [currentPageModels, setCurrentPageModels] = useState(1)
+  const itemsPerPage = 5
+
   // Track scroll position for restoring after navigation
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
@@ -177,22 +184,39 @@ export default function AdminPage() {
       // Fetch all agents (with pagination if needed)
       const allAgents: AgentResponse[] = []
       let agentCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listAgents({ 
-          cursor: agentCursor, 
+        const response = await adminApiClient.listAgents({
+          cursor: agentCursor,
           limit: 100,
         })
         allAgents.push(...response.agents)
         agentCursor = response.metadata.nextCursor
       } while (agentCursor)
-      
+
       setAgents(allAgents)
-      
+
+      // Fetch all models (with pagination if needed)
+      const allModels: ModelResponse[] = []
+      let modelCursor: string | undefined
+
+      do {
+        const response = await adminApiClient.listModels({
+          cursor: modelCursor,
+          limit: 100,
+        })
+        allModels.push(...response.models)
+        modelCursor = response.metadata.nextCursor
+      } while (modelCursor)
+
+      setModels(allModels)
+
+      setServers(allServers)
+
       // Group servers by name
       const grouped = groupServersByName(allServers)
       setGroupedServers(grouped)
-      
+
       // Set stats
       setStats({
         total_servers: allServers.length,
@@ -240,36 +264,118 @@ export default function AdminPage() {
 
   // Handle server publishing
   const handlePublish = async (server: ServerResponse) => {
-    try {
-      await adminApiClient.publishServerStatus(server.server.name, server.server.version)
-      await fetchData() // Refresh data
-      toast.success(`Successfully published ${server.server.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish server")
-    }
+    setItemToPublish({ name: server.server.name, version: server.server.version, type: 'server' })
   }
 
   const handlePublishSkill = async (skill: SkillResponse) => {
-    try {
-      await adminApiClient.publishSkillStatus(skill.skill.name, skill.skill.version)
-      await fetchData() // Refresh data
-      toast.success(`Successfully published ${skill.skill.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish skill")
-    }
+    setItemToPublish({ name: skill.skill.name, version: skill.skill.version, type: 'skill' })
   }
 
   const handlePublishAgent = async (agentResponse: AgentResponse) => {
     const {agent } = agentResponse;
+    setItemToPublish({ name: agent.name, version: agent.version, type: 'agent' })
+  }
+
+  const handlePublishModel = async (modelResponse: ModelResponse) => {
+    const { model } = modelResponse
+    setItemToPublish({ name: model.name, version: '', type: 'model' })
+  }
+
+  const confirmPublish = async () => {
+    if (!itemToPublish) return
 
     try {
-      await adminApiClient.publishAgentStatus(agent.name, agent.version)
+      setPublishing(true)
+      const client = adminApiClient
+
+      if (itemToPublish.type === 'server') {
+        await client.publishServerStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'skill') {
+        await client.publishSkillStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'agent') {
+        await client.publishAgentStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'model') {
+        await client.publishModelStatus(itemToPublish.name)
+      }
+
+      setItemToPublish(null)
+      toast.success(`Successfully published ${itemToPublish.name}`)
       await fetchData() // Refresh data
-      toast.success(`Successfully published ${agent.name}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish agent")
+      toast.error(err instanceof Error ? err.message : 'Failed to publish resource')
+    } finally {
+      setPublishing(false)
     }
   }
+
+  // Approval handlers for GitOps workflow (Option C)
+  const handleApproveServer = async (server: ServerResponse) => {
+    try {
+      await adminApiClient.approveServer(server.server.name, server.server.version)
+      await fetchData()
+      toast.success(`Approved and published ${server.server.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve server")
+    }
+  }
+
+  const handleRejectServer = async (server: ServerResponse) => {
+    try {
+      await adminApiClient.rejectServer(server.server.name, server.server.version)
+      await fetchData()
+      toast.success(`Rejected ${server.server.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject server")
+    }
+  }
+
+  const handleApproveAgent = async (agentResponse: AgentResponse) => {
+    try {
+      await adminApiClient.approveAgent(agentResponse.agent.name, agentResponse.agent.version)
+      await fetchData()
+      toast.success(`Approved and published ${agentResponse.agent.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve agent")
+    }
+  }
+
+  const handleRejectAgent = async (agentResponse: AgentResponse) => {
+    try {
+      await adminApiClient.rejectAgent(agentResponse.agent.name, agentResponse.agent.version)
+      await fetchData()
+      toast.success(`Rejected ${agentResponse.agent.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject agent")
+    }
+  }
+
+  const handleApproveSkill = async (skill: SkillResponse) => {
+    try {
+      await adminApiClient.approveSkill(skill.skill.name, skill.skill.version)
+      await fetchData()
+      toast.success(`Approved and published ${skill.skill.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve skill")
+    }
+  }
+
+  const handleRejectSkill = async (skill: SkillResponse) => {
+    try {
+      await adminApiClient.rejectSkill(skill.skill.name, skill.skill.version)
+      await fetchData()
+      toast.success(`Rejected ${skill.skill.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject skill")
+    }
+  }
+
+  // Reset all page numbers when search query changes
+  useEffect(() => {
+    setCurrentPageServers(1)
+    setCurrentPageSkills(1)
+    setCurrentPageAgents(1)
+    setCurrentPageModels(1)
+  }, [searchQuery])
 
   // Filter and sort servers based on search query and sort option
   useEffect(() => {
@@ -282,7 +388,7 @@ export default function AdminPage() {
         (s) =>
           s.server.name.toLowerCase().includes(query) ||
           s.server.title?.toLowerCase().includes(query) ||
-          s.server.description.toLowerCase().includes(query)
+          s.server.description?.toLowerCase().includes(query)
       )
     }
 
@@ -324,40 +430,70 @@ export default function AdminPage() {
     setFilteredServers(filtered)
   }, [searchQuery, groupedServers, sortBy, filterVerifiedOrg, filterVerifiedPublisher])
 
-  // Filter skills and agents based on search query
+  // Filter skills, agents, and models based on search query and running status
   useEffect(() => {
+    const query = searchQuery.toLowerCase()
+
+    // Filter skills
+    let filteredSk = skills
     if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      
-      // Filter skills
-      const filteredSk = skills.filter(
+      filteredSk = filteredSk.filter(
         (s) =>
           s.skill.name.toLowerCase().includes(query) ||
           s.skill.title?.toLowerCase().includes(query) ||
-          s.skill.description.toLowerCase().includes(query)
+          s.skill.description?.toLowerCase().includes(query)
       )
-      setFilteredSkills(filteredSk)
+    }
+    if (filterSkillVerifiedOrg) {
+      filteredSk = filteredSk.filter((s) => {
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
+        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
+        return identity?.["org_is_verified"] === true
+      })
+    }
+    if (filterSkillVerifiedPublisher) {
+      filteredSk = filteredSk.filter((s) => {
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
+        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
+        return identity?.["publisher_identity_verified_by_jwt"] === true
+      })
+    }
+    setFilteredSkills(filteredSk)
 
-      // Filter agents
-      const filteredA = agents.filter(
+    // Filter agents
+    let filteredA = agents
+    if (searchQuery) {
+      filteredA = filteredA.filter(
         ({agent}) =>
           agent.name?.toLowerCase().includes(query) ||
           agent.modelProvider?.toLowerCase().includes(query) ||
-          agent.description.toLowerCase().includes(query)
+          agent.description?.toLowerCase().includes(query)
       )
-      setFilteredAgents(filteredA)
-    } else {
-      setFilteredSkills(skills)
-      setFilteredAgents(agents)
     }
-  }, [searchQuery, skills, agents])
+    setFilteredAgents(filteredA)
+
+    // Filter models
+    let filteredM = models
+    if (searchQuery) {
+      filteredM = filteredM.filter(
+        ({ model }) =>
+          model.name?.toLowerCase().includes(query) ||
+          model.provider?.toLowerCase().includes(query) ||
+          model.model?.toLowerCase().includes(query) ||
+          model.description?.toLowerCase().includes(query)
+      )
+    }
+    setFilteredModels(filteredM)
+  }, [searchQuery, skills, agents, models, filterSkillVerifiedOrg, filterSkillVerifiedPublisher])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading registry data...</p>
+          <p className="text-muted-foreground">Loading inventory data...</p>
         </div>
       </div>
     )
@@ -368,7 +504,7 @@ export default function AdminPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold mb-2">Error Loading Registry</h2>
+          <h2 className="text-xl font-bold mb-2">Error Loading Inventory</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
           <Button onClick={fetchData}>Retry</Button>
         </div>
@@ -377,46 +513,79 @@ export default function AdminPage() {
   }
 
   // Show server detail view if a server is selected
-  if (selectedServer) {
-    return (
-      <ServerDetail
-        server={selectedServer as ServerResponse & { allVersions?: ServerResponse[] }}
-        onClose={handleCloseServerDetail}
-        onServerCopied={fetchData}
-        onPublish={handlePublish}
-      />
-    )
-  }
-
-  // Show skill detail view if a skill is selected
-  if (selectedSkill) {
-    return (
-      <SkillDetail
-        skill={selectedSkill}
-        onClose={() => setSelectedSkill(null)}
-        onPublish={handlePublishSkill}
-      />
-    )
-  }
-
-  // Show agent detail view if an agent is selected
-  if (selectedAgent) {
-    return (
-      <AgentDetail
-        agent={selectedAgent}
-        onClose={() => setSelectedAgent(null)}
-        onPublish={handlePublishAgent}
-      />
-    )
-  }
-
   return (
+    <>
+      {/* Publish Confirmation Dialog */}
+      <Dialog open={!!itemToPublish} onOpenChange={(open) => !open && setItemToPublish(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish Resource</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to publish <strong>{itemToPublish?.name}</strong>{itemToPublish?.version && ` (version ${itemToPublish.version})`}?
+              <br />
+              <br />
+              This will make the resource visible to public users in the catalog.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setItemToPublish(null)}
+              disabled={publishing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={confirmPublish}
+              disabled={publishing}
+            >
+              {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {selectedServer && (
+        <ServerDetail
+          server={selectedServer as ServerResponse & { allVersions?: ServerResponse[] }}
+          onClose={handleCloseServerDetail}
+          onServerCopied={fetchData}
+          onPublish={handlePublish}
+        />
+      )}
+
+      {selectedSkill && (
+        <SkillDetail
+          skill={selectedSkill}
+          onClose={() => setSelectedSkill(null)}
+          onPublish={handlePublishSkill}
+        />
+      )}
+
+      {selectedAgent && (
+        <AgentDetail
+          agent={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+          onPublish={handlePublishAgent}
+        />
+      )}
+
+      {selectedModel && (
+        <ModelDetail
+          model={selectedModel}
+          onClose={() => setSelectedModel(null)}
+          onPublish={handlePublishModel}
+        />
+      )}
+
+      {!selectedServer && !selectedSkill && !selectedAgent && !selectedModel && (
     <main className="min-h-screen bg-background">
       {/* Stats Section */}
       {stats && (
         <div className="bg-muted/30 border-b">
           <div className="container mx-auto px-6 py-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -426,7 +595,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold">{stats.total_server_names}</p>
-                    <p className="text-xs text-muted-foreground">Servers</p>
+                    <p className="text-xs text-muted-foreground">MCP</p>
                   </div>
                 </div>
               </Card>
@@ -454,6 +623,18 @@ export default function AdminPage() {
                   </div>
                 </div>
               </Card>
+
+              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/40 rounded-lg flex items-center justify-center">
+                    <Brain className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{models.length}</p>
+                    <p className="text-xs text-muted-foreground">Models</p>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         </div>
@@ -467,15 +648,19 @@ export default function AdminPage() {
                 <span className="h-4 w-4 flex items-center justify-center">
                   <MCPIcon />
                 </span>
-                Servers
+                MCP
+              </TabsTrigger>
+              <TabsTrigger value="agents" className="gap-2">
+                <Bot className="h-4 w-4" />
+                Agents
               </TabsTrigger>
               <TabsTrigger value="skills" className="gap-2">
                 <Zap className="h-4 w-4" />
                 Skills
               </TabsTrigger>
-              <TabsTrigger value="agents" className="gap-2">
-                <Bot className="h-4 w-4" />
-                Agents
+              <TabsTrigger value="models" className="gap-2">
+                <Brain className="h-4 w-4" />
+                Models
               </TabsTrigger>
             </TabsList>
 
@@ -494,57 +679,14 @@ export default function AdminPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setAddServerDialogOpen(true)}>
-                    <span className="mr-2 h-4 w-4 flex items-center justify-center">
-                      <MCPIcon />
-                    </span>
-                    Add Server
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddSkillDialogOpen(true)}>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Add Skill
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddAgentDialogOpen(true)}>
-                    <Bot className="mr-2 h-4 w-4" />
-                    Add Agent
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Import
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
-                    <span className="mr-2 h-4 w-4 flex items-center justify-center">
-                      <MCPIcon />
-                    </span>
-                    Import Servers
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportSkillsDialogOpen(true)}>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Import Skills
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportAgentsDialogOpen(true)}>
-                    <Bot className="mr-2 h-4 w-4" />
-                    Import Agents
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="default"
+                className="gap-2"
+                onClick={() => setSubmitResourceDialogOpen(true)}
+              >
+                <GitPullRequest className="h-4 w-4" />
+                Submit
+              </Button>
 
               <Button
                 variant="ghost"
@@ -557,7 +699,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Servers Tab */}
+          {/* MCP Tab */}
           <TabsContent value="servers">
             {/* Sort and Filter controls */}
             <div className="flex items-center justify-between mb-6">
@@ -591,13 +733,13 @@ export default function AdminPage() {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-verified-publisher" 
+                  <Checkbox
+                    id="filter-verified-publisher"
                     checked={filterVerifiedPublisher}
                     onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
                   />
-                  <Label 
-                    htmlFor="filter-verified-publisher" 
+                  <Label
+                    htmlFor="filter-verified-publisher"
                     className="text-sm font-normal cursor-pointer"
                   >
                     Verified Publisher
@@ -609,7 +751,7 @@ export default function AdminPage() {
             {/* Server List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
-                Servers
+                MCP
                 <span className="text-muted-foreground ml-2">
                   ({filteredServers.length})
                 </span>
@@ -623,45 +765,108 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {groupedServers.length === 0
-                        ? "No servers in registry"
-                        : "No servers match your filters"}
+                        ? "No MCP servers in inventory"
+                        : "No MCP servers match your filters"}
                     </p>
                     <p className="text-sm mb-4">
                       {groupedServers.length === 0
-                        ? "Import servers from external registries to get started"
+                        ? "Submit an MCP server to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {groupedServers.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Servers
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit MCP Server
                       </Button>
                     )}
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredServers.map((server, index) => (
-                    <ServerCard
-                      key={`${server.server.name}-${server.server.version}-${index}`}
-                      server={server}
-                      versionCount={server.versionCount}
-                      onClick={() => handleServerClick(server)}
-                      showPublish={true}
-                      onPublish={handlePublish}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredServers
+                      .slice((currentPageServers - 1) * itemsPerPage, currentPageServers * itemsPerPage)
+                      .map((server, index) => (
+                        <ServerCard
+                          key={`${server.server.name}-${server.server.version}-${index}`}
+                          server={server}
+                          versionCount={server.versionCount}
+                          onClick={() => handleServerClick(server)}
+                          showPublish={true}
+                          onPublish={handlePublish}
+                          showApproval={true}
+                          onApprove={handleApproveServer}
+                          onReject={handleRejectServer}
+                        />
+                      ))}
+                  </div>
+                  {filteredServers.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
+                        disabled={currentPageServers === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageServers} of {Math.ceil(filteredServers.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(filteredServers.length / itemsPerPage), p + 1))}
+                        disabled={currentPageServers >= Math.ceil(filteredServers.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
 
           {/* Skills Tab */}
           <TabsContent value="skills">
+            {/* Filter controls */}
+            <div className="flex items-center justify-end mb-6">
+              <div className="flex items-center gap-4">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-skill-verified-org"
+                    checked={filterSkillVerifiedOrg}
+                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedOrg(checked)}
+                  />
+                  <Label
+                    htmlFor="filter-skill-verified-org"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Verified Organization
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-skill-verified-publisher"
+                    checked={filterSkillVerifiedPublisher}
+                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedPublisher(checked)}
+                  />
+                  <Label
+                    htmlFor="filter-skill-verified-publisher"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Verified Publisher
+                  </Label>
+                </div>
+              </div>
+            </div>
+
             {/* Skills List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
@@ -679,38 +884,68 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {skills.length === 0
-                        ? "No skills in registry"
+                        ? "No skills in inventory"
                         : "No skills match your filters"}
                     </p>
                     <p className="text-sm mb-4">
                       {skills.length === 0
-                        ? "Import skills from external sources to get started"
+                        ? "Submit a skill to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {skills.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportSkillsDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Skills
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Skill
                       </Button>
                     )}
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredSkills.map((skill, index) => (
-                    <SkillCard
-                      key={`${skill.skill.name}-${skill.skill.version}-${index}`}
-                      skill={skill}
-                      onClick={() => setSelectedSkill(skill)}
-                      showPublish={true}
-                      onPublish={handlePublishSkill}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredSkills
+                      .slice((currentPageSkills - 1) * itemsPerPage, currentPageSkills * itemsPerPage)
+                      .map((skill, index) => (
+                        <SkillCard
+                          key={`${skill.skill.name}-${skill.skill.version}-${index}`}
+                          skill={skill}
+                          onClick={() => setSelectedSkill(skill)}
+                          showPublish={true}
+                          onPublish={handlePublishSkill}
+                          showApproval={true}
+                          onApprove={handleApproveSkill}
+                          onReject={handleRejectSkill}
+                        />
+                      ))}
+                  </div>
+                  {filteredSkills.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageSkills(p => Math.max(1, p - 1))}
+                        disabled={currentPageSkills === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageSkills} of {Math.ceil(filteredSkills.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageSkills(p => Math.min(Math.ceil(filteredSkills.length / itemsPerPage), p + 1))}
+                        disabled={currentPageSkills >= Math.ceil(filteredSkills.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
@@ -734,80 +969,162 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {agents.length === 0
-                        ? "No agents in registry"
+                        ? "No agents in inventory"
                         : "No agents match your filters"}
                     </p>
                     <p className="text-sm mb-4">
                       {agents.length === 0
-                        ? "Import agents from external sources to get started"
+                        ? "Submit an agent to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {agents.length === 0 && (
                       <Button
                         variant="outline"
                         className="gap-2"
-                        onClick={() => setImportAgentsDialogOpen(true)}
+                        onClick={() => setSubmitResourceDialogOpen(true)}
                       >
-                        <Download className="h-4 w-4" />
-                        Import Agents
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Agent
                       </Button>
                     )}
                   </div>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {filteredAgents.map((agent, index) => (
-                    <AgentCard
-                      key={`${agent.agent.name}-${agent.agent.version}-${index}`}
-                      agent={agent}
-                      onClick={() => setSelectedAgent(agent)}
-                      showPublish={true}
-                      onPublish={handlePublishAgent}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredAgents
+                      .slice((currentPageAgents - 1) * itemsPerPage, currentPageAgents * itemsPerPage)
+                      .map((agent, index) => (
+                        <AgentCard
+                          key={`${agent.agent.name}-${agent.agent.version}-${index}`}
+                          agent={agent}
+                          onClick={() => setSelectedAgent(agent)}
+                          showPublish={true}
+                          onPublish={handlePublishAgent}
+                          showApproval={true}
+                          onApprove={handleApproveAgent}
+                          onReject={handleRejectAgent}
+                        />
+                      ))}
+                  </div>
+                  {filteredAgents.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
+                        disabled={currentPageAgents === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageAgents} of {Math.ceil(filteredAgents.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(filteredAgents.length / itemsPerPage), p + 1))}
+                        disabled={currentPageAgents >= Math.ceil(filteredAgents.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Models Tab */}
+          <TabsContent value="models">
+            {/* Models List */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">
+                Models
+                <span className="text-muted-foreground ml-2">
+                  ({filteredModels.length})
+                </span>
+              </h2>
+
+              {filteredModels.length === 0 ? (
+                <Card className="p-12">
+                  <div className="text-center text-muted-foreground">
+                    <div className="w-12 h-12 mx-auto mb-4 opacity-50 flex items-center justify-center text-primary">
+                      <Brain className="w-12 h-12" />
+                    </div>
+                    <p className="text-lg font-medium mb-2">
+                      {models.length === 0
+                        ? "No models in inventory"
+                        : "No models match your filters"}
+                    </p>
+                    <p className="text-sm mb-4">
+                      {models.length === 0
+                        ? "Add models to the inventory to get started"
+                        : "Try adjusting your search or filter criteria"}
+                    </p>
+                    {models.length === 0 && (
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setSubmitResourceDialogOpen(true)}
+                      >
+                        <GitPullRequest className="h-4 w-4" />
+                        Submit Model
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid gap-4">
+                    {filteredModels
+                      .slice((currentPageModels - 1) * itemsPerPage, currentPageModels * itemsPerPage)
+                      .map((model, index) => (
+                        <ModelCard
+                          key={`${model.model.name}-${index}`}
+                          model={model}
+                          onClick={() => setSelectedModel(model)}
+                          showPublish={true}
+                          onPublish={handlePublishModel}
+                        />
+                      ))}
+                  </div>
+                  {filteredModels.length > itemsPerPage && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageModels(p => Math.max(1, p - 1))}
+                        disabled={currentPageModels === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPageModels} of {Math.ceil(filteredModels.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPageModels(p => Math.min(Math.ceil(filteredModels.length / itemsPerPage), p + 1))}
+                        disabled={currentPageModels >= Math.ceil(filteredModels.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Server Dialogs */}
-      <ImportDialog
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
-        onImportComplete={fetchData}
-      />
-      <AddServerDialog
-        open={addServerDialogOpen}
-        onOpenChange={setAddServerDialogOpen}
-        onServerAdded={fetchData}
-      />
-
-      {/* Skill Dialogs */}
-      <ImportSkillsDialog
-        open={importSkillsDialogOpen}
-        onOpenChange={setImportSkillsDialogOpen}
-        onImportComplete={() => {}}
-      />
-      <AddSkillDialog
-        open={addSkillDialogOpen}
-        onOpenChange={setAddSkillDialogOpen}
-        onSkillAdded={fetchData}
-      />
-
-      {/* Agent Dialogs */}
-      <ImportAgentsDialog
-        open={importAgentsDialogOpen}
-        onOpenChange={setImportAgentsDialogOpen}
-        onImportComplete={() => {}}
-      />
-      <AddAgentDialog
-        open={addAgentDialogOpen}
-        onOpenChange={setAddAgentDialogOpen}
-        onAgentAdded={() => {}}
-      />
-
-    </main>
+        {/* Submit Resource Dialog (GitOps Workflow) */}
+        <SubmitResourceDialog
+          open={submitResourceDialogOpen}
+          onOpenChange={setSubmitResourceDialogOpen}
+        />
+      </main>
+      )}
+    </>
   )
 }

@@ -288,7 +288,7 @@ func parseUrl(rawUrl string) (*parsedUrl, error) {
 }
 
 // GenerateInternalName converts a server name to a DNS-1123 compliant name
-// that can be used as a Docker Compose service name or Kubernetes resource name.
+// that can be used as a Kubernetes resource name.
 // Export this function so that the runtime can use this to construct the name of MCP to connect to
 func GenerateInternalName(server string) string {
 	// convert the server name to a dns-1123 compliant name

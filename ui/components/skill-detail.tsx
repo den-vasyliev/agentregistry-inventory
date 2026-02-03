@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   Zap,
   Upload,
+  BadgeCheck,
 } from "lucide-react"
 
 interface SkillDetailProps {
@@ -36,9 +37,31 @@ interface SkillDetailProps {
 
 export function SkillDetail({ skill, onClose, onPublish }: SkillDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  
+
   const { skill: skillData, _meta } = skill
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+
+  // Extract metadata
+  const publisherMetadata = (skillData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const identityData = publisherMetadata?.identity
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if ((official as any)?.submitter) return (official as any).submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (skillData.repository?.url) {
+      const match = skillData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   // Handle ESC key to close
   useEffect(() => {
@@ -95,23 +118,25 @@ export function SkillDetail({ skill, onClose, onPublish }: SkillDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => onPublish && onPublish(skill)}
-                    className="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Publish
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Publish this skill to your registry</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {onPublish && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => onPublish(skill)}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Publish
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Publish this skill to your registry</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
@@ -120,6 +145,14 @@ export function SkillDetail({ skill, onClose, onPublish }: SkillDetailProps) {
 
         {/* Quick Info */}
         <div className="flex flex-wrap gap-3 mb-6 text-sm">
+          {owner && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20">
+              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="text-muted-foreground">Owner:</span>
+              <span className="font-medium">{owner}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
             <Tag className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Version:</span>

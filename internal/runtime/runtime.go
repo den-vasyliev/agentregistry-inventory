@@ -10,7 +10,7 @@ type RuntimeValidator func(runtime string) error
 
 var (
 	// SupportedRuntimes defines the available runtimes
-	SupportedRuntimes = []string{"local", "kubernetes"}
+	SupportedRuntimes = []string{"kubernetes"}
 
 	// CustomRuntimeValidator allows extending the runtimes
 	CustomRuntimeValidator RuntimeValidator

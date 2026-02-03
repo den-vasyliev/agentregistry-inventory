@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { adminApiClient, ServerResponse } from "@/lib/admin-api"
 import { Play, Plus, X, Loader2 } from "lucide-react"
 
@@ -23,6 +24,47 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
   const [config, setConfig] = useState<Record<string, string>>({})
   const [newKey, setNewKey] = useState("")
   const [newValue, setNewValue] = useState("")
+  const [namespace, setNamespace] = useState("agentregistry")
+  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
+    { name: "agentregistry", namespace: "agentregistry" }
+  ])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
+
+  // Fetch available environments from DiscoveryConfig
+  useEffect(() => {
+    const fetchEnvironments = async () => {
+      console.log("=== UI BUILD VERSION: 2024-02-03-v1 ===")
+      console.log("=== Fetching environments, dialog open:", open)
+      setLoadingEnvironments(true)
+      try {
+        const envs = await adminApiClient.listEnvironments()
+        console.log("=== Fetched environments:", envs)
+        console.log("=== Environments length:", envs?.length)
+        console.log("=== Setting environments state to:", envs)
+        if (envs && envs.length > 0) {
+          setEnvironments(envs)
+          // Set first environment as default
+          setNamespace(envs[0].namespace)
+          console.log("=== Set namespace to:", envs[0].namespace)
+        } else {
+          console.warn("No environments returned, using default")
+        }
+      } catch (err) {
+        console.error("Failed to fetch environments:", err)
+        // Keep fallback default namespace
+      } finally {
+        setLoadingEnvironments(false)
+        console.log("=== Loading complete")
+      }
+    }
+
+    if (open) {
+      fetchEnvironments()
+    }
+  }, [open])
+
+  console.log("=== RENDER: environments state:", environments)
+  console.log("=== RENDER: namespace state:", namespace)
 
   const handleAddConfig = () => {
     if (newKey.trim() && newValue.trim()) {
@@ -44,12 +86,13 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
     try {
       setDeploying(true)
       setError(null)
-      
+
       await adminApiClient.deployServer({
         serverName: server.server.name,
         version: server.server.version,
         config,
         preferRemote: false,
+        namespace: namespace,
       })
 
       setSuccess(true)
@@ -57,6 +100,7 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
         onOpenChange(false)
         setSuccess(false)
         setConfig({})
+        setNamespace("agentregistry")
         onDeploySuccess?.()
       }, 1500)
     } catch (err) {
@@ -74,6 +118,7 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
       setConfig({})
       setNewKey("")
       setNewValue("")
+      setNamespace("agentregistry")
     }
   }
 
@@ -109,6 +154,28 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
                 <div className="text-sm text-muted-foreground">{server.server.name}</div>
                 <div className="text-xs text-muted-foreground mt-1">Version: {server.server.version}</div>
               </div>
+            </div>
+
+            <Separator />
+
+            {/* Namespace Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="namespace">Namespace / Environment</Label>
+              <Select value={namespace} onValueChange={setNamespace} disabled={loadingEnvironments}>
+                <SelectTrigger id="namespace">
+                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env.namespace} value={env.namespace}>
+                      {env.name}/{env.namespace}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which namespace/environment to deploy to (from DiscoveryConfig)
+              </p>
             </div>
 
             <Separator />

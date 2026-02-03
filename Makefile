@@ -1,257 +1,220 @@
-# Image configuration
-DOCKER_REGISTRY ?= localhost:5001
-BASE_IMAGE_REGISTRY ?= ghcr.io
-DOCKER_REPO ?= agentregistry-dev/agentregistry
-DOCKER_BUILDER ?= docker buildx
-DOCKER_BUILD_ARGS ?= --push --platform linux/$(LOCALARCH)
+# Build configuration
+REGISTRY ?= ghcr.io/den-vasyliev/agentregistry-enterprise
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
-GIT_COMMIT ?= $(shell git rev-parse --short HEAD || echo "unknown")
-VERSION ?= $(shell git describe --tags --always 2>/dev/null | grep v || echo "v0.0.0-$(GIT_COMMIT)")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Auto-increment version based on git tags
+LAST_TAG ?= $(shell git describe --tags --abbrev=0 2>/dev/null)
+COMMITS_SINCE_TAG ?= $(shell git rev-list $(LAST_TAG)..HEAD --count 2>/dev/null || echo "0")
+# Use VERSION file as fallback if no tags exist
+BASE_VERSION ?= $(shell if [ -n "$(LAST_TAG)" ]; then echo $(LAST_TAG) | sed 's/^v//'; else cat VERSION 2>/dev/null || echo "0.2.1"; fi)
+
+# If on a tag, use that tag; otherwise auto-increment patch version
+ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)
+# Not on a tag - auto-increment patch version
+NEXT_VERSION := $(shell echo $(BASE_VERSION) | awk -F. '{$$3=$$3+1; print $$1"."$$2"."$$3}')
+VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)
+else
+# On a tag - use the tag as-is
+VERSION ?= $(LAST_TAG)
+endif
 
 LDFLAGS := \
 	-s -w \
 	-X 'github.com/agentregistry-dev/agentregistry/internal/version.Version=$(VERSION)' \
 	-X 'github.com/agentregistry-dev/agentregistry/internal/version.GitCommit=$(GIT_COMMIT)' \
-	-X 'github.com/agentregistry-dev/agentregistry/internal/version.BuildDate=$(BUILD_DATE)' \
-	-X 'github.com/agentregistry-dev/agentregistry/internal/version.DockerRegistry=$(DOCKER_REGISTRY)'
+	-X 'github.com/agentregistry-dev/agentregistry/internal/version.BuildDate=$(BUILD_DATE)'
 
-# Local architecture detection to build for the current platform
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
-.PHONY: help install-ui build-ui clean-ui build-cli build install dev-ui test clean fmt lint all release-cli docker-compose-up docker-compose-down docker-compose-logs
+.PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev dev-ui ko-controller demo demo-stop
 
-# Default target
-help:
-	@echo "Available targets:"
-	@echo "  install-ui           - Install UI dependencies"
-	@echo "  build-ui             - Build the Next.js UI"
-	@echo "  clean-ui             - Clean UI build artifacts"
-	@echo "  build-cli             - Build the Go CLI"
-	@echo "  build                - Build both UI and Go CLI"
-	@echo "  install              - Install the CLI to GOPATH/bin"
-	@echo "  dev-ui               - Run Next.js in development mode"
-	@echo "  test                 - Run Go tests"
-	@echo "  clean                - Clean all build artifacts"
-	@echo "  all                  - Clean and build everything"
-	@echo "  fmt                  - Run the formatter"
-	@echo "  lint                 - Run the linter"
-	@echo "  release              - Build and release the CLI"
+##@ General
 
-# Install UI dependencies
-install-ui:
-	@echo "Installing UI dependencies..."
-	cd ui && npm install
+help: ## Display this help
+	@echo "Agent Registry Enterprise - Controller"
+	@echo ""
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Targets:"
+	@awk 'BEGIN {FS = ":.*##"; printf "\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  %-15s %s\n", $$1, $$2 } /^##@/ { printf "\n%s\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "Current version: $(VERSION)"
 
-# Build the Next.js UI (outputs to internal/registry/api/ui/dist)
-build-ui: install-ui
-	@echo "Building Next.js UI for embedding..."
-	cd ui && npm run build:export
-	@echo "Copying built files to internal/registry/api/ui/dist..."
-	cp -r ui/out/* internal/registry/api/ui/dist/
-# best effort - bring back the gitignore so that dist folder is kept in git (won't work in docker).
-	git checkout -- internal/registry/api/ui/dist/.gitignore || :
-	@echo "UI built successfully to internal/registry/api/ui/dist/"
+version: ## Show version information
+	@echo "Version:    $(VERSION)"
+	@echo "Commit:     $(GIT_COMMIT)"
+	@echo "Build Date: $(BUILD_DATE)"
+	@echo "Registry:   $(REGISTRY)"
 
-# Clean UI build artifacts
-clean-ui:
-	@echo "Cleaning UI build artifacts..."
-	git clean -xdf ./internal/registry/api/ui/dist/
-	git clean -xdf ./ui/out/
-	git clean -xdf ./ui/.next/
-	@echo "UI artifacts cleaned"
+##@ Development
 
-# Build the Go CLI
-build-cli:
-	@echo "Building Go CLI..."
-	@echo "Downloading Go dependencies..."
-	go mod download
-	@echo "Building binary..."
-	go build -ldflags "$(LDFLAGS)" \
-		-o bin/arctl cmd/cli/main.go
-	@echo "Binary built successfully: bin/arctl"
+generate: ## Generate CRD manifests and deepcopy code
+	@echo "Generating CRD manifests and code..."
+	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./api/v1alpha1"
+	@controller-gen crd paths="./api/v1alpha1" output:crd:artifacts:config=config/crd
+	@echo "✓ Generation complete"
 
-# Build the Go server (with embedded UI)
-build-server:
-	@echo "Building Go CLI..."
-	@echo "Downloading Go dependencies..."
-	go mod download
-	@echo "Building binary..."
-	go build -ldflags "$(LDFLAGS)" \
-		-o bin/arctl-server cmd/server/main.go
-	@echo "Binary built successfully: bin/arctl-server"
+build-ui: ## Build UI static export
+	@echo "Building UI..."
+	@cd ui && npm install && npm run build:export
+	@echo "✓ UI build complete: ui/out/"
 
-# Build everything (UI + Go)
-build: build-ui build-cli
-	@echo "Build complete!"
-	@echo "Run './bin/arctl --help' to get started"
+build-controller: ## Build controller binary only
+	@echo "Building controller binary..."
+	@CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCALARCH) go build \
+		-ldflags "$(LDFLAGS)" \
+		-o bin/controller \
+		cmd/controller/main.go
+	@echo "✓ Controller build complete: bin/controller"
 
-# Install the CLI to GOPATH/bin
-install: build
-	@echo "Installing arctl to GOPATH/bin..."
-	go install
-	@echo "Installation complete! Run 'arctl --help' to get started"
+build: build-ui build-controller ## Build both UI and controller
 
-# Run Next.js in development mode
-dev-ui:
-	@echo "Starting Next.js development server..."
-	cd ui && npm run dev
+run: build ## Build and run controller locally
+	@echo "Running controller..."
+	@./bin/controller
 
-# Run Go tests
-test:
-	@echo "Running Go tests..."
-	go test -ldflags "$(LDFLAGS)" -tags=integration -v ./...
+dev: envtest build-ui ## Run dev environment with envtest, sample data, and UI
+	@echo "Starting development environment..."
+	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
+		go run -ldflags "$(LDFLAGS)" cmd/demo/main.go
 
-# Clean all build artifacts
-clean: clean-ui
-	@echo "Cleaning Go build artifacts..."
-	rm -rf bin/
-	go clean
-	@echo "All artifacts cleaned"
+demo-stop: ## Stop demo environment
+	@echo "Stopping demo environment..."
+	@pkill -f "cmd/demo/main.go" 2>/dev/null || true
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@pkill -f "etcd" 2>/dev/null || true
+	@pkill -f "kube-apiserver" 2>/dev/null || true
+	@rm -f demo-kubeconfig.yaml /tmp/demo-kubeconfig-*.yaml 2>/dev/null || true
+	@echo "Demo stopped"
 
-# Clean and build everything
-all: clean build 
-	@echo "Clean build complete!"
+dev-ui: ## Run Next.js UI dev server (for UI development)
+	@echo "Starting Next.js dev server..."
+	@cd ui && npm install && npm run dev
 
-# Quick development build (skips cleaning)
-dev-build: build-ui
-	@echo "Building Go CLI (development mode)..."
-	go build -o bin/arctl cmd/cli/main.go
-	@echo "Development build complete!"
+dev-down: ## Stop all running controller and UI processes
+	@echo "Stopping controller and UI processes..."
+	@pkill -f "go run.*cmd/controller/main.go" || true
+	@pkill -f "bin/controller" || true
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:8082 | xargs kill -9 2>/dev/null || true
+	@pkill -f "next dev" || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@echo "✓ All dev processes stopped"
 
+##@ Testing & Quality
 
-fmt: goimports
-	$(GOIMPORT) -w .
-	@echo "✓ Formatted code"
+test: envtest ## Run all tests with coverage
+	@echo "Running tests..."
+	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
+		go test -coverprofile=coverage.out -covermode=atomic \
+		-ldflags "$(LDFLAGS)" -tags=integration \
+		./internal/cluster \
+		./internal/controller \
+		./internal/runtime \
+		./internal/runtime/translation/kagent
+	@go tool cover -func=coverage.out | grep total:
 
+test-dev-env: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo "  Starting dev environment..."
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "  The kubeconfig will be saved to: /tmp/agentregistry-dev-kubeconfig.yaml"
+	@echo ""
+	@echo "  After startup, to use kubectl:"
+	@echo "    export KUBECONFIG=/tmp/agentregistry-dev-kubeconfig.yaml"
+	@echo "    kubectl get mcpservercatalog -A"
+	@echo ""
+	@echo "  To start the UI in another terminal:"
+	@echo "    cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev"
+	@echo ""
+	@echo "  Press Ctrl+C to stop"
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo ""
+	@DEVENV=1 KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
+		go test -run TestDevEnv -timeout 30m -v ./test/devenv/
 
-# Build custom agent gateway image with npx/uvx support
-docker-agentgateway:
-	@echo "Building custom age	nt gateway image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/agentgateway.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) .
-	echo "✓ Agent gateway image built successfully";
-
-
-docker-server:
-	@echo "Building server Docker image..."
-	$(DOCKER_BUILDER) build $(DOCKER_BUILD_ARGS) -f docker/server.Dockerfile -t $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) --build-arg LDFLAGS="$(LDFLAGS)" .
-	@echo "✓ Docker image built successfully"
-
-
-docker-registry:
-	@echo "Building running local Docker registry..."
-	if docker inspect docker-registry >/dev/null 2>&1; then \
-		echo "Registry already running. Skipping build." ; \
-	else \
-		 docker run \
-		-d --restart=always -p "5001:5000" --name docker-registry "docker.io/library/registry:2" ; \
+lint: ## Run linters (gofmt, go vet)
+	@echo "Running gofmt..."
+	@gofmt_output=$$(gofmt -l .); \
+	if [ -n "$$gofmt_output" ]; then \
+		echo "Error: Files not formatted:"; \
+		echo "$$gofmt_output"; \
+		echo "Run 'make fmt' to fix"; \
+		exit 1; \
 	fi
+	@echo "✓ gofmt passed"
+	@echo "Running go vet..."
+	@go vet ./...
+	@echo "✓ go vet passed"
 
-docker: docker-agentgateway docker-server
+fmt: ## Format Go code
+	@echo "Formatting code..."
+	@gofmt -w .
+	@echo "✓ Code formatted"
 
-docker-tag-as-dev:
-	@echo "Pulling and tagging as dev..."
-	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION)
-	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
-	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/server:dev
-	docker pull $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION)
-	docker tag $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:$(VERSION) $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
-	docker push $(DOCKER_REGISTRY)/$(DOCKER_REPO)/arctl-agentgateway:dev
-	@echo "✓ Docker image pulled successfully"
+##@ Container Images
 
-docker-compose-up: docker docker-tag-as-dev
-	@echo "Starting services with Docker Compose..."
-	VERSION=$(VERSION) DOCKER_REGISTRY=$(DOCKER_REGISTRY) docker compose -p agentregistry -f internal/daemon/docker-compose.yml up -d --wait --pull always
+ko-controller: build-ui ## Build and push controller image using ko
+	@echo "Building and pushing controller image..."
+	@echo "Version: $(VERSION)"
+	@echo "Base Version: $(BASE_VERSION)"
+	@echo "Git Commit: $(GIT_COMMIT)"
+	@KO_DOCKER_REPO=$(REGISTRY) ko build \
+		--tags=$(VERSION),$(NEXT_VERSION),latest \
+		--bare \
+		--image-label org.opencontainers.image.version=$(VERSION) \
+		--image-label org.opencontainers.image.revision=$(GIT_COMMIT) \
+		cmd/controller/main.go
+	@echo "✓ Images pushed:"
+	@echo "  $(REGISTRY):$(VERSION)"
+	@echo "  $(REGISTRY):$(NEXT_VERSION)"
+	@echo "  $(REGISTRY):latest"
 
-docker-compose-down:
-	VERSION=$(VERSION) DOCKER_REGISTRY=$(DOCKER_REGISTRY) docker compose -p agentregistry -f internal/daemon/docker-compose.yml down
+image: build ## Build container image locally
+	@echo "Building container image..."
+	@mkdir -p bin/images
+	@KO_DOCKER_REPO=ko.local ko build --oci-layout-path=bin/images/controller cmd/controller/main.go
+	@echo "✓ Image built: bin/images/controller"
 
-docker-compose-rm:
-	VERSION=$(VERSION) DOCKER_REGISTRY=$(DOCKER_REGISTRY) docker compose -p agentregistry -f internal/daemon/docker-compose.yml rm --volumes --force
+push: ko-controller ## Alias for ko-controller (build and push to registry)
 
-bin/arctl-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-linux-amd64 cmd/cli/main.go
+##@ Release
 
-bin/arctl-linux-amd64.sha256: bin/arctl-linux-amd64
-	sha256sum bin/arctl-linux-amd64 > bin/arctl-linux-amd64.sha256
+release: clean test lint build push ## Full release build (clean, test, lint, build, push)
+	@echo ""
+	@echo "✓ Release v$(BASE_VERSION) complete!"
+	@echo "  Commit: $(GIT_COMMIT)"
+	@echo "  Binary: bin/controller"
+	@echo "  Images: $(REGISTRY):$(BASE_VERSION), $(REGISTRY):latest"
 
-bin/arctl-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-linux-arm64 cmd/cli/main.go
+##@ Cleanup
 
-bin/arctl-linux-arm64.sha256: bin/arctl-linux-arm64
-	sha256sum bin/arctl-linux-arm64 > bin/arctl-linux-arm64.sha256
-
-bin/arctl-darwin-amd64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-darwin-amd64 cmd/cli/main.go
-
-bin/arctl-darwin-amd64.sha256: bin/arctl-darwin-amd64
-	sha256sum bin/arctl-darwin-amd64 > bin/arctl-darwin-amd64.sha256
-
-bin/arctl-darwin-arm64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-darwin-arm64 cmd/cli/main.go
-
-bin/arctl-darwin-arm64.sha256: bin/arctl-darwin-arm64
-	sha256sum bin/arctl-darwin-arm64 > bin/arctl-darwin-arm64.sha256
-
-bin/arctl-windows-amd64.exe:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/arctl-windows-amd64.exe cmd/cli/main.go
-
-bin/arctl-windows-amd64.exe.sha256: bin/arctl-windows-amd64.exe
-	sha256sum bin/arctl-windows-amd64.exe > bin/arctl-windows-amd64.exe.sha256
-
-release-cli: bin/arctl-linux-amd64.sha256  
-release-cli: bin/arctl-linux-arm64.sha256  
-release-cli: bin/arctl-darwin-amd64.sha256  
-release-cli: bin/arctl-darwin-arm64.sha256  
-release-cli: bin/arctl-windows-amd64.exe.sha256
-
-.PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
-
-.PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
-
-.PHONY: lint-config
-lint-config: golangci-lint ## Verify golangci-lint linter configuration
-	$(GOLANGCI_LINT) config verify
+clean: ## Clean all build artifacts
+	@echo "Cleaning build artifacts..."
+	@rm -rf bin/ ui/out/ ui/.next/ ui/node_modules/
+	@go clean
+	@echo "✓ Cleaned"
 
 ##@ Dependencies
 
-## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
-
+	@mkdir -p $(LOCALBIN)
 
 GOIMPORT = $(LOCALBIN)/goimports
-GOIMPORT_VERSION ?= v0.41
+ENVTEST = $(LOCALBIN)/setup-envtest
 
-GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
-GOLANGCI_LINT_VERSION ?= v2.8.0
-
-.PHONY: goimports
-goimports: $(GOIMPORT) ## Download goimports locally if necessary.
+.PHONY: goimports envtest
+goimports: $(GOIMPORT)
 $(GOIMPORT): $(LOCALBIN)
-	$(call go-install-tool,$(GOIMPORT),golang.org/x/tools/cmd/goimports,$(GOIMPORT_VERSION))
+	@GOBIN=$(LOCALBIN) go install golang.org/x/tools/cmd/goimports@v0.41
 
-.PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
-
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
-# $1 - target path with name of binary
-# $2 - package url which can be installed
-# $3 - specific version of package
-define go-install-tool
-@[ -f "$(1)-$(3)" ] || { \
-set -e; \
-package=$(2)@$(3) ;\
-echo "Downloading $${package}" ;\
-rm -f $(1) || true ;\
-GOBIN=$(LOCALBIN) go install $${package} ;\
-mv $(1) $(1)-$(3) ;\
-} ;\
-ln -sf $(1)-$(3) $(1)
-endef
+envtest: $(ENVTEST)
+$(ENVTEST): $(LOCALBIN)
+	@GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.19

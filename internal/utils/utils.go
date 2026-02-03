@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"net"
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -64,12 +63,6 @@ func SanitizeVersion(version string) string {
 		sanitized = strings.ReplaceAll(sanitized, "--", "-")
 	}
 	return sanitized
-}
-
-func IsDockerComposeAvailable() bool {
-	cmd := exec.Command("docker", "compose", "version")
-	_, err := cmd.CombinedOutput()
-	return err == nil
 }
 
 var pythonIdentifierRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { ServerResponse, adminApiClient } from "@/lib/admin-api"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -74,7 +75,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
   const official = _meta?.['io.modelcontextprotocol.registry/official']
   
   // Extract metadata
-  const publisherMetadata = serverData._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
   const overallScore = publisherMetadata?.score
   const openSSFScore = publisherMetadata?.scorecard?.openssf
@@ -171,6 +172,24 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
     }
   }
 
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if ((official as any)?.submitter) return (official as any).submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (serverData.repository?.url) {
+      const match = serverData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const ownerEmail = getOwner()
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -202,9 +221,11 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-start gap-4 flex-1">
             {icon && (
-              <img 
-                src={icon.src} 
-                alt="Server icon" 
+              <Image
+                src={icon.src}
+                alt="Server icon"
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded flex-shrink-0 mt-1"
               />
             )}
@@ -244,26 +265,28 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  onClick={handlePublishServer}
-                  disabled={copying}
-                  className="gap-2"
-                >
-                  {copying ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  Publish
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Publish this server to your registry</p>
-              </TooltipContent>
-            </Tooltip>
+            {onPublish && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={handlePublishServer}
+                    disabled={copying}
+                    className="gap-2"
+                  >
+                    {copying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    Publish
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Publish this server to your registry</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
@@ -327,6 +350,15 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
 
         {/* Quick Info */}
         <div className="flex flex-wrap gap-3 mb-6 text-sm">
+          {/* Owner Email */}
+          {ownerEmail && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20">
+              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="text-muted-foreground">Owner:</span>
+              <span className="font-medium">{ownerEmail}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
             <Tag className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Version:</span>
@@ -370,60 +402,68 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
           )}
         </div>
 
-        {/* Detailed Information Tabs */}
+        {/* Detailed Information */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="score">Score</TabsTrigger>
-            {serverData.packages && serverData.packages.length > 0 && (
-              <TabsTrigger value="packages">Packages</TabsTrigger>
-            )}
             {serverData.remotes && serverData.remotes.length > 0 && (
               <TabsTrigger value="remotes">Remotes</TabsTrigger>
             )}
             <TabsTrigger value="raw">Raw Data</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-6">
             {/* Description */}
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Description</h3>
-              <p className="text-base">{serverData.description}</p>
-            </Card>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Overview
+              </h2>
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Description</h3>
+                <p className="text-base">{serverData.description}</p>
+              </div>
 
-            {/* Repository */}
-            {serverData.repository?.url && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <GitBranch className="h-5 w-5" />
-                  Repository
-                </h3>
-                <div className="space-y-2">
-                  {serverData.repository.source && (
+              {/* Repository */}
+              {serverData.repository?.url && (
+                <div className="mt-4 pt-4 border-t">
+                  <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+                    <GitBranch className="h-4 w-4" />
+                    Repository
+                  </h3>
+                  <div className="space-y-2">
+                    {serverData.repository.source && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Source</span>
+                        <Badge variant="outline">{serverData.repository.source}</Badge>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Source</span>
-                      <Badge variant="outline">{serverData.repository.source}</Badge>
+                      <span className="text-sm text-muted-foreground">URL</span>
+                      <a
+                        href={serverData.repository.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        {serverData.repository.url} <ExternalLink className="h-3 w-3" />
+                      </a>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">URL</span>
-                    <a
-                      href={serverData.repository.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                    >
-                      {serverData.repository.url} <ExternalLink className="h-3 w-3" />
-                    </a>
                   </div>
                 </div>
-              </Card>
-            )}
-          </TabsContent>
+              )}
+            </Card>
 
-          <TabsContent value="score" className="space-y-4">
-            {/* Overall Scores */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Score Section */}
+            {hasScoreData && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Score & Metrics
+              </h2>
+
+              {/* Overall Scores */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Overall Score */}
               {overallScore !== undefined && (
                 <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
@@ -604,7 +644,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
                           <p className="text-xs text-muted-foreground mb-1">Ecosystems</p>
                           <div className="text-sm font-bold space-y-1">
                             {Object.entries(scanData.dependency_health.ecosystems).map(([key, value]) => (
-                              <div key={key}>{key}: {value}</div>
+                              <div key={key}>{key}: {String(value)}</div>
                             ))}
                           </div>
                         </div>
@@ -653,21 +693,16 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
                 )}
               </Card>
             )}
+            </div>
+          )}
 
-            {/* Info Box */}
-            {!publisherMetadata && (
-              <div className="text-center p-8 bg-muted rounded-lg">
-                <TrendingUp className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground mb-2">No scoring data available</p>
-                <p className="text-sm text-muted-foreground">
-                  Scoring data will be fetched on next import/refresh from the registry
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="packages" className="space-y-4">
-            {serverData.packages && serverData.packages.length > 0 ? (
+          {/* Packages Section */}
+          {serverData.packages && serverData.packages.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Packages
+              </h2>
               <div className="space-y-4">
                 {serverData.packages.map((pkg, i) => (
                   <Card key={i} className="p-6">
@@ -678,7 +713,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
                       </div>
                       <Badge variant="outline">{pkg.registryType}</Badge>
                     </div>
-                    
+
                     {/* Basic package info */}
                     <div className="space-y-2 text-sm mb-4 pb-4 border-b">
                       <div className="flex justify-between">
@@ -707,11 +742,9 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
                   </Card>
                 ))}
               </div>
-            ) : (
-              <Card className="p-8">
-                <p className="text-center text-muted-foreground">No packages defined</p>
-              </Card>
-            )}
+            </div>
+          )}
+
           </TabsContent>
 
           <TabsContent value="remotes" className="space-y-4">

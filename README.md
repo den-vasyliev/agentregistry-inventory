@@ -1,156 +1,231 @@
 <div align="center">
   <picture>
-    <img alt="agentregistry" src="./img/agentregistry-logo.svg" height="150"/>
+    <img alt="agentregistry enterprise" src="./img/agentregistry-enterprise-logo.svg" height="180"/>
   </picture>
-  
+
   [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  [![Test Coverage](https://img.shields.io/badge/coverage-24.7%25-yellow.svg)](https://github.com/agentregistry-dev/agentregistry)
   [![Discord](https://img.shields.io/discord/1435836734666707190?label=Join%20Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/HTYNjF2y2t)
-  
-  ### A centralized registry to securely curate, discover, deploy, and manage agentic infrastructure from MCP servers, agents to skills.
+
+  ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure — MCP servers, agents, skills, and models.
 </div>
 
+---
 
-##  What is Agent Registry?
-
-Agent Registry brings governance and control to AI artifacts and infrastructure, empowering developers to quickly build and deploy AI applications with confidence. It provides a secure, centralized registry where teams can publish, discover, and share AI artifacts, including MCP servers, agents, and skills, and deploy them seamlessly to any environment.
-
-
-### Agent Registry provides:
-
-- **📦 Centralized Registry**: Package, discover and curate AI artifacts from a central source
-- **🔒 Control and Governance**: Selectively  and control custom collection of artifacts
-- **📊 Data Enrichment**: Automatically validate and score ingested data for insights
-- **🌐 Unify AI Infrastructure**: Deploy and access artifacts anywhere
-
-
-## See it in action
-
-Learn how to create an Anthropic Skill, publish it to agentregistry, and use it in Claude Code
-
-[![Video](https://img.youtube.com/vi/l6QicyGg46A/maxresdefault.jpg)](https://www.youtube.com/watch?v=l6QicyGg46A)
-
-##  Agent Registry Architecture
-
-### For Operators:  Enrich, package, curate and deploy with control
-![Architecture](img/operator-scenario.png)
-
-### For Developers: Build, push, pull and run applications with confidence
-
-![Architecture](img/dev-scenario.png)
-
-### Development setup
-
-See [`DEVELOPMENT.md`](DEVELOPMENT.md) for detailed architecture information.
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker Desktop with Docker Compose v2+
-- Go 1.25+ (for building from source)
-
-### Installation
+## 🚀 Quick Demo
 
 ```bash
-# Install via script (recommended)
-curl -fsSL https://raw.githubusercontent.com/agentregistry-dev/agentregistry/main/scripts/get-arctl | bash
-
-# Or download binary directly from releases
-# https://github.com/agentregistry-dev/agentregistry/releases
+git clone https://github.com/agentregistry-dev/agentregistry.git
+cd agentregistry
+make dev
 ```
 
-### Start the Registry
+UI at `http://localhost:3000` with sample data. 
+
+Uses envtest (embedded etcd + kube-apiserver) — no real cluster needed.
+
+---
+
+## ✨ Main features
+
+*Discover → inventory → create → publish → deploy.* 
+
+All Kubernetes-native, based on Kgateway and Kagent runtimes.
+
+| | |
+|---|---|
+| **🔍 Auto-discovery** | Scans clusters and environments for AI workloads — MCP servers, agents, skills, models — and **adds them to your inventory** automatically. No manual cataloging. |
+| **📋 One inventory** | Everything in one place: dev, staging, prod, multi-cluster. Git as single source of truth. |
+| **➕ Create & publish** | Add new entries via UI or API.  Generate a manifest, submit for review, open a PR — or publish straight into the catalog. |
+| **🚀 Deploy** | One-click deploy from catalog to any AI environment. Controller reconciles to MCPServer/Agent resources and tracks status. |
+
+---
+
+## What is Agent Registry?
+
+A **Kubernetes controller** that brings governance and control to AI infrastructure. Teams publish, discover, and deploy AI artifacts as Kubernetes CRDs — with a web UI, REST API, auto-discovery, and multi-cluster support out of the box.
+
+| Feature | Description |
+|---|---|
+| ☸️ Kubernetes-Native | CRD-based storage, controller-runtime |
+| 📦 Centralized Catalog | MCP servers, agents, skills, models in one place |
+| 🔒 Review & Approval | GitOps workflow with pending_review → approve/reject |
+| 📊 Auto-Discovery | Automatically indexes deployed resources |
+| 🌐 Multi-Cluster | Discover across clusters with workload identity |
+| 🚀 One-click Deploy | Deploy from catalog to K8s via UI or API |
+
+## 💼 How It Works
+
+### Operator Workflow
+
+<div align="center">
+  <img src="./img/operator-scenario.png" alt="Operator Workflow" width="800"/>
+</div>
+
+### Developer Workflow
+
+<div align="center">
+  <img src="./img/dev-scenario.png" alt="Developer Workflow" width="800"/>
+</div>
+
+### GitOps Approval
+
+Submit in UI → manifest generated → GitHub PR → CI/CD creates resource in `pending_review` → team approves in Inventory.
+
+### Multi-Cluster Discovery
+
+Define clusters in a `DiscoveryConfig` CR → workload identity auth → resources auto-cataloged across dev/staging/prod. See [Autodiscovery docs](docs/AUTODISCOVERY.md).
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────┐
+│   Web UI (Next.js)  │  :3000
+└──────────┬──────────┘
+           │ HTTP
+           ▼
+┌─────────────────────┐
+│   Controller        │  :8080  HTTP API
+│   9 Reconcilers     │  :8081  Metrics
+└──────────┬──────────┘  :8082  Health
+           │ K8s API
+           ▼
+┌─────────────────────┐
+│ CRDs                │
+│  MCPServerCatalog   │
+│  AgentCatalog       │
+│  SkillCatalog       │
+│  RegistryDeployment │
+│  DiscoveryConfig    │
+└─────────────────────┘
+```
+
+## 📚 CRD Reference
+
+### Catalog
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog          # also: AgentCatalog, SkillCatalog, ModelCatalog
+metadata:
+  name: filesystem-v1-0-0
+  namespace: agentregistry
+spec:
+  name: "filesystem"
+  version: "1.0.0"
+  title: "Filesystem MCP Server"
+  description: "Provides file system access tools"
+  packages:
+    - registryType: npm
+      identifier: "@modelcontextprotocol/server-filesystem"
+      version: "0.6.1"
+      transport:
+        type: stdio
+```
+
+### Deploy
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: filesystem-deployment
+  namespace: agentregistry
+spec:
+  resourceName: "filesystem"
+  version: "1.0.0"
+  resourceType: mcp             # mcp | agent | skill
+  namespace: default            # target namespace
+```
+
+Controller looks up the catalog entry, creates the runtime CR (MCPServer/Agent), and tracks status.
+
+### Multi-Cluster Discovery
+
+```yaml
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: multi-cluster-discovery
+  namespace: agentregistry
+spec:
+  environments:
+    - name: dev
+      cluster:
+        name: dev-cluster
+        projectId: my-gcp-project
+        zone: us-central1
+        useWorkloadIdentity: true
+      provider: gcp
+      namespaces: [default, ai-workloads]
+      resourceTypes: [MCPServer, Agent, ModelConfig]
+      labels:
+        environment: dev
+```
+
+See [Multi-Cluster Autodiscovery](docs/AUTODISCOVERY.md) for full docs.
+
+## 🔌 API
+
+### Public (read-only)
 
 ```bash
-# Start the registry server and look for available MCP servers
-arctl mcp list
-
-# The first time the CLI runs, it will automatically start the registry server daemon and import the built-in seed data.
+curl http://localhost:8080/v0/servers
+curl http://localhost:8080/v0/servers/filesystem/1.0.0
+curl http://localhost:8080/v0/agents
+curl http://localhost:8080/v0/skills
+curl http://localhost:8080/v0/models
 ```
 
-
-### Access the Web UI
-
-To access the UI, open `http://localhost:12121` in your browser.
-
-## 📚 Core Concepts
-
-### MCP Servers
-
-MCP (Model Context Protocol) servers provide tools, resources, and prompts to AI agents. They're the building blocks of agent capabilities.
-
-### Agent Gateway
-
-The [Agent Gateway](https://github.com/agentgateway/agentgateway) is a reverse proxy that provides a single MCP endpoint for all deployed servers:
-
-```mermaid
-sequenceDiagram
-    participant IDE as AI IDE/Client
-    participant GW as Agent Gateway
-    participant FS as filesystem MCP
-    participant GH as github MCP
-    
-    IDE->>GW: Connect (MCP over HTTP)
-    GW-->>IDE: Available tools from all servers
-    
-    IDE->>GW: Call read_file()
-    GW->>FS: Forward to filesystem
-    FS-->>GW: File contents
-    GW-->>IDE: Return result
-    
-    IDE->>GW: Call create_issue()
-    GW->>GH: Forward to github
-    GH-->>GW: Issue created
-    GW-->>IDE: Return result
-```
-
-### IDE Configuration
-
-Configure your AI-powered IDEs to use the Agent Gateway:
+### Admin
 
 ```bash
-# Generate Claude Desktop config
-arctl configure claude-desktop
+curl -X POST http://localhost:8080/admin/v0/servers -H "Content-Type: application/json" -d @server.json
 
-# Generate Cursor config
-arctl configure cursor
-
-# Generate VS Code config
-arctl configure vscode
+curl -X POST http://localhost:8080/admin/v0/deploy -H "Content-Type: application/json" \
+  -d '{"resourceName":"filesystem","version":"1.0.0","resourceType":"mcp"}'
 ```
 
+## ☸️ Production
 
-## 🤝 Get Involved
+```bash
+helm install agentregistry ./charts/agentregistry \
+  --namespace agentregistry \
+  --create-namespace \
+  --set replicaCount=2
+```
 
-### Contributing
+CRDs are bundled in the chart. Key `values.yaml` knobs:
 
-We welcome contributions! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+| Setting | Default | Description |
+|---|---|---|
+| `replicaCount` | 1 | Set to 2+ for HA |
+| `controller.leaderElection` | true | Required for multi-replica |
+| `controller.logLevel` | info | debug \| info \| warn \| error |
+| `httpApi.port` | 8080 | HTTP API port |
+| `httpApi.serviceType` | ClusterIP | ClusterIP \| LoadBalancer \| NodePort |
 
+## 🧪 Development
 
-### Show your support
+```bash
+make dev          # controller + UI with sample data
+make dev-ui       # UI only (hot reload)
+make test         # tests with coverage
+make lint         # gofmt + go vet
+make build        # build binary
+make image        # build container image
+```
 
-- 🐛 **Report bugs and issues**: [GitHub Issues](https://github.com/agentregistry-dev/agentregistry/issues)
-- 💡 **Suggest new features**: [GitHub Discussions](https://github.com/agentregistry-dev/agentregistry/discussions)
-- 🔧 **Submit pull requests**: [GitHub Repository](https://github.com/agentregistry-dev/agentregistry)
-- ⭐ **Star the repository**: Show your support on [GitHub](https://github.com/agentregistry-dev/agentregistry)
-- 💬 **Join the Conversation**: Join our [Discord Server](https://discord.gg/HTYNjF2y2t)
+See [`DEVELOPMENT.md`](DEVELOPMENT.md) for details.
 
-###  Related Projects
+## 🔗 Ecosystem
 
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-- [kagent](https://github.com/kagent-dev/kagent)
-- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
-- [FastMCP](https://github.com/jlowin/fastmcp)
-
-## 📚 Resources
-
-- 📖 [Documentation] Coming Soon!
-- 💬 [GitHub Discussions](https://github.com/agentregistry-dev/agentregistry/discussions)
-- 🐛 [Issue Tracker](https://github.com/agentregistry-dev/agentregistry/issues)
+- [Model Context Protocol](https://modelcontextprotocol.io/) — the protocol
+- [kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime
+- [kmcp](https://github.com/kagent-dev/kmcp) — MCP server operator
+- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) — official SDK
 
 ## 📄 License
 
-MIT License - see [`LICENSE`](LICENSE) for details.
-
----
+MIT — see [`LICENSE`](LICENSE).

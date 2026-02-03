@@ -220,7 +220,7 @@ func GetRegistryConfig(
 }
 
 // EnvMapToStringSlice converts a map[string]string to []string in "KEY=VALUE" format
-// for docker-compose compatibility.
+// for environment variable configuration.
 func EnvMapToStringSlice(envMap map[string]string) []string {
 	result := make([]string, 0, len(envMap))
 	for key, value := range envMap {

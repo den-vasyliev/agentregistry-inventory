@@ -116,18 +116,8 @@ type AgentDeployment struct {
 }
 
 type AIRuntimeConfig struct {
-	Local      *LocalRuntimeConfig
 	Kubernetes *KubernetesRuntimeConfig
-
-	Type RuntimeConfigType
 }
-
-type RuntimeConfigType string
-
-const (
-	RuntimeConfigTypeLocal      RuntimeConfigType = "local"
-	RuntimeConfigTypeKubernetes RuntimeConfigType = "kubernetes"
-)
 
 type KubernetesRuntimeConfig struct {
 	Agents           []*v1alpha2.Agent           `json:"agents"`

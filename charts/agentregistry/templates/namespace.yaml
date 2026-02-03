@@ -1,0 +1,2 @@
+{{/* Namespace is not managed by this chart to avoid ownership conflicts.
+     Use --create-namespace on first install if the namespace does not exist. */}}

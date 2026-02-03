@@ -77,7 +77,6 @@ func (t *translator) TranslateRuntimeConfig(
 	}
 
 	return &api.AIRuntimeConfig{
-		Type: api.RuntimeConfigTypeKubernetes,
 		Kubernetes: &api.KubernetesRuntimeConfig{
 			Agents:           agents,
 			RemoteMCPServers: remoteMCPs,

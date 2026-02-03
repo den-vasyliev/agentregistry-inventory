@@ -9,21 +9,51 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload, BadgeCheck, Clock, Check, X, ShieldCheck } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface SkillCardProps {
   skill: SkillResponse
   onDelete?: (skill: SkillResponse) => void
   onPublish?: (skill: SkillResponse) => void
+  onApprove?: (skill: SkillResponse) => void
+  onReject?: (skill: SkillResponse) => void
   showDelete?: boolean
   showPublish?: boolean
   showExternalLinks?: boolean
+  showApproval?: boolean
   onClick?: () => void
 }
 
-export function SkillCard({ skill, onDelete, onPublish, showDelete = false, showPublish = false, showExternalLinks = true, onClick }: SkillCardProps) {
+export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, showDelete = false, showPublish = false, showExternalLinks = true, showApproval = false, onClick }: SkillCardProps) {
   const { skill: skillData, _meta } = skill
   const official = _meta?.['io.modelcontextprotocol.registry/official']
+
+  // Check if this is a pending review submission
+  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
+
+  // Extract metadata
+  const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided'] as Record<string, unknown> | undefined
+  const aregistryMetadata = publisherMetadata?.['aregistry.ai/metadata'] as Record<string, unknown> | undefined
+  const identityData = aregistryMetadata?.['identity'] as Record<string, unknown> | undefined
+
+  // Get owner from metadata or extract from repository URL
+  const getOwner = () => {
+    // Try to get email from metadata first
+    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
+    if (identityData?.email) return identityData.email
+    if ((official as any)?.submitter) return (official as any).submitter
+
+    // Fallback to extracting owner/org from GitHub repository URL
+    if (skillData.repository?.url) {
+      const match = skillData.repository.url.match(/github\.com\/([^\/]+)/)
+      if (match) return match[1]
+    }
+
+    return null
+  }
+
+  const owner = getOwner()
 
   const handleClick = () => {
     if (onClick) {
@@ -56,12 +86,87 @@ export function SkillCard({ skill, onDelete, onPublish, showDelete = false, show
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg mb-1">{skillData.title || skillData.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">{skillData.title || skillData.name}</h3>
+              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+                Skill
+              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShieldCheck
+                    className={`h-4 w-4 flex-shrink-0 ${
+                      identityData?.org_is_verified
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-400 dark:text-gray-600 opacity-40'
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{identityData?.org_is_verified ? 'Verified Organization' : 'Organization Not Verified'}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <BadgeCheck
+                    className={`h-4 w-4 flex-shrink-0 ${
+                      identityData?.publisher_identity_verified_by_jwt
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-gray-400 dark:text-gray-600 opacity-40'
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{identityData?.publisher_identity_verified_by_jwt ? 'Verified Publisher' : 'Publisher Not Verified'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <p className="text-sm text-muted-foreground">{skillData.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showPublish && onPublish && (
+          {showApproval && isPendingReview && onApprove && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onApprove(skill)
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Approve and publish this skill</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showApproval && isPendingReview && onReject && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReject(skill)
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Reject
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reject this submission</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showPublish && onPublish && !isPendingReview && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -131,12 +236,36 @@ export function SkillCard({ skill, onDelete, onPublish, showDelete = false, show
       </p>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {owner && (
+          <div className="flex items-center gap-1 text-primary font-medium">
+            <BadgeCheck className="h-3 w-3" />
+            <span>{owner}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-1">
           <Tag className="h-3 w-3" />
           <span>{skillData.version}</span>
         </div>
 
-        {official?.publishedAt && (
+        {isPendingReview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                Pending Review
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>This skill is awaiting approval</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {official?.publishedAt && !isPendingReview && (
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             <span>{formatDate(official.publishedAt)}</span>

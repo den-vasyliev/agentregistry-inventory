@@ -1,0 +1,159 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: modelcatalogs.agentregistry.dev
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+spec:
+  group: agentregistry.dev
+  names:
+    kind: ModelCatalog
+    listKind: ModelCatalogList
+    plural: modelcatalogs
+    singular: modelcatalog
+    shortNames:
+      - mcat
+      - modelcat
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Name
+          type: string
+          jsonPath: .spec.name
+        - name: Provider
+          type: string
+          jsonPath: .spec.provider
+        - name: Model
+          type: string
+          jsonPath: .spec.model
+        - name: Published
+          type: boolean
+          jsonPath: .status.published
+        - name: Ready
+          type: boolean
+          jsonPath: .status.ready
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          description: ModelCatalog is the Schema for the modelcatalogs API
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: ModelCatalogSpec defines the desired state of ModelCatalog
+              type: object
+              required:
+                - name
+                - provider
+                - model
+              properties:
+                name:
+                  description: Name is the canonical name of the model config
+                  type: string
+                provider:
+                  description: Provider is the model provider (OpenAI, Anthropic, Ollama, etc.)
+                  type: string
+                model:
+                  description: Model is the model identifier
+                  type: string
+                baseUrl:
+                  description: BaseURL is the API endpoint URL
+                  type: string
+                description:
+                  description: Description of the model configuration
+                  type: string
+                sourceRef:
+                  description: Reference to deployed ModelConfig resource
+                  type: object
+                  required:
+                    - kind
+                    - name
+                    - namespace
+                  properties:
+                    kind:
+                      description: Resource kind (e.g., ModelConfig)
+                      type: string
+                    name:
+                      description: Resource name
+                      type: string
+                    namespace:
+                      description: Resource namespace
+                      type: string
+            status:
+              description: ModelCatalogStatus defines the observed state of ModelCatalog
+              type: object
+              properties:
+                published:
+                  description: Published indicates whether this model config is published
+                  type: boolean
+                publishedAt:
+                  description: PublishedAt is the timestamp when this was published
+                  type: string
+                  format: date-time
+                status:
+                  description: Status is the lifecycle status
+                  type: string
+                  enum:
+                    - active
+                    - deprecated
+                    - deleted
+                usedBy:
+                  description: UsedBy lists agents that reference this model config
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - namespace
+                      - name
+                    properties:
+                      namespace:
+                        description: Namespace of the agent
+                        type: string
+                      name:
+                        description: Name of the agent
+                        type: string
+                      kind:
+                        description: Kind of the resource
+                        type: string
+                ready:
+                  description: Ready indicates if the model config is ready
+                  type: boolean
+                message:
+                  description: Additional status information
+                  type: string
+                conditions:
+                  description: Conditions represent the latest observations
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                observedGeneration:
+                  description: ObservedGeneration is the generation last observed
+                  type: integer
+                  format: int64

@@ -1,0 +1,262 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agentcatalogs.agentregistry.dev
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+spec:
+  group: agentregistry.dev
+  names:
+    kind: AgentCatalog
+    listKind: AgentCatalogList
+    plural: agentcatalogs
+    singular: agentcatalog
+    shortNames:
+      - agcat
+      - agentcat
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Name
+          type: string
+          jsonPath: .spec.name
+        - name: Version
+          type: string
+          jsonPath: .spec.version
+        - name: Image
+          type: string
+          jsonPath: .spec.image
+        - name: Published
+          type: boolean
+          jsonPath: .status.published
+        - name: Latest
+          type: boolean
+          jsonPath: .status.isLatest
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          description: AgentCatalog is the Schema for the agentcatalogs API
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: AgentCatalogSpec defines the desired state of AgentCatalog
+              type: object
+              required:
+                - name
+                - version
+                - image
+              properties:
+                name:
+                  description: Name is the canonical name of the agent
+                  type: string
+                version:
+                  description: Version is the semantic version of the agent
+                  type: string
+                title:
+                  description: Title is a human-readable title for the agent
+                  type: string
+                description:
+                  description: Description is a human-readable description of the agent
+                  type: string
+                image:
+                  description: Image is the container image for the agent
+                  type: string
+                language:
+                  description: Language is the programming language of the agent
+                  type: string
+                framework:
+                  description: Framework is the agent framework used
+                  type: string
+                modelProvider:
+                  description: ModelProvider is the LLM provider
+                  type: string
+                modelName:
+                  description: ModelName is the specific model name
+                  type: string
+                telemetryEndpoint:
+                  description: TelemetryEndpoint is the endpoint for telemetry data
+                  type: string
+                websiteUrl:
+                  description: WebsiteURL is the URL to the agent's website
+                  type: string
+                repository:
+                  description: Repository is the source code repository information
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    source:
+                      type: string
+                    id:
+                      type: string
+                    subfolder:
+                      type: string
+                packages:
+                  description: Packages are the available package configurations
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - registryType
+                      - identifier
+                    properties:
+                      registryType:
+                        type: string
+                      identifier:
+                        type: string
+                      version:
+                        type: string
+                      transport:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                remotes:
+                  description: Remotes are the remote transport configurations
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                      url:
+                        type: string
+                      headers:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                            description:
+                              type: string
+                            value:
+                              type: string
+                            required:
+                              type: boolean
+                mcpServers:
+                  description: McpServers are the MCP server configurations for the agent
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - name
+                    properties:
+                      type:
+                        type: string
+                      name:
+                        type: string
+                      image:
+                        type: string
+                      build:
+                        type: string
+                      command:
+                        type: string
+                      args:
+                        type: array
+                        items:
+                          type: string
+                      env:
+                        type: array
+                        items:
+                          type: string
+                      url:
+                        type: string
+                      headers:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      registryURL:
+                        type: string
+                      registryServerName:
+                        type: string
+                      registryServerVersion:
+                        type: string
+                      registryServerPreferRemote:
+                        type: boolean
+            status:
+              description: AgentCatalogStatus defines the observed state of AgentCatalog
+              type: object
+              properties:
+                published:
+                  description: Published indicates whether this agent version is published
+                  type: boolean
+                isLatest:
+                  description: IsLatest indicates whether this is the latest version
+                  type: boolean
+                publishedAt:
+                  description: PublishedAt is the timestamp when this version was published
+                  type: string
+                  format: date-time
+                status:
+                  description: Status is the lifecycle status
+                  type: string
+                  enum:
+                    - active
+                    - deprecated
+                    - deleted
+                deployment:
+                  description: Deployment tracks runtime deployment info
+                  type: object
+                  properties:
+                    namespace:
+                      description: Namespace where the agent is deployed
+                      type: string
+                    serviceName:
+                      description: Kubernetes Service name
+                      type: string
+                    url:
+                      description: Endpoint URL for health checks
+                      type: string
+                    ready:
+                      description: Whether the deployment is healthy
+                      type: boolean
+                    lastChecked:
+                      description: When health was last verified
+                      type: string
+                      format: date-time
+                    message:
+                      description: Additional deployment status info
+                      type: string
+                conditions:
+                  description: Conditions represent the latest observations
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                observedGeneration:
+                  description: ObservedGeneration is the generation last observed
+                  type: integer
+                  format: int64
