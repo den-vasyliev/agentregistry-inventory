@@ -38,19 +38,19 @@ func NewDeploymentHandler(c client.Client, cache cache.Cache, logger zerolog.Log
 
 // Deployment response types
 type DeploymentJSON struct {
-	ResourceName      string            `json:"resourceName"`
-	Version           string            `json:"version"`
-	ResourceType      string            `json:"resourceType"` // "mcp" or "agent" (catalog type)
-	K8sResourceType   string            `json:"k8sResourceType,omitempty"` // "MCPServer", "RemoteMCPServer", "Agent" (actual K8s resource)
-	Runtime           string            `json:"runtime"`
-	PreferRemote      bool              `json:"preferRemote,omitempty"`
-	Config            map[string]string `json:"config,omitempty"`
-	Namespace         string            `json:"namespace,omitempty"`
-	Status            string            `json:"status,omitempty"`
-	DeployedAt        *time.Time        `json:"deployedAt,omitempty"`
-	UpdatedAt         *time.Time        `json:"updatedAt,omitempty"`
-	Message           string            `json:"message,omitempty"`
-	IsExternal        bool              `json:"isExternal,omitempty"`
+	ResourceName    string            `json:"resourceName"`
+	Version         string            `json:"version"`
+	ResourceType    string            `json:"resourceType"`              // "mcp" or "agent" (catalog type)
+	K8sResourceType string            `json:"k8sResourceType,omitempty"` // "MCPServer", "RemoteMCPServer", "Agent" (actual K8s resource)
+	Runtime         string            `json:"runtime"`
+	PreferRemote    bool              `json:"preferRemote,omitempty"`
+	Config          map[string]string `json:"config,omitempty"`
+	Namespace       string            `json:"namespace,omitempty"`
+	Status          string            `json:"status,omitempty"`
+	DeployedAt      *time.Time        `json:"deployedAt,omitempty"`
+	UpdatedAt       *time.Time        `json:"updatedAt,omitempty"`
+	Message         string            `json:"message,omitempty"`
+	IsExternal      bool              `json:"isExternal,omitempty"`
 }
 
 type DeploymentResponse struct {
@@ -487,10 +487,10 @@ func (h *DeploymentHandler) convertAgentToDeploymentJSON(agent *kagentv1alpha2.A
 		Version:         "external",
 		ResourceType:    "agent",
 		K8sResourceType: "Agent",
-		Runtime:      "kubernetes",
-		Namespace:    agent.Namespace,
-		Status:       status,
-		DeployedAt:   &createdAt,
-		IsExternal:   true,
+		Runtime:         "kubernetes",
+		Namespace:       agent.Namespace,
+		Status:          status,
+		DeployedAt:      &createdAt,
+		IsExternal:      true,
 	}
 }
