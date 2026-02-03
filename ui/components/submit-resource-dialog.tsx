@@ -174,11 +174,16 @@ ${formatAsYaml(manifest)}`
       if (Array.isArray(value)) {
         yaml += `${spaces}${key}:\n`
         for (const item of value) {
-          if (typeof item === "object") {
-            yaml += `${spaces}  -\n`
-            for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
-              if (v !== undefined && v !== null && v !== "") {
-                yaml += `${spaces}    ${k}: ${v}\n`
+          if (typeof item === "object" && item !== null) {
+            // For array items that are objects, use the inline dash format
+            const itemYaml = formatAsYaml(item as Record<string, unknown>, indent + 2)
+            const lines = itemYaml.trim().split('\n')
+            if (lines.length > 0) {
+              // First line gets the dash
+              yaml += `${spaces}  - ${lines[0].trimStart()}\n`
+              // Remaining lines get extra indentation
+              for (let i = 1; i < lines.length; i++) {
+                yaml += `${spaces}    ${lines[i].trimStart()}\n`
               }
             }
           } else {
