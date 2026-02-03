@@ -90,8 +90,15 @@ func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 		deployment.Status.Phase = agentregistryv1alpha1.DeploymentPhaseFailed
 		deployment.Status.Message = err.Error()
 	} else {
-		deployment.Status.Phase = agentregistryv1alpha1.DeploymentPhaseRunning
-		deployment.Status.Message = ""
+		// Check if managed resources are actually ready
+		ready, message := r.checkManagedResourcesReady(ctx, &deployment)
+		if ready {
+			deployment.Status.Phase = agentregistryv1alpha1.DeploymentPhaseRunning
+			deployment.Status.Message = ""
+		} else {
+			deployment.Status.Phase = agentregistryv1alpha1.DeploymentPhasePending
+			deployment.Status.Message = message
+		}
 	}
 
 	// Update status
@@ -565,4 +572,58 @@ func getImageAndCommand(registryType, runtimeHint string) (image, cmd string) {
 	default:
 		return "", ""
 	}
+}
+
+// checkManagedResourcesReady checks managed resources status from their conditions
+func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Context, deployment *agentregistryv1alpha1.RegistryDeployment) (bool, string) {
+	// If no managed resources yet, pending
+	if len(deployment.Status.ManagedResources) == 0 {
+		return false, "Pending"
+	}
+
+	// Check each managed resource status
+	for _, res := range deployment.Status.ManagedResources {
+		switch res.Kind {
+		case "MCPServer", "RemoteMCPServer":
+			var mcp kmcpv1alpha1.MCPServer
+			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
+			if err := r.Get(ctx, key, &mcp); err != nil {
+				return false, "Pending"
+			}
+
+			// Check Ready condition - if exists and True, running
+			for _, cond := range mcp.Status.Conditions {
+				if cond.Type == "Ready" {
+					if cond.Status == metav1.ConditionTrue {
+						continue // This resource is ready, check next
+					}
+					return false, cond.Message // Not ready, use condition message
+				}
+			}
+			// No Ready condition yet
+			return false, "Pending"
+
+		case "Agent":
+			var agent kagentv1alpha2.Agent
+			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
+			if err := r.Get(ctx, key, &agent); err != nil {
+				return false, "Pending"
+			}
+
+			// Check Ready condition - if exists and True, running
+			for _, cond := range agent.Status.Conditions {
+				if cond.Type == "Ready" {
+					if cond.Status == metav1.ConditionTrue {
+						continue // This resource is ready, check next
+					}
+					return false, cond.Message // Not ready, use condition message
+				}
+			}
+			// No Ready condition yet
+			return false, "Pending"
+		}
+	}
+
+	// All resources have Ready=True
+	return true, ""
 }
