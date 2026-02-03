@@ -453,8 +453,12 @@ func (h *DeploymentHandler) convertToDeploymentJSON(d *agentregistryv1alpha1.Reg
 func (h *DeploymentHandler) convertMCPServerToDeploymentJSON(mcp *kmcpv1alpha1.MCPServer) DeploymentJSON {
 	status := "Unknown"
 	for _, cond := range mcp.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == metav1.ConditionTrue {
-			status = "Running"
+		if cond.Type == "Ready" {
+			if cond.Status == metav1.ConditionTrue {
+				status = "Running"
+			} else {
+				status = "Not Ready"
+			}
 			break
 		} else if cond.Type == "Accepted" && cond.Status == metav1.ConditionTrue {
 			status = "Pending"
@@ -486,8 +490,12 @@ func (h *DeploymentHandler) convertMCPServerToDeploymentJSON(mcp *kmcpv1alpha1.M
 func (h *DeploymentHandler) convertAgentToDeploymentJSON(agent *kagentv1alpha2.Agent) DeploymentJSON {
 	status := "Unknown"
 	for _, cond := range agent.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == metav1.ConditionTrue {
-			status = "Running"
+		if cond.Type == "Ready" {
+			if cond.Status == metav1.ConditionTrue {
+				status = "Running"
+			} else {
+				status = "Not Ready"
+			}
 			break
 		} else if cond.Type == "Accepted" && cond.Status == metav1.ConditionTrue {
 			status = "Pending"
