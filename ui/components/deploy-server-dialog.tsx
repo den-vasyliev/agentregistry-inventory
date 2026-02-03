@@ -33,14 +33,18 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
   // Fetch available environments from DiscoveryConfig
   useEffect(() => {
     const fetchEnvironments = async () => {
+      console.log("=== Fetching environments, dialog open:", open)
       setLoadingEnvironments(true)
       try {
         const envs = await adminApiClient.listEnvironments()
-        console.log("Fetched environments:", envs)
+        console.log("=== Fetched environments:", envs)
+        console.log("=== Environments length:", envs?.length)
+        console.log("=== Setting environments state to:", envs)
         if (envs && envs.length > 0) {
           setEnvironments(envs)
           // Set first environment as default
           setNamespace(envs[0].namespace)
+          console.log("=== Set namespace to:", envs[0].namespace)
         } else {
           console.warn("No environments returned, using default")
         }
@@ -49,6 +53,7 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
         // Keep fallback default namespace
       } finally {
         setLoadingEnvironments(false)
+        console.log("=== Loading complete")
       }
     }
 
@@ -56,6 +61,9 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
       fetchEnvironments()
     }
   }, [open])
+
+  console.log("=== RENDER: environments state:", environments)
+  console.log("=== RENDER: namespace state:", namespace)
 
   const handleAddConfig = () => {
     if (newKey.trim() && newValue.trim()) {

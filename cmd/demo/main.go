@@ -186,12 +186,11 @@ func main() {
 	fmt.Printf("  Kubeconfig: %s\n", kubeconfigPath)
 	fmt.Println()
 	fmt.Println("  Catalog resources in 'agentregistry' namespace")
-	fmt.Println("  DiscoveryConfig watching: dev, staging, prod namespaces")
+	fmt.Println("  Deployment targets: dev, staging, prod, agentregistry")
 	fmt.Println()
 	fmt.Println("  Example commands:")
 	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get mcpservercatalog -n agentregistry")
 	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get registrydeployment -n agentregistry")
-	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get discoveryconfig -n agentregistry")
 	fmt.Println("  curl http://localhost:8080/v0/servers")
 	fmt.Println("  curl http://localhost:8080/v0/environments")
 	fmt.Println()
@@ -581,82 +580,9 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		}
 	}
 
-	// Create DiscoveryConfig in agentregistry namespace for multi-namespace discovery
-	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multi-namespace-discovery",
-			Namespace: "agentregistry",
-		},
-		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
-			Environments: []agentregistryv1alpha1.Environment{
-				{
-					Name: "agentregistry",
-					Cluster: agentregistryv1alpha1.ClusterConfig{
-						Name:                "local",
-						Namespace:           "agentregistry",
-						UseWorkloadIdentity: false,
-					},
-					Namespaces:       []string{"agentregistry"},
-					ResourceTypes:    []string{"MCPServer", "Agent", "ModelConfig"},
-					DiscoveryEnabled: true,
-					Labels: map[string]string{
-						"environment": "agentregistry",
-						"demo":        "true",
-					},
-				},
-				{
-					Name: "dev",
-					Cluster: agentregistryv1alpha1.ClusterConfig{
-						Name:                "local",
-						Namespace:           "dev",
-						UseWorkloadIdentity: false,
-					},
-					Namespaces:       []string{"dev"},
-					ResourceTypes:    []string{"MCPServer", "Agent", "ModelConfig"},
-					DiscoveryEnabled: true,
-					Labels: map[string]string{
-						"environment": "dev",
-						"demo":        "true",
-					},
-				},
-				{
-					Name: "staging",
-					Cluster: agentregistryv1alpha1.ClusterConfig{
-						Name:                "local",
-						Namespace:           "staging",
-						UseWorkloadIdentity: false,
-					},
-					Namespaces:       []string{"staging"},
-					ResourceTypes:    []string{"MCPServer", "Agent", "ModelConfig"},
-					DiscoveryEnabled: true,
-					Labels: map[string]string{
-						"environment": "staging",
-						"demo":        "true",
-					},
-				},
-				{
-					Name: "prod",
-					Cluster: agentregistryv1alpha1.ClusterConfig{
-						Name:                "local",
-						Namespace:           "prod",
-						UseWorkloadIdentity: false,
-					},
-					Namespaces:       []string{"prod"},
-					ResourceTypes:    []string{"MCPServer", "Agent", "ModelConfig"},
-					DiscoveryEnabled: true,
-					Labels: map[string]string{
-						"environment": "prod",
-						"demo":        "true",
-					},
-				},
-			},
-		},
-	}
-	if err := c.Create(ctx, discoveryConfig); err != nil {
-		log.Warn().Err(err).Msg("failed to create DiscoveryConfig (may already exist)")
-	} else {
-		log.Info().Str("name", discoveryConfig.Name).Int("environments", len(discoveryConfig.Spec.Environments)).Msg("created DiscoveryConfig")
-	}
+	// Note: DiscoveryConfig is NOT created in demo mode
+	// DiscoveryConfig is for production use to discover resources across real clusters
+	// Demo uses static namespace list for deployment targets
 
 	log.Info().
 		Int("servers", allServers).
