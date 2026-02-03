@@ -1016,7 +1016,9 @@ class AdminApiClient {
       throw new Error('Failed to fetch environments')
     }
     const data = await response.json()
-    return data.environments || []
+    console.log('Environments API response:', data)
+    // Huma might return data directly or wrapped in Body
+    return data.environments || data.Body?.environments || []
   }
 
   // Remove a deployment
