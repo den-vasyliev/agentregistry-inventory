@@ -444,8 +444,7 @@ export default function AdminPage() {
     }
     if (filterSkillVerifiedOrg) {
       filteredSk = filteredSk.filter((s) => {
-        const metadata = s.skill.metadata as Record<string, unknown> | undefined
-        const publisherProvided = metadata?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
         const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
         const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
         return identity?.["org_is_verified"] === true
@@ -453,8 +452,7 @@ export default function AdminPage() {
     }
     if (filterSkillVerifiedPublisher) {
       filteredSk = filteredSk.filter((s) => {
-        const metadata = s.skill.metadata as Record<string, unknown> | undefined
-        const publisherProvided = metadata?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
         const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
         const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
         return identity?.["publisher_identity_verified_by_jwt"] === true

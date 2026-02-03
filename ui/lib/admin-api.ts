@@ -191,6 +191,7 @@ export interface SkillJSON {
   repository?: SkillRepository
   packages?: SkillPackageInfo[]
   remotes?: SkillRemoteInfo[]
+  metadata?: Record<string, unknown>
 }
 
 export interface SkillRegistryExtensions {
@@ -204,6 +205,14 @@ export interface SkillResponse {
   skill: SkillJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: SkillRegistryExtensions
+    'io.modelcontextprotocol.registry/publisher-provided'?: {
+      'aregistry.ai/metadata'?: {
+        identity?: {
+          org_is_verified?: boolean
+          publisher_identity_verified_by_jwt?: boolean
+        }
+      }
+    }
   }
 }
 
