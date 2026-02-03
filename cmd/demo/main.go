@@ -173,7 +173,7 @@ func main() {
 	fmt.Println("  Example commands:")
 	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get mcpservercatalog -n agentregistry")
 	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get registrydeployment -n agentregistry")
-	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get discoveryconfig")
+	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get discoveryconfig -n agentregistry")
 	fmt.Println("  curl http://localhost:8080/v0/servers")
 	fmt.Println("  curl http://localhost:8080/v0/environments")
 	fmt.Println()
@@ -530,10 +530,11 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		}
 	}
 
-	// Create DiscoveryConfig for multi-namespace discovery
+	// Create DiscoveryConfig in agentregistry namespace for multi-namespace discovery
 	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "multi-namespace-discovery",
+			Name:      "multi-namespace-discovery",
+			Namespace: "agentregistry",
 		},
 		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
 			Environments: []agentregistryv1alpha1.Environment{

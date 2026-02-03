@@ -162,7 +162,7 @@ type DiscoveredResourceCounts struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:printcolumn:name="Environments",type=integer,JSONPath=`.spec.environments`
 // +kubebuilder:printcolumn:name="Connected",type=integer,JSONPath=`.status.conditions[?(@.type=="Connected")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
