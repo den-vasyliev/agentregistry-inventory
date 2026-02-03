@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 )
 
 // EnvironmentHandler handles environment/namespace operations
@@ -58,22 +60,30 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API, pathPrefix string, isA
 }
 
 func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[EnvironmentListResponse], error) {
-	// Return static list of deployment target namespaces
-	// These are the namespaces where resources can be deployed
-	// NOT from DiscoveryConfig (which is for discovering already-deployed resources)
-	environments := []EnvironmentJSON{
-		{Name: "dev", Namespace: "dev"},
-		{Name: "staging", Namespace: "staging"},
-		{Name: "prod", Namespace: "prod"},
-		{Name: "agentregistry", Namespace: "agentregistry"},
+	var list agentregistryv1alpha1.DiscoveryConfigList
+	if err := h.client.List(ctx, &list, client.InNamespace("agentregistry")); err != nil {
+		return nil, huma.Error500InternalServerError("failed to list DiscoveryConfigs", err)
+	}
+
+	environments := make([]EnvironmentJSON, 0)
+	for _, dc := range list.Items {
+		for _, env := range dc.Spec.Environments {
+			ns := env.Cluster.Namespace
+			if ns == "" && len(env.Namespaces) > 0 {
+				ns = env.Namespaces[0]
+			}
+			environments = append(environments, EnvironmentJSON{
+				Name:      env.Name,
+				Namespace: ns,
+				Labels:    env.Labels,
+			})
+		}
 	}
 
 	return &Response[EnvironmentListResponse]{
 		Body: EnvironmentListResponse{
 			Environments: environments,
-			Metadata: ListMetadata{
-				Count: len(environments),
-			},
+			Metadata:     ListMetadata{Count: len(environments)},
 		},
 	}, nil
 }

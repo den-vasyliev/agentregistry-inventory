@@ -75,15 +75,8 @@ run: build ## Build and run controller locally
 	@echo "Running controller..."
 	@./bin/controller
 
-dev: ## Run both controller and UI in development mode
-	@echo "Starting controller and UI in development mode..."
-	@trap 'kill 0' EXIT; \
-	go run -ldflags "$(LDFLAGS)" cmd/controller/main.go & \
-	cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev & \
-	wait
-
-demo: envtest ## Run demo environment with envtest, sample resources, and UI
-	@echo "Starting demo environment with envtest..."
+dev: envtest build-ui ## Run dev environment with envtest, sample data, and UI
+	@echo "Starting development environment..."
 	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
 		go run -ldflags "$(LDFLAGS)" cmd/demo/main.go
 

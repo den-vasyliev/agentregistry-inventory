@@ -290,15 +290,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		log.Info().Str("environment", ns).Msg("creating catalog entries for environment")
 
 		// MCP Servers - all in agentregistry namespace
-		// For dev environment, add verified organization and publisher metadata
-		var filesystemMetadata, githubMetadata *apiextensionsv1.JSON
-		if ns == "dev" {
-			// Filesystem server: verified organization only
-			filesystemMetadata = createMetadata(true, false)
-			// GitHub server: both verified organization and publisher
-			githubMetadata = createMetadata(true, true)
-		}
-
+		// Each environment has varied verification states for filtering demo
 		servers := []*agentregistryv1alpha1.MCPServerCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -311,7 +303,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Version:     "1.0.0",
 					Title:       fmt.Sprintf("Filesystem MCP Server (%s)", ns),
 					Description: fmt.Sprintf("File system operations for AI agents in %s", ns),
-					Metadata:    filesystemMetadata,
+					Metadata:    createMetadata(true, false), // Verified org only
 					Packages: []agentregistryv1alpha1.Package{
 						{
 							RegistryType: "npm",
@@ -332,9 +324,51 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Version:     "2.1.0",
 					Title:       fmt.Sprintf("GitHub MCP Server (%s)", ns),
 					Description: fmt.Sprintf("GitHub API integration in %s", ns),
-					Metadata:    githubMetadata,
+					Metadata:    createMetadata(true, true), // Both verified
 					Remotes: []agentregistryv1alpha1.Transport{
 						{Type: "streamable-http", URL: fmt.Sprintf("https://mcp.%s.example.com/github", ns)},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("slack-server-%s-v1.3.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("slack-server-%s", ns),
+					Version:     "1.3.0",
+					Title:       fmt.Sprintf("Slack MCP Server (%s)", ns),
+					Description: fmt.Sprintf("Slack messaging integration in %s", ns),
+					Metadata:    createMetadata(false, true), // Verified publisher only
+					Packages: []agentregistryv1alpha1.Package{
+						{
+							RegistryType: "npm",
+							Identifier:   "@modelcontextprotocol/server-slack",
+							Transport:    agentregistryv1alpha1.Transport{Type: "stdio"},
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("postgres-server-%s-v0.9.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("postgres-server-%s", ns),
+					Version:     "0.9.0",
+					Title:       fmt.Sprintf("PostgreSQL MCP Server (%s)", ns),
+					Description: fmt.Sprintf("PostgreSQL database operations in %s", ns),
+					Metadata:    nil, // No verification (community)
+					Packages: []agentregistryv1alpha1.Package{
+						{
+							RegistryType: "npm",
+							Identifier:   "@modelcontextprotocol/server-postgres",
+							Transport:    agentregistryv1alpha1.Transport{Type: "stdio"},
+						},
 					},
 				},
 			},
@@ -361,15 +395,6 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		allServers += len(servers)
 
 		// Agents - all in agentregistry namespace
-		// For staging environment, add verified organization and publisher metadata
-		var researchAgentMetadata, codeReviewAgentMetadata *apiextensionsv1.JSON
-		if ns == "staging" {
-			// Research agent: verified publisher only
-			researchAgentMetadata = createMetadata(false, true)
-			// Code review agent: both verified
-			codeReviewAgentMetadata = createMetadata(true, true)
-		}
-
 		agents := []*agentregistryv1alpha1.AgentCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -385,7 +410,6 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Image:         "ghcr.io/example/research-agent:0.5.0",
 					Framework:     "langgraph",
 					ModelProvider: "anthropic",
-					Metadata:      researchAgentMetadata,
 				},
 			},
 			{
@@ -402,7 +426,6 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Image:         "ghcr.io/example/code-review-agent:1.2.0",
 					Framework:     "autogen",
 					ModelProvider: "openai",
-					Metadata:      codeReviewAgentMetadata,
 				},
 			},
 		}
@@ -428,15 +451,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		allAgents += len(agents)
 
 		// Skills - all in agentregistry namespace
-		// For prod environment, add verified organization and publisher metadata
-		var terraformSkillMetadata, sqlSkillMetadata *apiextensionsv1.JSON
-		if ns == "prod" {
-			// Terraform skill: verified organization only
-			terraformSkillMetadata = createMetadata(true, false)
-			// SQL skill: both verified
-			sqlSkillMetadata = createMetadata(true, true)
-		}
-
+		// Each environment has varied verification states for filtering demo
 		skills := []*agentregistryv1alpha1.SkillCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -450,7 +465,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Title:       fmt.Sprintf("Terraform Skill (%s)", ns),
 					Category:    "infrastructure",
 					Description: fmt.Sprintf("Infrastructure management in %s", ns),
-					Metadata:    terraformSkillMetadata,
+					Metadata:    createMetadata(true, false), // Verified org only
 				},
 			},
 			{
@@ -465,7 +480,37 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Title:       fmt.Sprintf("SQL Query Skill (%s)", ns),
 					Category:    "data",
 					Description: fmt.Sprintf("SQL query generation in %s", ns),
-					Metadata:    sqlSkillMetadata,
+					Metadata:    createMetadata(true, true), // Both verified
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("kubernetes-skill-%s-v1.0.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("kubernetes-skill-%s", ns),
+					Version:     "1.0.0",
+					Title:       fmt.Sprintf("Kubernetes Skill (%s)", ns),
+					Category:    "infrastructure",
+					Description: fmt.Sprintf("Kubernetes cluster management in %s", ns),
+					Metadata:    createMetadata(false, true), // Verified publisher only
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("python-skill-%s-v0.5.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("python-skill-%s", ns),
+					Version:     "0.5.0",
+					Title:       fmt.Sprintf("Python Skill (%s)", ns),
+					Category:    "development",
+					Description: fmt.Sprintf("Python code execution in %s", ns),
+					Metadata:    nil, // No verification (community)
 				},
 			},
 		}
@@ -580,9 +625,23 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		}
 	}
 
-	// Note: DiscoveryConfig is NOT created in demo mode
-	// DiscoveryConfig is for production use to discover resources across real clusters
-	// Demo uses static namespace list for deployment targets
+	// Create DiscoveryConfig for environments
+	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "environments",
+			Namespace: "agentregistry",
+		},
+		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
+			Environments: []agentregistryv1alpha1.Environment{
+				{Name: "dev", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "dev"}, Namespaces: []string{"dev"}, DiscoveryEnabled: true},
+				{Name: "staging", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "staging"}, Namespaces: []string{"staging"}, DiscoveryEnabled: true},
+				{Name: "prod", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "prod"}, Namespaces: []string{"prod"}, DiscoveryEnabled: true},
+			},
+		},
+	}
+	if err := c.Create(ctx, discoveryConfig); err != nil {
+		log.Warn().Err(err).Msg("failed to create DiscoveryConfig")
+	}
 
 	log.Info().
 		Int("servers", allServers).
