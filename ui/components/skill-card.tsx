@@ -85,7 +85,12 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg mb-1">{skillData.title || skillData.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">{skillData.title || skillData.name}</h3>
+              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+                Skill
+              </Badge>
+            </div>
             <p className="text-sm text-muted-foreground">{skillData.name}</p>
           </div>
         </div>

@@ -99,12 +99,15 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-lg">{serverData.title || serverData.name}</h3>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs">
+                MCP Server
+              </Badge>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <ShieldCheck 
+                  <ShieldCheck
                     className={`h-4 w-4 flex-shrink-0 ${
-                      identityData?.org_is_verified 
-                        ? 'text-blue-600 dark:text-blue-400' 
+                      identityData?.org_is_verified
+                        ? 'text-blue-600 dark:text-blue-400'
                         : 'text-gray-400 dark:text-gray-600 opacity-40'
                     }`}
                   />
@@ -115,10 +118,10 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <BadgeCheck 
+                  <BadgeCheck
                     className={`h-4 w-4 flex-shrink-0 ${
-                      identityData?.publisher_identity_verified_by_jwt 
-                        ? 'text-green-600 dark:text-green-400' 
+                      identityData?.publisher_identity_verified_by_jwt
+                        ? 'text-green-600 dark:text-green-400'
                         : 'text-gray-400 dark:text-gray-600 opacity-40'
                     }`}
                   />

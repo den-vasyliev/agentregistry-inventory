@@ -539,6 +539,9 @@ export default function PublishedPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="text-xl font-semibold">{server.name}</h3>
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                              MCP Server
+                            </Badge>
                             {deployed ? (
                               <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
                                 Running
@@ -653,6 +656,9 @@ export default function PublishedPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="text-xl font-semibold">{agent.name}</h3>
+                            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
+                              Agent
+                            </Badge>
                             {deployed ? (
                               <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
                                 Running
@@ -766,6 +772,9 @@ export default function PublishedPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="text-xl font-semibold">{skill.title || skill.name}</h3>
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                              Skill
+                            </Badge>
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>

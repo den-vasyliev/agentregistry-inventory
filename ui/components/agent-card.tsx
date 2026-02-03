@@ -86,7 +86,12 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg mb-1">{agentData.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">{agentData.name}</h3>
+              <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-xs">
+                Agent
+              </Badge>
+            </div>
             <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
               {agentData.framework && (
                 <Badge variant="outline" className="text-xs">
