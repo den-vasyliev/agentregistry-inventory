@@ -62,8 +62,11 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API, pathPrefix string, isA
 func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[EnvironmentListResponse], error) {
 	var discoveryConfigList agentregistryv1alpha1.DiscoveryConfigList
 
-	// Use client instead of cache to ensure we get latest data
-	if err := h.client.List(ctx, &discoveryConfigList); err != nil {
+	// List DiscoveryConfigs from agentregistry namespace (where they are created)
+	listOpts := &client.ListOptions{
+		Namespace: "agentregistry",
+	}
+	if err := h.client.List(ctx, &discoveryConfigList, listOpts); err != nil {
 		h.logger.Error().Err(err).Msg("Failed to list DiscoveryConfigs")
 		return nil, huma.Error500InternalServerError("Failed to list DiscoveryConfigs", err)
 	}
