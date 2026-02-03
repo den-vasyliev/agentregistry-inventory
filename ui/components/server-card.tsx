@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, CheckCircle2, XCircle, Clock, Check, X } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, Clock, Check, X } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
@@ -306,19 +306,19 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
           <Tooltip>
             <TooltipTrigger asChild>
               <Badge
-                variant={deployment.ready ? "default" : "destructive"}
-                className={`text-xs ${deployment.ready ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}`}
+                variant="outline"
+                className={`text-xs ${
+                  deployment.message === 'Running'
+                    ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                    : deployment.message === 'Failed'
+                    ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                    : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                }`}
               >
-                {deployment.ready ? (
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                ) : (
-                  <XCircle className="h-3 w-3 mr-1" />
-                )}
-                {deployment.ready ? 'Running' : 'Not Ready'}
+                {deployment.message || 'Unknown'}
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{deployment.message || (deployment.ready ? 'Deployment is healthy' : 'Deployment has issues')}</p>
               {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
             </TooltipContent>
           </Tooltip>
