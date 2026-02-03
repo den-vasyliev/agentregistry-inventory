@@ -31,7 +31,6 @@ interface ServerCardProps {
 export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, onReject, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, showApproval = false, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
   const official = _meta?.['io.modelcontextprotocol.registry/official']
-  const deployment = _meta?.deployment
 
   // Check if this is a pending review submission
   const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
@@ -298,28 +297,6 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
             </TooltipTrigger>
             <TooltipContent>
               <p>This resource is awaiting approval</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {deployment && !isPendingReview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className={`text-xs ${
-                  deployment.message === 'Running'
-                    ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                    : deployment.message === 'Failed'
-                    ? 'bg-red-500/10 text-red-600 border-red-500/20'
-                    : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
-                }`}
-              >
-                {deployment.message || 'Unknown'}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
             </TooltipContent>
           </Tooltip>
         )}

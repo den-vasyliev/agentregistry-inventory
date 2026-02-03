@@ -179,6 +179,11 @@ export default function PublishedPage() {
     return deployments.some(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
   }
 
+  const getDeploymentStatus = (name: string, version: string, type: 'server' | 'agent') => {
+    const d = deployments.find(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
+    return d?.status || null
+  }
+
   const handleUnpublish = async (name: string, version: string, type: 'server' | 'skill' | 'agent') => {
     // Check if the resource is deployed (check specific version)
     if (type !== 'skill' && isDeployed(name, version, type)) {
@@ -543,6 +548,7 @@ export default function PublishedPage() {
                   const server = serverResponse.server
                   const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(server.name, server.version, 'server')
+                  const deploymentStatus = getDeploymentStatus(server.name, server.version, 'server')
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] as any
@@ -563,15 +569,24 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
                               {server.remotes && server.remotes.length > 0 ? "Remote MCP Server" : "MCP Server"}
                             </Badge>
-                            {deployed ? (
-                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                Running
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
                               </Badge>
-                            ) : (
+                            ) : !deployed ? (
                               <Badge variant="secondary" className="bg-muted">
                                 Not Deployed
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
@@ -660,6 +675,7 @@ export default function PublishedPage() {
                   const agent = agentResponse.agent
                   const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(agent.name, agent.version, 'agent')
+                  const deploymentStatus = getDeploymentStatus(agent.name, agent.version, 'agent')
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = (agent as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -680,15 +696,24 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
                               Agent
                             </Badge>
-                            {deployed ? (
-                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                Running
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
                               </Badge>
-                            ) : (
+                            ) : !deployed ? (
                               <Badge variant="secondary" className="bg-muted">
                                 Not Deployed
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>

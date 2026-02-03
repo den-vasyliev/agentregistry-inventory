@@ -81,7 +81,6 @@ export default function AdminPage() {
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
-  const [deployments, setDeployments] = useState<any[]>([])
 
   // Pagination state
   const [currentPageServers, setCurrentPageServers] = useState(1)
@@ -212,36 +211,10 @@ export default function AdminPage() {
 
       setModels(allModels)
 
-      // Fetch deployments to get actual deployment status
-      const deploymentsData = await adminApiClient.listDeployments()
-      setDeployments(deploymentsData)
-
-      // Merge deployment status into servers
-      const serversWithDeploymentStatus = allServers.map(server => {
-        const deployment = deploymentsData.find(d =>
-          d.serverName === server.server.name && d.version === server.server.version
-        )
-        if (deployment) {
-          return {
-            ...server,
-            _meta: {
-              ...server._meta,
-              deployment: {
-                ready: deployment.status === 'Running',
-                message: deployment.status,
-                namespace: deployment.namespace,
-              }
-            }
-          }
-        }
-        return server
-      })
-
-      // Update servers state with merged deployment status
-      setServers(serversWithDeploymentStatus)
+      setServers(allServers)
 
       // Group servers by name
-      const grouped = groupServersByName(serversWithDeploymentStatus)
+      const grouped = groupServersByName(allServers)
       setGroupedServers(grouped)
 
       // Set stats
