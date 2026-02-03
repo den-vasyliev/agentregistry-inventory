@@ -37,6 +37,12 @@ func init() {
 	utilruntime.Must(agentregistryv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kagentv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(kmcpv1alpha1.AddToScheme(scheme))
+
+	// Set up controller-runtime logger early to prevent warnings
+	// This will be replaced with proper configuration in main()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	logf.SetLogger(zerologr.New(&log.Logger))
 }
 
 func main() {
@@ -61,8 +67,7 @@ func main() {
 	// Parse flags (controller-runtime adds --kubeconfig flag automatically)
 	flag.Parse()
 
-	// Set up structured logging with zerolog
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	// Set up structured logging with zerolog (re-apply configuration with proper log level)
 	if logLevel == "trace" || logLevel == "debug" {
 		// Use console writer for better readability in development
 		log.Logger = log.Output(zerolog.ConsoleWriter{

@@ -12,9 +12,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
@@ -503,8 +506,52 @@ func (r *RegistryDeploymentReconciler) setOwnerLabels(obj client.Object, deploym
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RegistryDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Map function to enqueue RegistryDeployment from managed resources
+	enqueueFromManagedResource := func(ctx context.Context, obj client.Object) []reconcile.Request {
+		labels := obj.GetLabels()
+		if labels == nil {
+			return nil
+		}
+		// Check if this resource is managed by agentregistry
+		if labels[managedByLabel] != "agentregistry" {
+			return nil
+		}
+		// Get the deployment name and namespace from labels
+		depName := labels[deploymentNameLabel]
+		depNS := labels[deploymentNSLabel]
+		if depName == "" {
+			return nil
+		}
+		return []reconcile.Request{{
+			NamespacedName: types.NamespacedName{
+				Name:      depName,
+				Namespace: depNS,
+			},
+		}}
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&agentregistryv1alpha1.RegistryDeployment{}).
+		// Watch Agents managed by this controller
+		Watches(
+			&kagentv1alpha2.Agent{},
+			handler.EnqueueRequestsFromMapFunc(enqueueFromManagedResource),
+		).
+		// Watch MCP Servers managed by this controller
+		Watches(
+			&kmcpv1alpha1.MCPServer{},
+			handler.EnqueueRequestsFromMapFunc(enqueueFromManagedResource),
+		).
+		// Watch RemoteMCP Servers managed by this controller
+		Watches(
+			&kagentv1alpha2.RemoteMCPServer{},
+			handler.EnqueueRequestsFromMapFunc(enqueueFromManagedResource),
+		).
+		// Watch ConfigMaps managed by this controller
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(enqueueFromManagedResource),
+		).
 		Complete(r)
 }
 
@@ -589,11 +636,14 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 	// Check each managed resource status
 	for _, res := range deployment.Status.ManagedResources {
 		switch res.Kind {
-		case "MCPServer", "RemoteMCPServer":
+		case "MCPServer":
 			var mcp kmcpv1alpha1.MCPServer
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
 			if err := r.Get(ctx, key, &mcp); err != nil {
-				return false, "Pending"
+				if apierrors.IsNotFound(err) {
+					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
+				}
+				return false, fmt.Sprintf("Error checking %s %s/%s: %v", res.Kind, res.Namespace, res.Name, err)
 			}
 
 			// Check Ready condition - if exists and True, running
@@ -608,11 +658,36 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 			// No Ready condition yet
 			return false, "Pending"
 
+		case "RemoteMCPServer":
+			var remoteMCP kagentv1alpha2.RemoteMCPServer
+			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
+			if err := r.Get(ctx, key, &remoteMCP); err != nil {
+				if apierrors.IsNotFound(err) {
+					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
+				}
+				return false, fmt.Sprintf("Error checking %s %s/%s: %v", res.Kind, res.Namespace, res.Name, err)
+			}
+
+			// Check Ready condition - if exists and True, running
+			for _, cond := range remoteMCP.Status.Conditions {
+				if cond.Type == "Ready" {
+					if cond.Status == metav1.ConditionTrue {
+						continue // This resource is ready, check next
+					}
+					return false, cond.Message // Not ready, use condition message
+				}
+			}
+			// No Ready condition yet
+			return false, "Pending"
+
 		case "Agent":
 			var agent kagentv1alpha2.Agent
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
 			if err := r.Get(ctx, key, &agent); err != nil {
-				return false, "Pending"
+				if apierrors.IsNotFound(err) {
+					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
+				}
+				return false, fmt.Sprintf("Error checking %s %s/%s: %v", res.Kind, res.Namespace, res.Name, err)
 			}
 
 			// Check Ready condition - if exists and True, running
@@ -626,6 +701,18 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 			}
 			// No Ready condition yet
 			return false, "Pending"
+
+		case "ConfigMap":
+			var cm corev1.ConfigMap
+			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
+			if err := r.Get(ctx, key, &cm); err != nil {
+				if apierrors.IsNotFound(err) {
+					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
+				}
+				return false, fmt.Sprintf("Error checking %s %s/%s: %v", res.Kind, res.Namespace, res.Name, err)
+			}
+			// ConfigMaps don't have conditions, just existence check
+			continue
 		}
 	}
 

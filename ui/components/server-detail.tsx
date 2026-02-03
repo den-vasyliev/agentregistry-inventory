@@ -265,26 +265,28 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  onClick={handlePublishServer}
-                  disabled={copying}
-                  className="gap-2"
-                >
-                  {copying ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  Publish
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Publish this server to your registry</p>
-              </TooltipContent>
-            </Tooltip>
+            {onPublish && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={handlePublishServer}
+                    disabled={copying}
+                    className="gap-2"
+                  >
+                    {copying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    Publish
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Publish this server to your registry</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>

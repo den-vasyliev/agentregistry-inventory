@@ -57,11 +57,9 @@ export default function PublishedPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [unpublishing, setUnpublishing] = useState(false)
-  const [publishing, setPublishing] = useState(false)
   const [deploying, setDeploying] = useState(false)
   const [deployRuntime] = useState<'kubernetes'>('kubernetes')
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
-  const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
   const [deployNamespace, setDeployNamespace] = useState("agentregistry")
   const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
@@ -285,44 +283,6 @@ export default function PublishedPage() {
     }
   }
 
-  const handlePublish = async (server: ServerResponse) => {
-    setItemToPublish({ name: server.server.name, version: server.server.version, type: 'server' })
-  }
-
-  const handlePublishSkill = async (skill: SkillResponse) => {
-    setItemToPublish({ name: skill.skill.name, version: skill.skill.version, type: 'skill' })
-  }
-
-  const handlePublishAgent = async (agentResponse: AgentResponse) => {
-    const { agent } = agentResponse
-    setItemToPublish({ name: agent.name, version: agent.version, type: 'agent' })
-  }
-
-  const confirmPublish = async () => {
-    if (!itemToPublish) return
-
-    try {
-      setPublishing(true)
-      const client = adminApiClient
-
-      if (itemToPublish.type === 'server') {
-        await client.publishServerStatus(itemToPublish.name, itemToPublish.version)
-      } else if (itemToPublish.type === 'skill') {
-        await client.publishSkillStatus(itemToPublish.name, itemToPublish.version)
-      } else if (itemToPublish.type === 'agent') {
-        await client.publishAgentStatus(itemToPublish.name, itemToPublish.version)
-      }
-
-      setItemToPublish(null)
-      toast.success(`Successfully published ${itemToPublish.name}`)
-      await fetchPublished() // Refresh data
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to publish resource')
-    } finally {
-      setPublishing(false)
-    }
-  }
-
   const totalPublished = servers.length + skills.length + agents.length
 
   // Show server detail view if a server is selected
@@ -332,7 +292,6 @@ export default function PublishedPage() {
         server={selectedServer}
         onClose={() => setSelectedServer(null)}
         onServerCopied={fetchPublished}
-        onPublish={handlePublish}
       />
     )
   }
@@ -343,7 +302,6 @@ export default function PublishedPage() {
       <SkillDetail
         skill={selectedSkill}
         onClose={() => setSelectedSkill(null)}
-        onPublish={handlePublishSkill}
       />
     )
   }
@@ -354,7 +312,6 @@ export default function PublishedPage() {
       <AgentDetail
         agent={selectedAgent}
         onClose={() => setSelectedAgent(null)}
-        onPublish={handlePublishAgent}
       />
     )
   }
@@ -889,37 +846,6 @@ export default function PublishedPage() {
           )}
         </Tabs>
       </div>
-
-      {/* Publish Confirmation Dialog */}
-      <Dialog open={!!itemToPublish} onOpenChange={(open) => !open && setItemToPublish(null)}>
-        <DialogContent onClose={() => setItemToPublish(null)}>
-          <DialogHeader>
-            <DialogTitle>Publish Resource</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to publish <strong>{itemToPublish?.name}</strong> (version {itemToPublish?.version})?
-              <br />
-              <br />
-              This will make the resource visible to public users in the catalog.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setItemToPublish(null)}
-              disabled={publishing}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={confirmPublish}
-              disabled={publishing}
-            >
-              {publishing ? 'Publishing...' : 'Publish'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Unpublish Confirmation Dialog */}
       <Dialog open={!!itemToUnpublish} onOpenChange={(open) => !open && setItemToUnpublish(null)}>

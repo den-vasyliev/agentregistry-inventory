@@ -84,11 +84,9 @@ func (r *AgentDiscoveryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // buildCatalogFromAgent creates an AgentCatalog from KAgent Agent
 func (r *AgentDiscoveryReconciler) buildCatalogFromAgent(agent *kagentv1alpha2.Agent, catalogName string) agentregistryv1alpha1.AgentCatalog {
-	// Extract version from labels or use "latest"
-	version := "latest"
-	if v, ok := agent.Labels["app.kubernetes.io/version"]; ok {
-		version = v
-	}
+	// Parse the agent name to extract original name and version
+	// Agent CR names are in format: "name-version" (e.g., "my-agent-1-0-0")
+	agentName, version := parseAgentCRName(agent.Name)
 
 	// Get description from spec or annotations
 	description := agent.Spec.Description
@@ -118,9 +116,9 @@ func (r *AgentDiscoveryReconciler) buildCatalogFromAgent(agent *kagentv1alpha2.A
 			},
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
-			Name:        fmt.Sprintf("%s/%s", agent.Namespace, agent.Name),
+			Name:        agentName,
 			Version:     version,
-			Title:       agent.Name,
+			Title:       agentName,
 			Description: description,
 			Image:       image,
 			Framework:   string(agent.Spec.Type),
@@ -159,9 +157,10 @@ func (r *AgentDiscoveryReconciler) syncStatusFromAgent(catalog *agentregistryv1a
 	}
 }
 
-// generateAgentCatalogName creates a valid K8s name from namespace and Agent name
-func generateAgentCatalogName(namespace, name string) string {
-	combined := fmt.Sprintf("%s-%s", namespace, name)
+// generateAgentCatalogName creates a valid K8s name from namespace and Agent CR name
+// The Agent CR name is in format "name-version", so we prepend namespace for uniqueness
+func generateAgentCatalogName(namespace, agentCRName string) string {
+	combined := fmt.Sprintf("%s-%s", namespace, agentCRName)
 	combined = strings.ReplaceAll(combined, "/", "-")
 	combined = strings.ReplaceAll(combined, "_", "-")
 	combined = strings.ToLower(combined)
@@ -169,6 +168,52 @@ func generateAgentCatalogName(namespace, name string) string {
 		combined = combined[:63]
 	}
 	return combined
+}
+
+// parseAgentCRName parses an Agent CR name to extract the original name and version
+// Agent CR names are in format: "name-version" (e.g., "my-agent-1-0-0")
+// Returns (name, version)
+func parseAgentCRName(crName string) (name, version string) {
+	// Split by "-" and look for version pattern (numeric segments)
+	parts := strings.Split(crName, "-")
+	if len(parts) < 2 {
+		// No version in name, return as-is with "latest"
+		return crName, "latest"
+	}
+
+	// Look for version pattern starting from the end
+	// Version segments are numeric (e.g., "1", "0", "0")
+	versionStart := -1
+	for i := len(parts) - 1; i >= 0; i-- {
+		if isVersionSegment(parts[i]) {
+			versionStart = i
+		} else {
+			break
+		}
+	}
+
+	if versionStart == -1 || versionStart == 0 {
+		// No version pattern found, return as-is
+		return crName, "latest"
+	}
+
+	// Join name parts and version parts
+	name = strings.Join(parts[:versionStart], "-")
+	version = strings.Join(parts[versionStart:], ".")
+	return name, version
+}
+
+// isVersionSegment checks if a string segment looks like a version number
+func isVersionSegment(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // SetupWithManager sets up the controller with the Manager.

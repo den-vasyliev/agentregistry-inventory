@@ -175,15 +175,15 @@ ${formatAsYaml(manifest)}`
         yaml += `${spaces}${key}:\n`
         for (const item of value) {
           if (typeof item === "object" && item !== null) {
-            // For array items that are objects, use the inline dash format
+            // For array items that are objects, render inline with dash
             const itemYaml = formatAsYaml(item as Record<string, unknown>, indent + 2)
-            const lines = itemYaml.trim().split('\n')
+            const lines = itemYaml.split('\n').filter(l => l.length > 0)
             if (lines.length > 0) {
-              // First line gets the dash
+              // First line gets the dash prefix
               yaml += `${spaces}  - ${lines[0].trimStart()}\n`
-              // Remaining lines get extra indentation
+              // Remaining lines keep their indentation (they're already at indent + 2)
               for (let i = 1; i < lines.length; i++) {
-                yaml += `${spaces}    ${lines[i].trimStart()}\n`
+                yaml += `${lines[i]}\n`
               }
             }
           } else {
@@ -240,6 +240,10 @@ ${formatAsYaml(manifest)}`
     }
     if (!formData.version) {
       toast.error("Version is required")
+      return
+    }
+    if (formData.kind === "agent" && !formData.image) {
+      toast.error("Container Image is required for agents")
       return
     }
     setStep("manifest")
@@ -404,7 +408,7 @@ ${formatAsYaml(manifest)}`
                 {/* Agent specific fields */}
                 <TabsContent value="agent" className="mt-0 space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="image">Container Image</Label>
+                    <Label htmlFor="image">Container Image *</Label>
                     <Input
                       id="image"
                       placeholder="ghcr.io/org/agent:latest"

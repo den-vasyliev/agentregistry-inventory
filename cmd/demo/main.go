@@ -42,6 +42,12 @@ func init() {
 	_ = agentregistryv1alpha1.AddToScheme(scheme)
 	_ = kagentv1alpha2.AddToScheme(scheme)
 	_ = kmcpv1alpha1.AddToScheme(scheme)
+
+	// Set up controller-runtime logger early to prevent warnings
+	// This will be replaced with proper configuration in main()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	logf.SetLogger(zerologr.New(&log.Logger))
 }
 
 // createMetadata creates metadata JSON with verification flags
