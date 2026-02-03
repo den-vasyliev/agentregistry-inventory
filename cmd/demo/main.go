@@ -380,7 +380,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 			}
 		}
 		time.Sleep(100 * time.Millisecond)
-		for _, s := range servers {
+		for i, s := range servers {
 			if err := c.Get(ctx, client.ObjectKeyFromObject(s), s); err != nil {
 				return err
 			}
@@ -388,6 +388,18 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 			s.Status.IsLatest = true
 			s.Status.PublishedAt = &now
 			s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+
+			// Set deployment status for filesystem-server (deployed via RegistryDeployment)
+			if i == 0 { // filesystem-server is first
+				s.Status.Deployment = &agentregistryv1alpha1.DeploymentRef{
+					Namespace:   ns,
+					ServiceName: fmt.Sprintf("filesystem-server-%s", ns),
+					Ready:       true,
+					Message:     "Deployment is healthy",
+					LastChecked: &now,
+				}
+			}
+
 			if err := c.Status().Update(ctx, s); err != nil {
 				return err
 			}
@@ -436,7 +448,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 			}
 		}
 		time.Sleep(100 * time.Millisecond)
-		for _, a := range agents {
+		for i, a := range agents {
 			if err := c.Get(ctx, client.ObjectKeyFromObject(a), a); err != nil {
 				return err
 			}
@@ -444,6 +456,18 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 			a.Status.IsLatest = true
 			a.Status.PublishedAt = &now
 			a.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+
+			// Set deployment status for research-agent (deployed via RegistryDeployment)
+			if i == 0 { // research-agent is first
+				a.Status.Deployment = &agentregistryv1alpha1.DeploymentRef{
+					Namespace:   ns,
+					ServiceName: fmt.Sprintf("research-agent-%s", ns),
+					Ready:       true,
+					Message:     "Deployment is healthy",
+					LastChecked: &now,
+				}
+			}
+
 			if err := c.Status().Update(ctx, a); err != nil {
 				return err
 			}
