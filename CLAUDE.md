@@ -44,10 +44,10 @@ The project consists of two main components:
 
 **IMPORTANT**: Agent Registry uses `agentregistry` as the default namespace for all its resources:
 
-- **agentregistry** namespace - Contains all Agent Registry catalog resources:
+- **agentregistry** namespace - Contains all Agent Registry resources:
   - `MCPServerCatalog`, `AgentCatalog`, `SkillCatalog`, `ModelCatalog` - Catalog entries
   - `RegistryDeployment` - Deployment manifests
-  - `DiscoveryConfig` - Discovery configuration
+  - `DiscoveryConfig` - Discovery configuration (namespace-scoped)
 
 - **Environment namespaces** (dev, staging, prod, etc.) - Contain actual deployed resources:
   - `MCPServer` (kmcp) - Deployed MCP servers
