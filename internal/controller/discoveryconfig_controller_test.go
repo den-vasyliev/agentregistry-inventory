@@ -138,7 +138,8 @@ func TestDiscoveryConfigReconciler_MultiNamespaceDiscovery(t *testing.T) {
 	// Create a DiscoveryConfig
 	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "multi-namespace-discovery",
+			Name:      "multi-namespace-discovery",
+			Namespace: "default",
 		},
 		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
 			Environments: []agentregistryv1alpha1.Environment{
@@ -181,7 +182,8 @@ func TestDiscoveryConfigReconciler_MultiNamespaceDiscovery(t *testing.T) {
 	// Reconcile to set up informers
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
-			Name: "multi-namespace-discovery",
+			Name:      "multi-namespace-discovery",
+			Namespace: "default",
 		},
 	}
 
@@ -335,7 +337,8 @@ func TestDiscoveryConfigReconciler_MultipleEnvironments(t *testing.T) {
 	// Create a DiscoveryConfig with multiple environments
 	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "multi-env-discovery",
+			Name:      "multi-env-discovery",
+			Namespace: "default",
 		},
 		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
 			Environments: []agentregistryv1alpha1.Environment{
@@ -400,7 +403,8 @@ func TestDiscoveryConfigReconciler_MultipleEnvironments(t *testing.T) {
 	// Reconcile
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
-			Name: "multi-env-discovery",
+			Name:      "multi-env-discovery",
+			Namespace: "default",
 		},
 	}
 
@@ -485,7 +489,8 @@ func TestDiscoveryConfigReconciler_InformerLifecycle(t *testing.T) {
 	// Create DiscoveryConfig
 	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "lifecycle-test",
+			Name:      "lifecycle-test",
+			Namespace: "default",
 		},
 		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
 			Environments: []agentregistryv1alpha1.Environment{
@@ -521,7 +526,8 @@ func TestDiscoveryConfigReconciler_InformerLifecycle(t *testing.T) {
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
-			Name: "lifecycle-test",
+			Name:      "lifecycle-test",
+			Namespace: "default",
 		},
 	}
 
