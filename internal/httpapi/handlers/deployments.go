@@ -284,8 +284,8 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 
 	deployment := &agentregistryv1alpha1.RegistryDeployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-			// RegistryDeployment is cluster-scoped, so don't set Namespace here
+			Name:      crName,
+			Namespace: namespace, // RegistryDeployment is namespaced
 			Labels: map[string]string{
 				"agentregistry.dev/resource-name": SanitizeK8sName(input.Body.ResourceName),
 				"agentregistry.dev/version":       SanitizeK8sName(input.Body.Version),
