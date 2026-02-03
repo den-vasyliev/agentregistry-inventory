@@ -64,6 +64,11 @@ export default function PublishedPage() {
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
+  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
+    { name: "agentregistry", namespace: "agentregistry" }
+  ])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
@@ -189,6 +194,21 @@ export default function PublishedPage() {
     setItemToDeploy({ name, version, type })
   }
 
+  const fetchEnvironments = async () => {
+    setLoadingEnvironments(true)
+    try {
+      const envs = await adminApiClient.listEnvironments()
+      if (envs && envs.length > 0) {
+        setEnvironments(envs)
+        setDeployNamespace(envs[0].namespace)
+      }
+    } catch (err) {
+      console.error("Failed to fetch environments:", err)
+    } finally {
+      setLoadingEnvironments(false)
+    }
+  }
+
   const confirmDeploy = async () => {
     if (!itemToDeploy) return
 
@@ -205,10 +225,11 @@ export default function PublishedPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
+        namespace: deployNamespace,
       })
 
       setItemToDeploy(null)
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployRuntime}!`)
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
       // Refresh deployments to update the UI
       await fetchPublished()
     } catch (err) {
@@ -907,7 +928,10 @@ export default function PublishedPage() {
       </Dialog>
 
       {/* Deploy Confirmation Dialog */}
-      <Dialog open={!!itemToDeploy} onOpenChange={(open) => !open && setItemToDeploy(null)}>
+      <Dialog open={!!itemToDeploy} onOpenChange={(open) => {
+        if (!open) setItemToDeploy(null)
+        if (open) fetchEnvironments()
+      }}>
         <DialogContent onClose={() => setItemToDeploy(null)}>
           <DialogHeader>
             <DialogTitle>Deploy Resource</DialogTitle>
@@ -918,9 +942,29 @@ export default function PublishedPage() {
               This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-4">
-            <Label>Deployment destination</Label>
-            <p className="text-sm text-muted-foreground">Kubernetes</p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Deployment destination</Label>
+              <p className="text-sm text-muted-foreground">Kubernetes</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
+              <Select value={deployNamespace} onValueChange={setDeployNamespace} disabled={loadingEnvironments}>
+                <SelectTrigger id="deploy-namespace">
+                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env.namespace} value={env.namespace}>
+                      {env.name} ({env.namespace})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which namespace/environment to deploy to
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
