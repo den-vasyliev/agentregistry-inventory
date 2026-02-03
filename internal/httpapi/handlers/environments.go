@@ -62,14 +62,24 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API, pathPrefix string, isA
 func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[EnvironmentListResponse], error) {
 	var discoveryConfigList agentregistryv1alpha1.DiscoveryConfigList
 
-	if err := h.cache.List(ctx, &discoveryConfigList); err != nil {
+	// Use client instead of cache to ensure we get latest data
+	if err := h.client.List(ctx, &discoveryConfigList); err != nil {
+		h.logger.Error().Err(err).Msg("Failed to list DiscoveryConfigs")
 		return nil, huma.Error500InternalServerError("Failed to list DiscoveryConfigs", err)
 	}
+
+	h.logger.Info().Int("count", len(discoveryConfigList.Items)).Msg("Found DiscoveryConfigs")
 
 	environments := make([]EnvironmentJSON, 0)
 
 	// Collect all environments from all DiscoveryConfigs
 	for _, dc := range discoveryConfigList.Items {
+		h.logger.Info().
+			Str("name", dc.Name).
+			Str("namespace", dc.Namespace).
+			Int("envCount", len(dc.Spec.Environments)).
+			Msg("Processing DiscoveryConfig")
+
 		for _, env := range dc.Spec.Environments {
 			// Use the primary namespace for the environment
 			namespace := env.Cluster.Namespace
@@ -79,6 +89,13 @@ func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[En
 			if namespace == "" {
 				namespace = "agentregistry"
 			}
+
+			h.logger.Info().
+				Str("envName", env.Name).
+				Str("clusterNamespace", env.Cluster.Namespace).
+				Strs("namespaces", env.Namespaces).
+				Str("selectedNamespace", namespace).
+				Msg("Adding environment")
 
 			environments = append(environments, EnvironmentJSON{
 				Name:      env.Name,
