@@ -12,6 +12,18 @@
 </div>
 
 
+## 🚀 Quick Start
+
+```bash
+git clone https://github.com/agentregistry-dev/agentregistry.git
+cd agentregistry
+make dev
+```
+
+Opens UI at `http://localhost:3000` with sample data. No Kubernetes cluster needed.
+
+---
+
 ## 🏢 Enterprise Scale, Not Just CLI
 
 In enterprise, you need **scale and multi-user access for AI resources**. Agent Registry runs as a **Kubernetes service** that provides a centralized catalog for teams to discover, deploy, and manage AI resources.
@@ -117,114 +129,6 @@ Agent Registry consists of:
 │ - DiscoveryConfig   │
 └─────────────────────┘
 ```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Kubernetes cluster** (1.27+)
-- **kubectl** configured to access your cluster
-- **Go 1.25+** (for building from source)
-- **Node.js 18+** (for UI development)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/agentregistry-dev/agentregistry.git
-cd agentregistry
-
-# Install via Helm (CRDs are bundled in the chart)
-helm install agentregistry ./charts/agentregistry \
-  --namespace agentregistry \
-  --create-namespace
-
-# Verify deployment
-kubectl get pods -n agentregistry
-kubectl get mcpservercatalogs,agentcatalogs,skillcatalogs,modelcatalogs -A
-```
-
-### Building from Source
-
-```bash
-# Build controller binary (includes embedded UI)
-make build
-
-# Build container image locally
-make image
-
-# Build and push to registry
-REGISTRY=ghcr.io/yourorg/agentregistry-enterprise make push
-
-# Full release build (clean, test, lint, build, push)
-make release
-```
-
-Available make targets:
-- `make help` - Show all available targets
-- `make build` - Build controller binary
-- `make demo` - Run demo environment with envtest
-- `make demo-stop` - Stop demo environment
-- `make dev` - Run controller and UI in development mode
-- `make dev-ui` - Run UI dev server only
-- `make test` - Run tests with coverage
-- `make lint` - Run linters
-- `make image` - Build container image
-- `make push` - Push to registry
-- `make release` - Full release workflow
-
-### Development Setup
-
-```bash
-# Build controller (includes UI)
-make build
-
-# Run in development mode
-make dev
-
-# Run UI dev server (in another terminal for live reload)
-make dev-ui
-
-# Access:
-# - UI: http://localhost:3000
-# - API: http://localhost:8080
-# - Metrics: http://localhost:8081
-# - Health: http://localhost:8082
-```
-
-See [`DEVELOPMENT.md`](DEVELOPMENT.md) for detailed development instructions.
-
-### Demo Mode
-
-Try Agent Registry locally without a Kubernetes cluster using the built-in demo environment:
-
-```bash
-# Start demo with envtest, sample data, and UI
-make demo
-
-# Access:
-# - UI: http://localhost:3000
-# - API: http://localhost:8080
-# - Kubeconfig: ./demo-kubeconfig.yaml
-
-# Stop demo
-make demo-stop
-
-# Use kubectl with demo cluster
-kubectl --kubeconfig=./demo-kubeconfig.yaml get mcpservercatalog
-```
-
-The demo environment includes:
-- **envtest** - Lightweight Kubernetes API server + etcd
-- **Sample resources** - Pre-populated MCP servers, agents, skills, and models
-- **No authentication** - Deploy and remove resources without sign-in
-- **Isolated** - Separate from your real Kubernetes clusters
-
-Perfect for:
-- 🎯 Trying out Agent Registry features
-- 👨‍💻 Local development without cluster access
-- 🧪 Testing changes quickly
-- 📚 Learning how it works
 
 ## 📚 Core Concepts
 
