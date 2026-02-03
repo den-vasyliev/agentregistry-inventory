@@ -36,10 +36,13 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
       setLoadingEnvironments(true)
       try {
         const envs = await adminApiClient.listEnvironments()
+        console.log("Fetched environments:", envs)
         if (envs && envs.length > 0) {
           setEnvironments(envs)
           // Set first environment as default
           setNamespace(envs[0].namespace)
+        } else {
+          console.warn("No environments returned, using default")
         }
       } catch (err) {
         console.error("Failed to fetch environments:", err)

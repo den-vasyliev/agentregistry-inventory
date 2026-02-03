@@ -538,6 +538,21 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
 			Environments: []agentregistryv1alpha1.Environment{
 				{
+					Name: "agentregistry",
+					Cluster: agentregistryv1alpha1.ClusterConfig{
+						Name:                "local",
+						Namespace:           "agentregistry",
+						UseWorkloadIdentity: false,
+					},
+					Namespaces:       []string{"agentregistry"},
+					ResourceTypes:    []string{"MCPServer", "Agent", "ModelConfig"},
+					DiscoveryEnabled: true,
+					Labels: map[string]string{
+						"environment": "agentregistry",
+						"demo":        "true",
+					},
+				},
+				{
 					Name: "dev",
 					Cluster: agentregistryv1alpha1.ClusterConfig{
 						Name:                "local",
