@@ -19,7 +19,6 @@ import {
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, BadgeCheck, Bot, Zap } from "lucide-react"
 import MCPIcon from "@/components/icons/mcp"
-import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { ServerDetail } from "@/components/server-detail"
 import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
@@ -77,7 +76,6 @@ export default function PublishedPage() {
   const [currentPageServers, setCurrentPageServers] = useState(1)
   const [currentPageSkills, setCurrentPageSkills] = useState(1)
   const [currentPageAgents, setCurrentPageAgents] = useState(1)
-  const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const itemsPerPage = 5
 
   const fetchPublished = async () => {
@@ -486,16 +484,6 @@ export default function PublishedPage() {
               </div>
             </div>
 
-            {/* Action Button */}
-            <div className="ml-auto">
-              <Button
-                className="gap-2"
-                onClick={() => setSubmitResourceDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Submit Resource
-              </Button>
-            </div>
           </div>
 
           {error && (
@@ -985,11 +973,6 @@ export default function PublishedPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Submit Resource Dialog (GitOps Workflow) */}
-      <SubmitResourceDialog
-        open={submitResourceDialogOpen}
-        onOpenChange={setSubmitResourceDialogOpen}
-      />
     </main>
   )
 }
