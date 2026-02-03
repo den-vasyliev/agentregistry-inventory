@@ -25,6 +25,14 @@ import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
 import { ModelDetail } from "@/components/model-detail"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
@@ -63,6 +71,8 @@ export default function AdminPage() {
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' | 'model' } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
@@ -250,54 +260,47 @@ export default function AdminPage() {
 
   // Handle server publishing
   const handlePublish = async (server: ServerResponse) => {
-    try {
-      // Use admin client (auth is disabled by default in controller)
-      const client = adminApiClient
-      await client.publishServerStatus(server.server.name, server.server.version)
-      await fetchData() // Refresh data
-      toast.success(`Successfully published ${server.server.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish server")
-    }
+    setItemToPublish({ name: server.server.name, version: server.server.version, type: 'server' })
   }
 
   const handlePublishSkill = async (skill: SkillResponse) => {
-    try {
-      // Use admin client (auth is disabled by default in controller)
-      const client = adminApiClient
-      await client.publishSkillStatus(skill.skill.name, skill.skill.version)
-      await fetchData() // Refresh data
-      toast.success(`Successfully published ${skill.skill.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish skill")
-    }
+    setItemToPublish({ name: skill.skill.name, version: skill.skill.version, type: 'skill' })
   }
 
   const handlePublishAgent = async (agentResponse: AgentResponse) => {
     const {agent } = agentResponse;
-
-    try {
-      // Use admin client (auth is disabled by default in controller)
-      const client = adminApiClient
-      await client.publishAgentStatus(agent.name, agent.version)
-      await fetchData() // Refresh data
-      toast.success(`Successfully published ${agent.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish agent")
-    }
+    setItemToPublish({ name: agent.name, version: agent.version, type: 'agent' })
   }
 
   const handlePublishModel = async (modelResponse: ModelResponse) => {
     const { model } = modelResponse
+    setItemToPublish({ name: model.name, version: '', type: 'model' })
+  }
+
+  const confirmPublish = async () => {
+    if (!itemToPublish) return
 
     try {
-      // Use admin client (auth is disabled by default in controller)
+      setPublishing(true)
       const client = adminApiClient
-      await client.publishModelStatus(model.name)
+
+      if (itemToPublish.type === 'server') {
+        await client.publishServerStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'skill') {
+        await client.publishSkillStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'agent') {
+        await client.publishAgentStatus(itemToPublish.name, itemToPublish.version)
+      } else if (itemToPublish.type === 'model') {
+        await client.publishModelStatus(itemToPublish.name)
+      }
+
+      setItemToPublish(null)
+      toast.success(`Successfully published ${itemToPublish.name}`)
       await fetchData() // Refresh data
-      toast.success(`Successfully published ${model.name}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to publish model")
+      toast.error(err instanceof Error ? err.message : 'Failed to publish resource')
+    } finally {
+      setPublishing(false)
     }
   }
 
@@ -490,51 +493,73 @@ export default function AdminPage() {
   }
 
   // Show server detail view if a server is selected
-  if (selectedServer) {
-    return (
-      <ServerDetail
-        server={selectedServer as ServerResponse & { allVersions?: ServerResponse[] }}
-        onClose={handleCloseServerDetail}
-        onServerCopied={fetchData}
-        onPublish={handlePublish}
-      />
-    )
-  }
-
-  // Show skill detail view if a skill is selected
-  if (selectedSkill) {
-    return (
-      <SkillDetail
-        skill={selectedSkill}
-        onClose={() => setSelectedSkill(null)}
-        onPublish={handlePublishSkill}
-      />
-    )
-  }
-
-  // Show agent detail view if an agent is selected
-  if (selectedAgent) {
-    return (
-      <AgentDetail
-        agent={selectedAgent}
-        onClose={() => setSelectedAgent(null)}
-        onPublish={handlePublishAgent}
-      />
-    )
-  }
-
-  // Show model detail view if a model is selected
-  if (selectedModel) {
-    return (
-      <ModelDetail
-        model={selectedModel}
-        onClose={() => setSelectedModel(null)}
-        onPublish={handlePublishModel}
-      />
-    )
-  }
-
   return (
+    <>
+      {/* Publish Confirmation Dialog */}
+      <Dialog open={!!itemToPublish} onOpenChange={(open) => !open && setItemToPublish(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish Resource</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to publish <strong>{itemToPublish?.name}</strong>{itemToPublish?.version && ` (version ${itemToPublish.version})`}?
+              <br />
+              <br />
+              This will make the resource visible to public users in the catalog.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setItemToPublish(null)}
+              disabled={publishing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={confirmPublish}
+              disabled={publishing}
+            >
+              {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {selectedServer && (
+        <ServerDetail
+          server={selectedServer as ServerResponse & { allVersions?: ServerResponse[] }}
+          onClose={handleCloseServerDetail}
+          onServerCopied={fetchData}
+          onPublish={handlePublish}
+        />
+      )}
+
+      {selectedSkill && (
+        <SkillDetail
+          skill={selectedSkill}
+          onClose={() => setSelectedSkill(null)}
+          onPublish={handlePublishSkill}
+        />
+      )}
+
+      {selectedAgent && (
+        <AgentDetail
+          agent={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+          onPublish={handlePublishAgent}
+        />
+      )}
+
+      {selectedModel && (
+        <ModelDetail
+          model={selectedModel}
+          onClose={() => setSelectedModel(null)}
+          onPublish={handlePublishModel}
+        />
+      )}
+
+      {!selectedServer && !selectedSkill && !selectedAgent && !selectedModel && (
     <main className="min-h-screen bg-background">
       {/* Stats Section */}
       {stats && (
@@ -1040,14 +1065,13 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
-
-
-      {/* Submit Resource Dialog (GitOps Workflow) */}
-      <SubmitResourceDialog
-        open={submitResourceDialogOpen}
-        onOpenChange={setSubmitResourceDialogOpen}
-      />
-
-    </main>
+        {/* Submit Resource Dialog (GitOps Workflow) */}
+        <SubmitResourceDialog
+          open={submitResourceDialogOpen}
+          onOpenChange={setSubmitResourceDialogOpen}
+        />
+      </main>
+      )}
+    </>
   )
 }
