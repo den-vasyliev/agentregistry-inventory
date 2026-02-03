@@ -120,8 +120,22 @@ test: envtest ## Run all tests with coverage
 	@go tool cover -func=coverage.out | grep total:
 
 test-dev-env: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
-	@echo "Starting dev environment (Ctrl+C to stop)..."
-	@echo "  Then in another terminal:  cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev"
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo "  Starting dev environment..."
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "  The kubeconfig will be saved to: /tmp/agentregistry-dev-kubeconfig.yaml"
+	@echo ""
+	@echo "  After startup, to use kubectl:"
+	@echo "    export KUBECONFIG=/tmp/agentregistry-dev-kubeconfig.yaml"
+	@echo "    kubectl get mcpservercatalog -A"
+	@echo ""
+	@echo "  To start the UI in another terminal:"
+	@echo "    cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev"
+	@echo ""
+	@echo "  Press Ctrl+C to stop"
+	@echo "═══════════════════════════════════════════════════════════════════"
+	@echo ""
 	@DEVENV=1 KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
 		go test -run TestDevEnv -timeout 30m -v ./test/devenv/
 

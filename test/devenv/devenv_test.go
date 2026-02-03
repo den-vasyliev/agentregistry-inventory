@@ -156,21 +156,28 @@ func TestDevEnv(t *testing.T) {
 	}
 
 	// --- kubeconfig for kubectl ---
-	kubeconfigPath := t.TempDir() + "/kubeconfig.yaml"
+	// Save to a predictable location in /tmp for easy access
+	kubeconfigPath := "/tmp/agentregistry-dev-kubeconfig.yaml"
 	if err := os.WriteFile(kubeconfigPath, env.KubeConfig, 0600); err != nil {
 		t.Fatalf("write kubeconfig: %v", err)
 	}
 
 	t.Logf("")
-	t.Logf("════════════════════════════════════════════════════════")
-	t.Logf("  Dev environment ready")
-	t.Logf("════════════════════════════════════════════════════════")
+	t.Logf("═══════════════════════════════════════════════════════════════════")
+	t.Logf("  🚀 Dev environment ready")
+	t.Logf("═══════════════════════════════════════════════════════════════════")
 	t.Logf("  API:        http://localhost:8080")
 	t.Logf("  Kubeconfig: %s", kubeconfigPath)
-	t.Logf("  UI:         cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev")
 	t.Logf("")
-	t.Logf("  Ctrl+C or -timeout to stop")
-	t.Logf("════════════════════════════════════════════════════════")
+	t.Logf("  📋 To use kubectl:")
+	t.Logf("     export KUBECONFIG=%s", kubeconfigPath)
+	t.Logf("     kubectl get mcpservercatalog -A")
+	t.Logf("")
+	t.Logf("  🖥️  To start the UI:")
+	t.Logf("     cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev")
+	t.Logf("")
+	t.Logf("  ⏹️  To stop: Ctrl+C")
+	t.Logf("═══════════════════════════════════════════════════════════════════")
 
 	// block until killed
 	select {}
