@@ -62,7 +62,7 @@ func TestDevEnv(t *testing.T) {
 
 	// --- envtest ---
 	env := &envtest.Environment{
-		CRDDirectoryPaths:    []string{"../../config/crd", "../../config/external-crds"},
+		CRDDirectoryPaths:     []string{"../../config/crd", "../../config/external-crds"},
 		ErrorIfCRDPathMissing: true,
 	}
 	cfg, err := env.Start()
@@ -344,7 +344,7 @@ func mcpServer(env, shortName, version, desc string, meta *apiextensionsv1.JSON,
 		},
 		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
 			Name: name, Version: version,
-			Title: fmt.Sprintf("%s MCP Server (%s)", capitalize(shortName), env),
+			Title:       fmt.Sprintf("%s MCP Server (%s)", capitalize(shortName), env),
 			Description: desc, Metadata: meta,
 		},
 	}
@@ -365,9 +365,9 @@ func agentCatalog(env, name, version, image, framework, provider string) *agentr
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
 			Name: fmt.Sprintf("%s-%s", name, env), Version: version,
-			Title: fmt.Sprintf("%s (%s)", capitalize(name), env),
+			Title:       fmt.Sprintf("%s (%s)", capitalize(name), env),
 			Description: fmt.Sprintf("%s in %s", capitalize(name), env),
-			Image: image, Framework: framework, ModelProvider: provider,
+			Image:       image, Framework: framework, ModelProvider: provider,
 		},
 	}
 }
@@ -380,10 +380,10 @@ func skillCatalog(env, name, version, category string, meta *apiextensionsv1.JSO
 		},
 		Spec: agentregistryv1alpha1.SkillCatalogSpec{
 			Name: fmt.Sprintf("%s-%s", name, env), Version: version,
-			Title: fmt.Sprintf("%s (%s)", capitalize(name), env),
-			Category: category,
+			Title:       fmt.Sprintf("%s (%s)", capitalize(name), env),
+			Category:    category,
 			Description: fmt.Sprintf("%s in %s", capitalize(name), env),
-			Metadata: meta,
+			Metadata:    meta,
 		},
 	}
 }

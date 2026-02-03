@@ -242,7 +242,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 1. **CRD-based storage** - All data stored as Kubernetes CRs
 2. **Discovery reconcilers** - Auto-index deployed resources
 3. **Embedded HTTP API** - API server runs inside controller
-4. **No authentication by default** - `authEnabled: false` in `internal/httpapi/server.go:53`
+4. **Authentication enabled by default** - Set `AGENTREGISTRY_DISABLE_AUTH=true` to disable for development
 
 ### API Patterns
 

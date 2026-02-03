@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,14 @@ import (
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 )
+
+// testNamespace is the namespace used for catalog entries in tests
+const testNamespace = "default"
+
+func init() {
+	// Set the namespace for testing
+	os.Setenv("POD_NAMESPACE", testNamespace)
+}
 
 // testClientWithWatch wraps a client.Client to implement client.WithWatch
 type testClientWithWatch struct {
