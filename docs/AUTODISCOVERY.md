@@ -87,7 +87,7 @@ spec:
       cluster:
         name: prod
         namespace: production
-        projectId: gfk-eco-prod-green
+        projectId: gcp-demo-project
         zone: europe-west3
         useWorkloadIdentity: true
       provider: gcp
