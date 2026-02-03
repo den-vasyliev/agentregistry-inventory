@@ -276,9 +276,16 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 	// Always use kubernetes runtime
 	runtime := agentregistryv1alpha1.RuntimeTypeKubernetes
 
+	// Default namespace if not provided
+	namespace := input.Body.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	deployment := &agentregistryv1alpha1.RegistryDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crName,
+			// RegistryDeployment is cluster-scoped, so don't set Namespace here
 			Labels: map[string]string{
 				"agentregistry.dev/resource-name": SanitizeK8sName(input.Body.ResourceName),
 				"agentregistry.dev/version":       SanitizeK8sName(input.Body.Version),
@@ -293,7 +300,7 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 			Runtime:      runtime,
 			PreferRemote: input.Body.PreferRemote,
 			Config:       input.Body.Config,
-			Namespace:    input.Body.Namespace,
+			Namespace:    namespace, // Target namespace for deployed resources
 		},
 	}
 

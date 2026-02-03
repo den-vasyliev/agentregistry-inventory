@@ -142,26 +142,32 @@ export default function PublishedPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Filter by search query
+  // Filter by search query and sort by name for stable ordering
   useEffect(() => {
     const query = searchQuery.toLowerCase()
     setFilteredServers(
-      servers.filter(s =>
-        s.server.name.toLowerCase().includes(query) ||
-        s.server.description?.toLowerCase().includes(query)
-      )
+      servers
+        .filter(s =>
+          s.server.name.toLowerCase().includes(query) ||
+          s.server.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.server.name.localeCompare(b.server.name))
     )
     setFilteredSkills(
-      skills.filter(s =>
-        s.skill.name.toLowerCase().includes(query) ||
-        s.skill.description?.toLowerCase().includes(query)
-      )
+      skills
+        .filter(s =>
+          s.skill.name.toLowerCase().includes(query) ||
+          s.skill.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.skill.name.localeCompare(b.skill.name))
     )
     setFilteredAgents(
-      agents.filter(a =>
-        a.agent.name.toLowerCase().includes(query) ||
-        a.agent.description?.toLowerCase().includes(query)
-      )
+      agents
+        .filter(a =>
+          a.agent.name.toLowerCase().includes(query) ||
+          a.agent.description?.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.agent.name.localeCompare(b.agent.name))
     )
   }, [searchQuery, servers, skills, agents])
 
