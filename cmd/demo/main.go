@@ -50,7 +50,7 @@ func createMetadata(orgVerified, publisherVerified bool) *apiextensionsv1.JSON {
 		"io.modelcontextprotocol.registry/publisher-provided": map[string]interface{}{
 			"aregistry.ai/metadata": map[string]interface{}{
 				"identity": map[string]interface{}{
-					"org_is_verified":                   orgVerified,
+					"org_is_verified":                    orgVerified,
 					"publisher_identity_verified_by_jwt": publisherVerified,
 				},
 			},

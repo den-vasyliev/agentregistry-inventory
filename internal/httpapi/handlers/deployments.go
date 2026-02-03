@@ -46,7 +46,7 @@ type DeploymentJSON struct {
 	PreferRemote    bool              `json:"preferRemote,omitempty"`
 	Config          map[string]string `json:"config,omitempty"`
 	Namespace       string            `json:"namespace,omitempty"`
-	Environment     string            `json:"environment,omitempty"`     // Environment label (dev, staging, prod, etc.)
+	Environment     string            `json:"environment,omitempty"` // Environment label (dev, staging, prod, etc.)
 	Status          string            `json:"status,omitempty"`
 	DeployedAt      *time.Time        `json:"deployedAt,omitempty"`
 	UpdatedAt       *time.Time        `json:"updatedAt,omitempty"`
