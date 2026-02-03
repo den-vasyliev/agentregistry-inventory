@@ -1,9 +1,8 @@
-{{- if .Values.httpApi.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "agentregistry.fullname" . }}-api
-  namespace: {{ .Values.namespace.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agentregistry.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
@@ -17,13 +16,12 @@ spec:
   selector:
     {{- include "agentregistry.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: controller
-{{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "agentregistry.fullname" . }}-metrics
-  namespace: {{ .Values.namespace.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agentregistry.labels" . | nindent 4 }}
     app.kubernetes.io/component: metrics

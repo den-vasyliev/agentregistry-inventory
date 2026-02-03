@@ -134,11 +134,10 @@ Agent Registry consists of:
 git clone https://github.com/agentregistry-dev/agentregistry.git
 cd agentregistry
 
-# Install CRDs
-kubectl apply -f api/v1alpha1/
-
-# Deploy controller
-kubectl apply -f charts/agentregistry/
+# Install via Helm (CRDs are bundled in the chart)
+helm install agentregistry ./charts/agentregistry \
+  --namespace agentregistry \
+  --create-namespace
 
 # Verify deployment
 kubectl get pods -n agentregistry
@@ -426,12 +425,11 @@ Access the web interface at `http://localhost:3000` (in development) to:
 ### Using Helm
 
 ```bash
-# Install from Helm chart
+# Install from Helm chart (HA with 2 replicas)
 helm install agentregistry ./charts/agentregistry \
   --namespace agentregistry \
   --create-namespace \
-  --set controller.leaderElection=true \
-  --set httpApi.enabled=true
+  --set replicaCount=2
 
 # Expose API via ingress
 kubectl apply -f - <<EOF
@@ -460,22 +458,18 @@ EOF
 Key `values.yaml` settings:
 
 ```yaml
+replicaCount: 1              # Set to 2+ for HA
+
 controller:
-  leaderElection: true        # Enable for HA
-  replicas: 2                 # High availability
+  leaderElection: true       # Enable for HA
   logLevel: info             # debug | info | warn | error
 
 httpApi:
-  enabled: true              # Enable HTTP API server
-  port: 8080
-
-ui:
-  enabled: true              # Deploy web UI
-  replicas: 2
-
-crds:
-  install: true              # Install CRDs
+  port: 8080                 # HTTP API port
+  serviceType: ClusterIP     # ClusterIP | LoadBalancer | NodePort
 ```
+
+CRDs are bundled under `charts/agentregistry/crds/` and installed automatically by Helm.
 
 ## 🧪 Testing
 

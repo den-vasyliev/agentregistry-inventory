@@ -1,11 +1,2 @@
-{{- if .Values.namespace.create }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.namespace.name }}
-  labels:
-    {{- include "agentregistry.labels" . | nindent 4 }}
-    {{- with .Values.namespace.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-{{- end }}
+{{/* Namespace is not managed by this chart to avoid ownership conflicts.
+     Use --create-namespace on first install if the namespace does not exist. */}}

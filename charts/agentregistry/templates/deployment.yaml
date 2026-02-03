@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "agentregistry.fullname" . }}-controller
-  namespace: {{ .Values.namespace.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agentregistry.labels" . | nindent 4 }}
     app.kubernetes.io/component: controller
@@ -41,18 +41,12 @@ spec:
             {{- if .Values.controller.leaderElection }}
             - --leader-elect=true
             {{- end }}
-            {{- if .Values.httpApi.enabled }}
             - --enable-http-api=true
             - --http-api-address=:{{ .Values.httpApi.port }}
-            {{- else }}
-            - --enable-http-api=false
-            {{- end }}
           ports:
-            {{- if .Values.httpApi.enabled }}
             - name: http
               containerPort: {{ .Values.httpApi.port }}
               protocol: TCP
-            {{- end }}
             - name: metrics
               containerPort: 8081
               protocol: TCP
