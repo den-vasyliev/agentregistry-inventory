@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -80,8 +81,9 @@ type McpServerConfigJSON struct {
 }
 
 type AgentMeta struct {
-	Official   *OfficialMeta   `json:"io.modelcontextprotocol.registry/official,omitempty"`
-	Deployment *DeploymentInfo `json:"deployment,omitempty"`
+	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
+	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
+	Deployment        *DeploymentInfo        `json:"deployment,omitempty"`
 }
 
 type AgentResponse struct {
@@ -662,6 +664,16 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 				Published:   a.Status.Published,
 			},
 		},
+	}
+
+	// Include publisher-provided metadata if available
+	if a.Spec.Metadata != nil && len(a.Spec.Metadata.Raw) > 0 {
+		var metadata map[string]interface{}
+		if err := json.Unmarshal(a.Spec.Metadata.Raw, &metadata); err == nil {
+			if publisherProvided, ok := metadata["io.modelcontextprotocol.registry/publisher-provided"].(map[string]interface{}); ok {
+				resp.Meta.PublisherProvided = publisherProvided
+			}
+		}
 	}
 
 	// Include deployment info if available from source resource

@@ -61,6 +61,11 @@ spec:
           spec:
             description: SkillCatalogSpec defines the desired state of SkillCatalog
             properties:
+              _meta:
+                description: Metadata contains additional metadata for the skill (stars,
+                  verification, etc.)
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               category:
                 description: Category is the skill category (e.g., "code-generation",
                   "testing")

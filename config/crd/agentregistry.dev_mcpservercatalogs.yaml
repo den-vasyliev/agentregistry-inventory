@@ -58,6 +58,11 @@ spec:
           spec:
             description: MCPServerCatalogSpec defines the desired state of MCPServerCatalog
             properties:
+              _meta:
+                description: Metadata contains additional metadata for the server
+                  (stars, verification, etc.)
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               description:
                 description: Description is a human-readable description of the server
                 type: string

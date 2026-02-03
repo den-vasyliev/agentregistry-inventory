@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -40,6 +42,22 @@ func init() {
 	_ = agentregistryv1alpha1.AddToScheme(scheme)
 	_ = kagentv1alpha2.AddToScheme(scheme)
 	_ = kmcpv1alpha1.AddToScheme(scheme)
+}
+
+// createMetadata creates metadata JSON with verification flags
+func createMetadata(orgVerified, publisherVerified bool) *apiextensionsv1.JSON {
+	metadata := map[string]interface{}{
+		"io.modelcontextprotocol.registry/publisher-provided": map[string]interface{}{
+			"aregistry.ai/metadata": map[string]interface{}{
+				"identity": map[string]interface{}{
+					"org_is_verified":                   orgVerified,
+					"publisher_identity_verified_by_jwt": publisherVerified,
+				},
+			},
+		},
+	}
+	raw, _ := json.Marshal(metadata)
+	return &apiextensionsv1.JSON{Raw: raw}
 }
 
 func main() {
@@ -273,6 +291,15 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		log.Info().Str("environment", ns).Msg("creating catalog entries for environment")
 
 		// MCP Servers - all in agentregistry namespace
+		// For dev environment, add verified organization and publisher metadata
+		var filesystemMetadata, githubMetadata *apiextensionsv1.JSON
+		if ns == "dev" {
+			// Filesystem server: verified organization only
+			filesystemMetadata = createMetadata(true, false)
+			// GitHub server: both verified organization and publisher
+			githubMetadata = createMetadata(true, true)
+		}
+
 		servers := []*agentregistryv1alpha1.MCPServerCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -285,6 +312,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Version:     "1.0.0",
 					Title:       fmt.Sprintf("Filesystem MCP Server (%s)", ns),
 					Description: fmt.Sprintf("File system operations for AI agents in %s", ns),
+					Metadata:    filesystemMetadata,
 					Packages: []agentregistryv1alpha1.Package{
 						{
 							RegistryType: "npm",
@@ -305,6 +333,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Version:     "2.1.0",
 					Title:       fmt.Sprintf("GitHub MCP Server (%s)", ns),
 					Description: fmt.Sprintf("GitHub API integration in %s", ns),
+					Metadata:    githubMetadata,
 					Remotes: []agentregistryv1alpha1.Transport{
 						{Type: "streamable-http", URL: fmt.Sprintf("https://mcp.%s.example.com/github", ns)},
 					},
@@ -333,6 +362,15 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		allServers += len(servers)
 
 		// Agents - all in agentregistry namespace
+		// For staging environment, add verified organization and publisher metadata
+		var researchAgentMetadata, codeReviewAgentMetadata *apiextensionsv1.JSON
+		if ns == "staging" {
+			// Research agent: verified publisher only
+			researchAgentMetadata = createMetadata(false, true)
+			// Code review agent: both verified
+			codeReviewAgentMetadata = createMetadata(true, true)
+		}
+
 		agents := []*agentregistryv1alpha1.AgentCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -348,6 +386,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Image:         "ghcr.io/example/research-agent:0.5.0",
 					Framework:     "langgraph",
 					ModelProvider: "anthropic",
+					Metadata:      researchAgentMetadata,
 				},
 			},
 			{
@@ -364,6 +403,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Image:         "ghcr.io/example/code-review-agent:1.2.0",
 					Framework:     "autogen",
 					ModelProvider: "openai",
+					Metadata:      codeReviewAgentMetadata,
 				},
 			},
 		}
@@ -389,6 +429,15 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		allAgents += len(agents)
 
 		// Skills - all in agentregistry namespace
+		// For prod environment, add verified organization and publisher metadata
+		var terraformSkillMetadata, sqlSkillMetadata *apiextensionsv1.JSON
+		if ns == "prod" {
+			// Terraform skill: verified organization only
+			terraformSkillMetadata = createMetadata(true, false)
+			// SQL skill: both verified
+			sqlSkillMetadata = createMetadata(true, true)
+		}
+
 		skills := []*agentregistryv1alpha1.SkillCatalog{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -402,6 +451,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Title:       fmt.Sprintf("Terraform Skill (%s)", ns),
 					Category:    "infrastructure",
 					Description: fmt.Sprintf("Infrastructure management in %s", ns),
+					Metadata:    terraformSkillMetadata,
 				},
 			},
 			{
@@ -416,6 +466,7 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 					Title:       fmt.Sprintf("SQL Query Skill (%s)", ns),
 					Category:    "data",
 					Description: fmt.Sprintf("SQL query generation in %s", ns),
+					Metadata:    sqlSkillMetadata,
 				},
 			},
 		}

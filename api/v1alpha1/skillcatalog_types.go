@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,6 +68,11 @@ type SkillCatalogSpec struct {
 	// Remotes are the remote endpoints for the skill
 	// +optional
 	Remotes []SkillRemote `json:"remotes,omitempty"`
+	// Metadata contains additional metadata for the skill (stars, verification, etc.)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Metadata *apiextensionsv1.JSON `json:"_meta,omitempty"`
 }
 
 // SkillUsageRef represents a reference to an agent using this skill
