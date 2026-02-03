@@ -103,7 +103,7 @@ export function ImportDialog({ open, onOpenChange, onImportComplete }: ImportDia
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Enter a Git repository URL (will check for application.yaml file), registry API endpoint, or direct URL to a JSON seed file
+              Enter a Git repository URL (will check for agentregistry.yaml file), registry API endpoint, or direct URL to a JSON seed file
             </p>
           </div>
 
@@ -166,7 +166,7 @@ export function ImportDialog({ open, onOpenChange, onImportComplete }: ImportDia
             <div className="text-sm text-blue-900 dark:text-blue-100">
               <p className="font-medium">Supported Sources:</p>
               <ul className="mt-1 space-y-1 text-xs">
-                <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for application.yaml file)</li>
+                <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for agentregistry.yaml file)</li>
                 <li>• Official MCP Registry: <code>https://registry.modelcontextprotocol.io/v0.1/servers</code></li>
                 <li>• Your own registry: <code>https://your-registry.com/v0/servers</code></li>
                 <li>• Direct JSON file: <code>https://example.com/servers.json</code></li>

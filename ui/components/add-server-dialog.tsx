@@ -212,8 +212,8 @@ export function AddServerDialog({ open, onOpenChange, onServerAdded }: AddServer
       },
     }
 
-    return `# Generated Application manifest for MCP Server
-# Save as application.yaml, commit and push to your repository
+    return `# Generated Agent Registry manifest for MCP Server
+# Save as agentregistry.yaml, commit and push to your repository
 # Import using the "Import" option in the inventory UI
 
 ${toYaml(manifest)}
@@ -227,7 +227,7 @@ ${toYaml(manifest)}
       setGeneratedManifest(manifest)
       setShowPreview(true)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate manifest")
+      toast.error(err instanceof Error ? err.message : "Failed to generate agentregistry.yaml manifest")
     } finally {
       setLoading(false)
     }
@@ -238,13 +238,13 @@ ${toYaml(manifest)}
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `application.yaml`
+    a.download = `agentregistry.yaml`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    toast.success(`Manifest downloaded as application.yaml`)
+    toast.success(`Manifest downloaded as agentregistry.yaml`)
   }
 
   const handleCopy = async () => {
@@ -314,7 +314,7 @@ ${toYaml(manifest)}
                   <strong>Next steps:</strong>
                 </p>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                  <li>Download the manifest as <code className="bg-background px-1 py-0.5 rounded">application.yaml</code></li>
+                  <li>Download the manifest as <code className="bg-background px-1 py-0.5 rounded">agentregistry.yaml</code></li>
                   <li>Commit and push to your Git repository</li>
                   <li>Import from repository using the &ldquo;Import&rdquo; option in the inventory UI</li>
                 </ol>

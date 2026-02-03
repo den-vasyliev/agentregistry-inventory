@@ -105,7 +105,7 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Enter a Git repository URL (will check for application.yaml file), registry API endpoint, or direct URL to a JSON seed file
+              Enter a Git repository URL (will check for agentregistry.yaml file), registry API endpoint, or direct URL to a JSON seed file
             </p>
           </div>
 
@@ -168,7 +168,7 @@ export function ImportSkillsDialog({ open, onOpenChange, onImportComplete }: Imp
             <div className="text-sm text-blue-900 dark:text-blue-100">
               <p className="font-medium">Supported Sources:</p>
               <ul className="mt-1 space-y-1 text-xs">
-                <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for application.yaml file)</li>
+                <li>• Git Repository: <code>https://github.com/user/repo</code> (checks for agentregistry.yaml file)</li>
                 <li>• Registry API: <code>https://registry.example.com/v0/skills</code></li>
                 <li>• Direct JSON file: <code>https://example.com/skills.json</code></li>
               </ul>
