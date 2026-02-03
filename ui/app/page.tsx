@@ -237,6 +237,9 @@ export default function AdminPage() {
         return server
       })
 
+      // Update servers state with merged deployment status
+      setServers(serversWithDeploymentStatus)
+
       // Group servers by name
       const grouped = groupServersByName(serversWithDeploymentStatus)
       setGroupedServers(grouped)
