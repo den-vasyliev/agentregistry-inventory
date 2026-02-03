@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Git Workflow
 
-**IMPORTANT: Always use this command to push changes:**
+**CRITICAL: NEVER push before user tests!**
+
+DO NOT run `git push` automatically. After committing changes, WAIT for the user to test and explicitly ask to push.
+
+**IMPORTANT: Always use this command to push changes (when user approves):**
 
 ```bash
 git push origin HEAD:enterprise-controller
