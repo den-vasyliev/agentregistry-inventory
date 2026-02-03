@@ -192,16 +192,28 @@ export default function PublishedPage() {
     setItemToDeploy({ name, version, type })
   }
 
+  // Fetch environments when deploy dialog opens
+  useEffect(() => {
+    if (itemToDeploy) {
+      fetchEnvironments()
+    }
+  }, [itemToDeploy])
+
   const fetchEnvironments = async () => {
+    console.log("=== fetchEnvironments called")
     setLoadingEnvironments(true)
     try {
       const envs = await adminApiClient.listEnvironments()
+      console.log("=== API returned environments:", envs)
       if (envs && envs.length > 0) {
         setEnvironments(envs)
         setDeployNamespace(envs[0].namespace)
+        console.log("=== Set environments to:", envs)
+      } else {
+        console.log("=== No environments returned from API")
       }
     } catch (err) {
-      console.error("Failed to fetch environments:", err)
+      console.error("=== Failed to fetch environments:", err)
     } finally {
       setLoadingEnvironments(false)
     }
@@ -918,7 +930,6 @@ export default function PublishedPage() {
       {/* Deploy Confirmation Dialog */}
       <Dialog open={!!itemToDeploy} onOpenChange={(open) => {
         if (!open) setItemToDeploy(null)
-        if (open) fetchEnvironments()
       }}>
         <DialogContent onClose={() => setItemToDeploy(null)}>
           <DialogHeader>
@@ -944,7 +955,7 @@ export default function PublishedPage() {
                 <SelectContent>
                   {environments.map((env) => (
                     <SelectItem key={env.namespace} value={env.namespace}>
-                      {env.name} ({env.namespace})
+                      {env.name}/{env.namespace}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -33,6 +33,7 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
   // Fetch available environments from DiscoveryConfig
   useEffect(() => {
     const fetchEnvironments = async () => {
+      console.log("=== UI BUILD VERSION: 2024-02-03-v1 ===")
       console.log("=== Fetching environments, dialog open:", open)
       setLoadingEnvironments(true)
       try {
@@ -167,7 +168,7 @@ export function DeployServerDialog({ open, onOpenChange, server, onDeploySuccess
                 <SelectContent>
                   {environments.map((env) => (
                     <SelectItem key={env.namespace} value={env.namespace}>
-                      {env.name} ({env.namespace})
+                      {env.name}/{env.namespace}
                     </SelectItem>
                   ))}
                 </SelectContent>
