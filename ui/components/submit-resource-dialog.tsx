@@ -76,57 +76,92 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
   })
 
   const generateManifest = (): string => {
-    const manifest: Record<string, unknown> = {
-      kind: formData.kind,
-      name: formData.name,
-      version: formData.version,
-    }
-
-    if (formData.title) manifest.title = formData.title
-    if (formData.description) manifest.description = formData.description
-
+    // Generate Kubernetes CRD manifest for Agent Registry
+    const resourceName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+    const crName = `${resourceName}-${formData.version.replace(/\./g, '-')}`
+    
+    let manifest: Record<string, unknown>
+    
     if (formData.kind === "mcp-server") {
+      manifest = {
+        apiVersion: "agentregistry.dev/v1alpha1",
+        kind: "MCPServerCatalog",
+        metadata: {
+          name: crName,
+          labels: {
+            "agentregistry.dev/name": resourceName,
+            "agentregistry.dev/version": formData.version,
+          },
+        },
+        spec: {
+          name: formData.name,
+          version: formData.version,
+          title: formData.title || formData.name,
+          description: formData.description,
+        } as Record<string, unknown>,
+      }
+      
       if (formData.packageIdentifier) {
-        manifest.packages = [{
-          type: formData.packageType,
+        (manifest.spec as Record<string, unknown>).packages = [{
+          registryType: formData.packageType,
           identifier: formData.packageIdentifier,
-          transport: formData.transport,
+          transport: {
+            type: formData.transport,
+          },
         }]
       }
+      
       if (formData.remoteUrl) {
-        manifest.remotes = [{
+        (manifest.spec as Record<string, unknown>).remotes = [{
           url: formData.remoteUrl,
-          type: "sse",
+          type: "streamable-http",
         }]
       }
     } else if (formData.kind === "agent") {
-      if (formData.image) {
-        manifest.packages = [{
-          type: "oci",
+      manifest = {
+        apiVersion: "agentregistry.dev/v1alpha1",
+        kind: "AgentCatalog",
+        metadata: {
+          name: crName,
+          labels: {
+            "agentregistry.dev/name": resourceName,
+            "agentregistry.dev/version": formData.version,
+          },
+        },
+        spec: {
+          name: formData.name,
+          version: formData.version,
+          title: formData.title || formData.name,
+          description: formData.description,
           image: formData.image,
-        }]
+        } as Record<string, unknown>,
       }
-      manifest.agent = {}
-      if (formData.framework) (manifest.agent as Record<string, string>).framework = formData.framework
-      if (formData.language) (manifest.agent as Record<string, string>).language = formData.language
-      if (formData.modelProvider) (manifest.agent as Record<string, string>).modelProvider = formData.modelProvider
-      if (formData.modelName) (manifest.agent as Record<string, string>).modelName = formData.modelName
-
-      // MCP servers for agent tools/skills
-      if (formData.mcpServers) {
-        const serverNames = formData.mcpServers.split(',').map(s => s.trim()).filter(s => s)
-        if (serverNames.length > 0) {
-          manifest.mcpServers = serverNames.map(name => ({
-            type: "registry",
-            name: name,
-          }))
-        }
+    } else {
+      // skill
+      manifest = {
+        apiVersion: "agentregistry.dev/v1alpha1",
+        kind: "SkillCatalog",
+        metadata: {
+          name: crName,
+          labels: {
+            "agentregistry.dev/name": resourceName,
+            "agentregistry.dev/version": formData.version,
+          },
+        },
+        spec: {
+          name: formData.name,
+          version: formData.version,
+          title: formData.title || formData.name,
+          description: formData.description,
+        },
       }
     }
-    // Skills don't have package information - they're metadata only
 
     // Convert to YAML-like format (simple implementation)
-    return formatAsYaml(manifest)
+    return `# Agent Registry manifest
+# Save as agentregistry.yaml in your repository
+
+${formatAsYaml(manifest)}`
   }
 
   const formatAsYaml = (obj: Record<string, unknown>, indent = 0): string => {
@@ -183,7 +218,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
     const repoName = repo.replace(/\.git$/, "")
     const manifest = generateManifest()
     const encodedManifest = encodeURIComponent(manifest)
-    const filename = ".agentregistry.yaml"
+    const filename = "agentregistry.yaml"
 
     // GitHub new file URL with pre-filled content
     // Using the new file creation URL pattern
@@ -442,7 +477,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Generated Manifest (.agentregistry.yaml)</Label>
+                <Label>Generated Manifest (agentregistry.yaml)</Label>
                 <Button variant="ghost" size="sm" onClick={handleCopyManifest}>
                   <Copy className="h-4 w-4 mr-1" />
                   Copy
