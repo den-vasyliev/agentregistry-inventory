@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers"
 )
 
@@ -41,13 +41,13 @@ type Server struct {
 func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Server {
 	mux := http.NewServeMux()
 
-	config := huma.DefaultConfig("Agent Registry API", "1.0.0")
-	config.Info.Description = "Kubernetes-native agent and MCP server registry"
+	apiConfig := huma.DefaultConfig("Agent Registry API", "1.0.0")
+	apiConfig.Info.Description = "Kubernetes-native agent and MCP server registry"
 
-	api := humago.New(mux, config)
+	api := humago.New(mux, apiConfig)
 
 	// Check if auth should be disabled (for demo/dev)
-	authEnabled := os.Getenv("AGENTREGISTRY_DISABLE_AUTH") != "true"
+	authEnabled := config.IsAuthEnabled()
 
 	s := &Server{
 		client:        c,
@@ -59,9 +59,8 @@ func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Serve
 		allowedTokens: make(map[string]bool),
 	}
 
-	// Load allowed tokens from environment variable
-	// Format: comma-separated tokens in AGENTREGISTRY_API_TOKENS
-	s.loadTokensFromEnv()
+	// Load allowed tokens from Kubernetes Secret
+	s.loadTokensFromSecret()
 
 	s.registerRoutes()
 
@@ -106,15 +105,12 @@ func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 	next(ctx)
 }
 
-// loadTokensFromEnv loads API tokens from Kubernetes Secret
+// loadTokensFromSecret loads API tokens from Kubernetes Secret
 // Reads from Secret "agentregistry-api-tokens" in the controller namespace
 // Each key in the secret data is treated as a valid token
-func (s *Server) loadTokensFromEnv() {
-	// Get namespace from environment (set by downward API in deployment)
-	namespace := os.Getenv("POD_NAMESPACE")
-	if namespace == "" {
-		namespace = "agentregistry" // default namespace
-	}
+func (s *Server) loadTokensFromSecret() {
+	// Get namespace from configuration
+	namespace := config.GetNamespace()
 
 	// Try to read tokens from Secret
 	secret := &corev1.Secret{}

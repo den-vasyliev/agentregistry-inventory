@@ -16,6 +16,8 @@ import (
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/controller"
+	"github.com/agentregistry-dev/agentregistry/internal/conversion"
+	"github.com/agentregistry-dev/agentregistry/internal/validation"
 )
 
 // ServerHandler handles MCP server catalog operations
@@ -23,6 +25,14 @@ type ServerHandler struct {
 	client client.Client
 	cache  cache.Cache
 	logger zerolog.Logger
+}
+
+// listFromCacheOrClient lists resources from cache if available, otherwise from client
+func (h *ServerHandler) listFromCacheOrClient(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if h.cache != nil {
+		return h.cache.List(ctx, list, opts...)
+	}
+	return h.client.List(ctx, list, opts...)
 }
 
 // NewServerHandler creates a new server handler
@@ -267,7 +277,7 @@ func (h *ServerHandler) listServers(ctx context.Context, input *ListServersInput
 		})
 	}
 
-	if err := h.cache.List(ctx, &serverList, listOpts...); err != nil {
+	if err := h.listFromCacheOrClient(ctx, &serverList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list servers", err)
 	}
 
@@ -326,7 +336,7 @@ func (h *ServerHandler) getServer(ctx context.Context, input *ServerDetailInput,
 		})
 	}
 
-	if err := h.cache.List(ctx, &serverList, listOpts...); err != nil {
+	if err := h.listFromCacheOrClient(ctx, &serverList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get server", err)
 	}
 
@@ -350,7 +360,7 @@ func (h *ServerHandler) getServerVersion(ctx context.Context, input *ServerVersi
 	}
 
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.cache.List(ctx, &serverList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
 		controller.IndexMCPServerName: serverName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get server", err)
@@ -371,6 +381,23 @@ func (h *ServerHandler) getServerVersion(ctx context.Context, input *ServerVersi
 }
 
 func (h *ServerHandler) createServer(ctx context.Context, input *CreateServerInput) (*Response[ServerResponse], error) {
+	// Validate server name
+	if err := validation.ValidateServerName(input.Body.Name); err != nil {
+		return nil, huma.Error400BadRequest("Invalid server name", err)
+	}
+
+	// Validate version
+	if err := validation.ValidateSemanticVersion(input.Body.Version); err != nil {
+		return nil, huma.Error400BadRequest("Invalid version", err)
+	}
+
+	// Validate repository URL if provided
+	if input.Body.Repository != nil && input.Body.Repository.URL != "" {
+		if err := validation.ValidateRepositoryURL(input.Body.Repository.URL); err != nil {
+			return nil, huma.Error400BadRequest("Invalid repository URL", err)
+		}
+	}
+
 	crName := GenerateCRName(input.Body.Name, input.Body.Version)
 
 	server := &agentregistryv1alpha1.MCPServerCatalog{
@@ -487,7 +514,7 @@ func (h *ServerHandler) listServerVersions(ctx context.Context, input *ServerDet
 	}
 
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.cache.List(ctx, &serverList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
 		controller.IndexMCPServerName: serverName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list server versions", err)
@@ -519,7 +546,7 @@ func (h *ServerHandler) publishServer(ctx context.Context, input *PublishServerI
 	}
 
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.cache.List(ctx, &serverList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
 		controller.IndexMCPServerName: serverName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to find server", err)
@@ -561,7 +588,7 @@ func (h *ServerHandler) unpublishServer(ctx context.Context, input *PublishServe
 	}
 
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.cache.List(ctx, &serverList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
 		controller.IndexMCPServerName: serverName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to find server", err)
@@ -617,89 +644,51 @@ func (h *ServerHandler) deleteServerVersion(ctx context.Context, input *ServerVe
 }
 
 func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServerCatalog) ServerResponse {
+	// Convert repository using conversion package
+	var repoJSON *RepositoryJSON
+	if repo := conversion.RepositoryFromCRD(s.Spec.Repository); repo != nil {
+		repoJSON = &RepositoryJSON{
+			URL:       repo.URL,
+			Source:    repo.Source,
+			ID:        repo.ID,
+			Subfolder: repo.Subfolder,
+		}
+	}
+
+	// Convert packages using conversion package
+	packages := make([]PackageJSON, len(s.Spec.Packages))
+	for i, p := range s.Spec.Packages {
+		pkg := conversion.PackageFromCRD(p)
+		packages[i] = PackageJSON{
+			RegistryType:         pkg.RegistryType,
+			RegistryBaseURL:      pkg.RegistryBaseURL,
+			Identifier:           pkg.Identifier,
+			Version:              pkg.Version,
+			FileSHA256:           pkg.FileSHA256,
+			RuntimeHint:          pkg.RuntimeHint,
+			Transport:            convertTransport(pkg.Transport),
+			RuntimeArguments:     convertArguments(pkg.RuntimeArguments),
+			PackageArguments:     convertArguments(pkg.PackageArguments),
+			EnvironmentVariables: convertKeyValues(pkg.EnvironmentVariables),
+		}
+	}
+
+	// Convert remotes using conversion package
+	remotes := make([]TransportJSON, len(s.Spec.Remotes))
+	for i, r := range s.Spec.Remotes {
+		transport := conversion.TransportFromCRD(r)
+		remotes[i] = convertTransport(transport)
+	}
+
 	server := ServerJSON{
 		Name:        s.Spec.Name,
 		Version:     s.Spec.Version,
 		Title:       s.Spec.Title,
 		Description: s.Spec.Description,
 		WebsiteURL:  s.Spec.WebsiteURL,
-	}
-
-	if s.Spec.Repository != nil {
-		server.Repository = &RepositoryJSON{
-			URL:       s.Spec.Repository.URL,
-			Source:    s.Spec.Repository.Source,
-			ID:        s.Spec.Repository.ID,
-			Subfolder: s.Spec.Repository.Subfolder,
-		}
-	}
-
-	for _, p := range s.Spec.Packages {
-		pkg := PackageJSON{
-			RegistryType:    p.RegistryType,
-			RegistryBaseURL: p.RegistryBaseURL,
-			Identifier:      p.Identifier,
-			Version:         p.Version,
-			FileSHA256:      p.FileSHA256,
-			RuntimeHint:     p.RuntimeHint,
-			Transport: TransportJSON{
-				Type: p.Transport.Type,
-				URL:  p.Transport.URL,
-			},
-		}
-		for _, h := range p.Transport.Headers {
-			pkg.Transport.Headers = append(pkg.Transport.Headers, KeyValueJSON{
-				Name:        h.Name,
-				Description: h.Description,
-				Value:       h.Value,
-				Required:    h.Required,
-			})
-		}
-		for _, a := range p.RuntimeArguments {
-			pkg.RuntimeArguments = append(pkg.RuntimeArguments, ArgumentJSON{
-				Name:        a.Name,
-				Type:        a.Type,
-				Description: a.Description,
-				Value:       a.Value,
-				Required:    a.Required,
-				Multiple:    a.Multiple,
-			})
-		}
-		for _, a := range p.PackageArguments {
-			pkg.PackageArguments = append(pkg.PackageArguments, ArgumentJSON{
-				Name:        a.Name,
-				Type:        a.Type,
-				Description: a.Description,
-				Value:       a.Value,
-				Required:    a.Required,
-				Multiple:    a.Multiple,
-			})
-		}
-		for _, e := range p.EnvironmentVariables {
-			pkg.EnvironmentVariables = append(pkg.EnvironmentVariables, KeyValueJSON{
-				Name:        e.Name,
-				Description: e.Description,
-				Value:       e.Value,
-				Required:    e.Required,
-			})
-		}
-		server.Packages = append(server.Packages, pkg)
-	}
-
-	for _, r := range s.Spec.Remotes {
-		remote := TransportJSON{
-			Type: r.Type,
-			URL:  r.URL,
-		}
-		for _, hdr := range r.Headers {
-			remote.Headers = append(remote.Headers, KeyValueJSON{
-				Name:        hdr.Name,
-				Description: hdr.Description,
-				Value:       hdr.Value,
-				Required:    hdr.Required,
-			})
-		}
-		server.Remotes = append(server.Remotes, remote)
+		Repository:  repoJSON,
+		Packages:    packages,
+		Remotes:     remotes,
 	}
 
 	var publishedAt *time.Time
@@ -735,4 +724,43 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 	// UI fetches actual status from /deployments endpoint which reads from RegistryDeployment/MCPServer/Agent resources.
 
 	return resp
+}
+
+// convertArguments converts conversion.ArgumentJSON slice to handlers.ArgumentJSON slice
+func convertArguments(args []conversion.ArgumentJSON) []ArgumentJSON {
+	result := make([]ArgumentJSON, len(args))
+	for i, a := range args {
+		result[i] = ArgumentJSON{
+			Name:        a.Name,
+			Type:        a.Type,
+			Description: a.Description,
+			Value:       a.Value,
+			Required:    a.Required,
+			Multiple:    a.Multiple,
+		}
+	}
+	return result
+}
+
+// convertKeyValues converts conversion.KeyValueJSON slice to handlers.KeyValueJSON slice
+func convertKeyValues(kvs []conversion.KeyValueJSON) []KeyValueJSON {
+	result := make([]KeyValueJSON, len(kvs))
+	for i, kv := range kvs {
+		result[i] = KeyValueJSON{
+			Name:        kv.Name,
+			Description: kv.Description,
+			Value:       kv.Value,
+			Required:    kv.Required,
+		}
+	}
+	return result
+}
+
+// convertTransport converts conversion.TransportJSON to handlers.TransportJSON
+func convertTransport(t conversion.TransportJSON) TransportJSON {
+	return TransportJSON{
+		Type:    t.Type,
+		URL:     t.URL,
+		Headers: convertKeyValues(t.Headers),
+	}
 }

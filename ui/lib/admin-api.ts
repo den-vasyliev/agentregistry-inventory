@@ -5,6 +5,24 @@
 // In production (static export), API_BASE_URL is set via environment variable or defaults to current origin
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.origin) || ''
 
+// Retry configuration
+const DEFAULT_RETRIES = 3
+const DEFAULT_RETRY_DELAY = 1000 // ms
+const MAX_RETRY_DELAY = 10000 // ms
+
+// HTTP status codes that should trigger a retry
+const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504]
+
+// Helper function to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Calculate backoff with jitter
+const calculateBackoff = (attempt: number, baseDelay: number): number => {
+  const exponentialDelay = baseDelay * Math.pow(2, attempt)
+  const jitter = Math.random() * 1000 // Add up to 1s of jitter
+  return Math.min(exponentialDelay + jitter, MAX_RETRY_DELAY)
+}
+
 // MCP Server types based on the official spec
 export interface ServerJSON {
   $schema?: string
@@ -310,10 +328,19 @@ export interface ModelListResponse {
 class AdminApiClient {
   private baseUrl: string
   private getAuthToken?: () => string | null
+  private retries: number
+  private retryDelay: number
 
-  constructor(baseUrl: string = API_BASE_URL, getAuthToken?: () => string | null) {
+  constructor(
+    baseUrl: string = API_BASE_URL, 
+    getAuthToken?: () => string | null,
+    retries: number = DEFAULT_RETRIES,
+    retryDelay: number = DEFAULT_RETRY_DELAY
+  ) {
     this.baseUrl = baseUrl
     this.getAuthToken = getAuthToken
+    this.retries = retries
+    this.retryDelay = retryDelay
   }
 
   private getHeaders(): HeadersInit {
@@ -329,6 +356,46 @@ class AdminApiClient {
     }
 
     return headers
+  }
+
+  // Fetch with retry logic
+  private async fetchWithRetry(
+    url: string, 
+    options: RequestInit, 
+    attempt: number = 0
+  ): Promise<Response> {
+    try {
+      const response = await fetch(url, options)
+      
+      // If response is ok or not retryable, return immediately
+      if (response.ok || !RETRYABLE_STATUS_CODES.includes(response.status)) {
+        return response
+      }
+      
+      // If we've exhausted retries, return the response
+      if (attempt >= this.retries) {
+        console.warn(`Fetch failed after ${this.retries} retries: ${url}`)
+        return response
+      }
+      
+      // Calculate backoff and retry
+      const backoff = calculateBackoff(attempt, this.retryDelay)
+      console.warn(`Fetch failed with ${response.status}, retrying in ${backoff}ms (attempt ${attempt + 1}/${this.retries})`)
+      await delay(backoff)
+      return this.fetchWithRetry(url, options, attempt + 1)
+      
+    } catch (error) {
+      // Network errors should be retried
+      if (attempt >= this.retries) {
+        console.error(`Fetch failed after ${this.retries} retries:`, error)
+        throw error
+      }
+      
+      const backoff = calculateBackoff(attempt, this.retryDelay)
+      console.warn(`Network error, retrying in ${backoff}ms (attempt ${attempt + 1}/${this.retries})`)
+      await delay(backoff)
+      return this.fetchWithRetry(url, options, attempt + 1)
+    }
   }
 
   // List servers with pagination and filtering (ADMIN - shows all servers)
@@ -347,9 +414,9 @@ class AdminApiClient {
     if (params?.updated_since) queryParams.append('updated_since', params.updated_since)
 
     const url = `${this.baseUrl}/admin/v0/servers${queryParams.toString() ? '?' + queryParams.toString() : ''}`
-    const response = await fetch(url)
+    const response = await this.fetchWithRetry(url, { headers: this.getHeaders() })
     if (!response.ok) {
-      throw new Error('Failed to fetch servers')
+      throw new Error(`Failed to fetch servers: ${response.status} ${response.statusText}`)
     }
     return response.json()
   }
@@ -415,7 +482,7 @@ class AdminApiClient {
   // Create a new server
   async createServer(server: ServerJSON): Promise<ServerResponse> {
     console.log('Creating server:', server)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/admin/v0/servers`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(server),
