@@ -119,6 +119,12 @@ test: envtest ## Run all tests with coverage
 		./internal/runtime/translation/kagent
 	@go tool cover -func=coverage.out | grep total:
 
+test-dev-env: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
+	@echo "Starting dev environment (Ctrl+C to stop)..."
+	@echo "  Then in another terminal:  cd ui && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev"
+	@DEVENV=1 KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
+		go test -run TestDevEnv -timeout 30m -v ./test/devenv/
+
 lint: ## Run linters (gofmt, go vet)
 	@echo "Running gofmt..."
 	@gofmt_output=$$(gofmt -l .); \
