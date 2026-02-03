@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Git Workflow
 
-**CRITICAL: NEVER push before user tests!**
+**CRITICAL: NO commits or pushes until ALL tests pass.** Run `make test` first. If any test fails, fix it before committing. NEVER commit or push untested code.
 
-DO NOT run `git push` automatically. After committing changes, WAIT for the user to test and explicitly ask to push.
+**CRITICAL: NEVER push before user tests!** After committing, WAIT for the user to test and explicitly ask to push.
 
 **IMPORTANT: Always use this command to push changes (when user approves):**
 

@@ -5,7 +5,7 @@
 
   [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-  [![Test Coverage](https://img.shields.io/badge/coverage-22%25-yellow.svg)](https://github.com/agentregistry-dev/agentregistry)
+  [![Test Coverage](https://img.shields.io/badge/coverage-24.7%25-yellow.svg)](https://github.com/agentregistry-dev/agentregistry)
   [![Discord](https://img.shields.io/discord/1435836734666707190?label=Join%20Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/HTYNjF2y2t)
 
   ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, skills, and models.
@@ -490,7 +490,7 @@ make lint
 make fmt
 ```
 
-Current test coverage: **22%** (focused on controller logic and runtime translation)
+Current test coverage: **24.7%** (focused on controller logic and runtime translation)
 
 ## 🤝 Contributing
 
