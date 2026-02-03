@@ -308,13 +308,8 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 		return nil, huma.Error500InternalServerError("Failed to create deployment", err)
 	}
 
-	// Set initial status
-	now := metav1.Now()
-	deployment.Status.Phase = agentregistryv1alpha1.DeploymentPhasePending
-	deployment.Status.DeployedAt = &now
-	if err := h.client.Status().Update(ctx, deployment); err != nil {
-		h.logger.Error().Err(err).Msg("failed to update deployment status")
-	}
+	// Note: Status will be set by the RegistryDeploymentReconciler.
+	// Don't update status here to avoid race conditions with the reconciler.
 
 	return &Response[DeploymentResponse]{
 		Body: DeploymentResponse{
