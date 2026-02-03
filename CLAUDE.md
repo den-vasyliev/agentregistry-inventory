@@ -12,6 +12,15 @@ git push origin HEAD:enterprise-controller
 
 This repository uses `enterprise-controller` as the working branch, not `main`.
 
+**IMPORTANT: Commit Messages**
+
+Do NOT add the following line to commit messages:
+```
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+This project does not use co-author attribution in commits.
+
 ## Project Overview
 
 Agent Registry is a **Kubernetes-native controller** that provides a centralized registry to securely curate, discover, deploy, and manage agentic infrastructure including MCP servers, agents, and skills.
