@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -73,8 +74,9 @@ type SkillUsageRefJSON struct {
 }
 
 type SkillMeta struct {
-	Official *OfficialMeta       `json:"io.modelcontextprotocol.registry/official,omitempty"`
-	UsedBy   []SkillUsageRefJSON `json:"usedBy,omitempty"`
+	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
+	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
+	UsedBy            []SkillUsageRefJSON    `json:"usedBy,omitempty"`
 }
 
 type SkillResponse struct {
@@ -588,7 +590,7 @@ func (h *SkillHandler) convertToSkillResponse(s *agentregistryv1alpha1.SkillCata
 		})
 	}
 
-	return SkillResponse{
+	resp := SkillResponse{
 		Skill: skill,
 		Meta: SkillMeta{
 			Official: &OfficialMeta{
@@ -601,4 +603,16 @@ func (h *SkillHandler) convertToSkillResponse(s *agentregistryv1alpha1.SkillCata
 			UsedBy: usedBy,
 		},
 	}
+
+	// Include publisher-provided metadata if available
+	if s.Spec.Metadata != nil && len(s.Spec.Metadata.Raw) > 0 {
+		var metadata map[string]interface{}
+		if err := json.Unmarshal(s.Spec.Metadata.Raw, &metadata); err == nil {
+			if publisherProvided, ok := metadata["io.modelcontextprotocol.registry/publisher-provided"].(map[string]interface{}); ok {
+				resp.Meta.PublisherProvided = publisherProvided
+			}
+		}
+	}
+
+	return resp
 }

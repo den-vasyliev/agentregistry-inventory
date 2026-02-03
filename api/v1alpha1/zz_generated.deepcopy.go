@@ -6,7 +6,8 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -97,6 +98,11 @@ func (in *AgentCatalogSpec) DeepCopyInto(out *AgentCatalogSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Metadata != nil {
+		in, out := &in.Metadata, &out.Metadata
+		*out = new(v1.JSON)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -349,7 +355,7 @@ func (in *DiscoveryConfigStatus) DeepCopyInto(out *DiscoveryConfigStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -524,6 +530,11 @@ func (in *MCPServerCatalogSpec) DeepCopyInto(out *MCPServerCatalogSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Metadata != nil {
+		in, out := &in.Metadata, &out.Metadata
+		*out = new(v1.JSON)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -995,6 +1006,11 @@ func (in *SkillCatalogSpec) DeepCopyInto(out *SkillCatalogSpec) {
 		in, out := &in.Remotes, &out.Remotes
 		*out = make([]SkillRemote, len(*in))
 		copy(*out, *in)
+	}
+	if in.Metadata != nil {
+		in, out := &in.Metadata, &out.Metadata
+		*out = new(v1.JSON)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
