@@ -27,6 +27,7 @@ export default function RootLayout({
           <Navigation />
           {children}
           <Toaster />
+          <div className="fixed bottom-2 right-2 text-xs text-muted-foreground/50">v2025.02.03.3</div>
         </SessionProvider>
       </body>
     </html>

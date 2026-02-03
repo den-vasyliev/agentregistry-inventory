@@ -152,6 +152,7 @@ func (s *Server) registerRoutes() {
 	skillHandler := handlers.NewSkillHandler(s.client, s.cache, s.logger)
 	modelHandler := handlers.NewModelHandler(s.client, s.cache, s.logger)
 	deploymentHandler := handlers.NewDeploymentHandler(s.client, s.cache, s.logger)
+	environmentHandler := handlers.NewEnvironmentHandler(s.client, s.cache, s.logger)
 
 	// Register public API endpoints (v0)
 	serverHandler.RegisterRoutes(s.api, "/v0", false)
@@ -159,6 +160,7 @@ func (s *Server) registerRoutes() {
 	skillHandler.RegisterRoutes(s.api, "/v0", false)
 	modelHandler.RegisterRoutes(s.api, "/v0", false)
 	deploymentHandler.RegisterRoutes(s.api, "/v0", false)
+	environmentHandler.RegisterRoutes(s.api, "/v0", false)
 
 	// Register admin API endpoints with auth middleware
 	if s.authEnabled {
@@ -169,6 +171,7 @@ func (s *Server) registerRoutes() {
 	skillHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	modelHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	deploymentHandler.RegisterRoutes(s.api, "/admin/v0", true)
+	environmentHandler.RegisterRoutes(s.api, "/admin/v0", true)
 
 	// Register admin utility endpoints
 	s.registerAdminUtilityRoutes()

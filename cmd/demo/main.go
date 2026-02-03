@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"github.com/go-logr/zerologr"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +42,22 @@ func init() {
 	_ = agentregistryv1alpha1.AddToScheme(scheme)
 	_ = kagentv1alpha2.AddToScheme(scheme)
 	_ = kmcpv1alpha1.AddToScheme(scheme)
+}
+
+// createMetadata creates metadata JSON with verification flags
+func createMetadata(orgVerified, publisherVerified bool) *apiextensionsv1.JSON {
+	metadata := map[string]interface{}{
+		"io.modelcontextprotocol.registry/publisher-provided": map[string]interface{}{
+			"aregistry.ai/metadata": map[string]interface{}{
+				"identity": map[string]interface{}{
+					"org_is_verified":                    orgVerified,
+					"publisher_identity_verified_by_jwt": publisherVerified,
+				},
+			},
+		},
+	}
+	raw, _ := json.Marshal(metadata)
+	return &apiextensionsv1.JSON{Raw: raw}
 }
 
 func main() {
@@ -107,8 +126,14 @@ func main() {
 	}
 	setupReconcilers(mgr, log.Logger)
 
+	// Create a client.WithWatch for the local cluster
+	localClient, err := client.NewWithWatch(config, client.Options{Scheme: scheme})
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create local watch client")
+	}
+
 	// Initialize remote client factory
-	clusterFactory := cluster.NewFactory(mgr.GetClient(), log.Logger)
+	clusterFactory := cluster.NewFactory(localClient, log.Logger)
 	controller.RemoteClientFactory = clusterFactory.CreateClientFunc()
 
 	// Setup HTTP API
@@ -152,7 +177,7 @@ func main() {
 	// Print info
 	fmt.Println()
 	fmt.Println("════════════════════════════════════════════════════════")
-	fmt.Println("  Demo Running")
+	fmt.Println("  Demo Running - Multi-Namespace Setup")
 	fmt.Println("════════════════════════════════════════════════════════")
 	fmt.Printf("  API:        http://localhost%s\n", httpAPIAddr)
 	if !skipUI {
@@ -160,8 +185,14 @@ func main() {
 	}
 	fmt.Printf("  Kubeconfig: %s\n", kubeconfigPath)
 	fmt.Println()
-	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get mcpservercatalog")
+	fmt.Println("  Catalog resources in 'agentregistry' namespace")
+	fmt.Println("  Deployment targets: dev, staging, prod, agentregistry")
+	fmt.Println()
+	fmt.Println("  Example commands:")
+	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get mcpservercatalog -n agentregistry")
+	fmt.Println("  kubectl --kubeconfig=" + kubeconfigPath + " get registrydeployment -n agentregistry")
 	fmt.Println("  curl http://localhost:8080/v0/servers")
+	fmt.Println("  curl http://localhost:8080/v0/environments")
 	fmt.Println()
 	fmt.Println("  Press Ctrl+C to stop")
 	fmt.Println("════════════════════════════════════════════════════════")
@@ -217,140 +248,331 @@ func setupReconcilers(mgr ctrl.Manager, logger zerolog.Logger) {
 func createSampleResources(ctx context.Context, c client.Client) error {
 	now := metav1.Now()
 
-	// Create all resources first, then update status
-	// MCP Servers
-	servers := []*agentregistryv1alpha1.MCPServerCatalog{
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "filesystem-server-v1.0.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-				Name: "filesystem-server", Version: "1.0.0", Title: "Filesystem MCP Server",
-				Description: "File system operations for AI agents",
-				Packages:    []agentregistryv1alpha1.Package{{RegistryType: "npm", Identifier: "@modelcontextprotocol/server-filesystem", Transport: agentregistryv1alpha1.Transport{Type: "stdio"}}},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "github-server-v2.1.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-				Name: "github-server", Version: "2.1.0", Title: "GitHub MCP Server",
-				Description: "GitHub API integration",
-				Remotes:     []agentregistryv1alpha1.Transport{{Type: "streamable-http", URL: "https://mcp.example.com/github"}},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "slack-server-v1.5.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-				Name: "slack-server", Version: "1.5.0", Title: "Slack MCP Server",
-				Description: "Slack integration",
-				Packages:    []agentregistryv1alpha1.Package{{RegistryType: "npm", Identifier: "@modelcontextprotocol/server-slack", Transport: agentregistryv1alpha1.Transport{Type: "stdio"}}},
+	// Create agentregistry namespace for all Agent Registry resources
+	agentregistryNs := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "agentregistry",
+			Labels: map[string]string{
+				"app": "agentregistry",
 			},
 		},
 	}
-	for _, s := range servers {
-		if err := c.Create(ctx, s); err != nil {
-			return err
-		}
-	}
-	time.Sleep(100 * time.Millisecond) // Let reconciler settle
-	for _, s := range servers {
-		if err := c.Get(ctx, client.ObjectKeyFromObject(s), s); err != nil {
-			return err
-		}
-		s.Status.Published = true
-		s.Status.IsLatest = true
-		s.Status.PublishedAt = &now
-		s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-		if err := c.Status().Update(ctx, s); err != nil {
-			return err
-		}
+	if err := c.Create(ctx, agentregistryNs); err != nil {
+		log.Warn().Err(err).Msg("agentregistry namespace may already exist")
 	}
 
-	// Agents
-	agents := []*agentregistryv1alpha1.AgentCatalog{
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "research-agent-v0.5.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.AgentCatalogSpec{
-				Name: "research-agent", Version: "0.5.0", Title: "Research Agent",
-				Description: "AI research assistant", Image: "ghcr.io/example/research-agent:0.5.0",
-				Framework: "langgraph", ModelProvider: "anthropic",
+	// Create namespaces for multi-environment demo (for discovered resources)
+	namespaces := []string{"dev", "staging", "prod"}
+	for _, ns := range namespaces {
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+				Labels: map[string]string{
+					"environment": ns,
+				},
 			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "code-review-agent-v1.2.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.AgentCatalogSpec{
-				Name: "code-review-agent", Version: "1.2.0", Title: "Code Review Agent",
-				Description: "Automated code review", Image: "ghcr.io/example/code-review-agent:1.2.0",
-				Framework: "autogen", ModelProvider: "openai",
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "devops-agent-v2.0.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.AgentCatalogSpec{
-				Name: "devops-agent", Version: "2.0.0", Title: "DevOps Agent",
-				Description: "DevOps automation", Image: "ghcr.io/example/devops-agent:2.0.0",
-				Framework: "custom", ModelProvider: "anthropic",
-			},
-		},
-	}
-	for _, a := range agents {
-		if err := c.Create(ctx, a); err != nil {
-			return err
+		}
+		if err := c.Create(ctx, namespace); err != nil {
+			log.Warn().Err(err).Str("namespace", ns).Msg("namespace may already exist")
 		}
 	}
-	time.Sleep(100 * time.Millisecond)
-	for _, a := range agents {
-		if err := c.Get(ctx, client.ObjectKeyFromObject(a), a); err != nil {
-			return err
-		}
-		a.Status.Published = true
-		a.Status.IsLatest = true
-		a.Status.PublishedAt = &now
-		a.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-		if err := c.Status().Update(ctx, a); err != nil {
-			return err
-		}
-	}
+	log.Info().Msg("created namespaces: agentregistry, dev, staging, prod")
 
-	// Skills
-	skills := []*agentregistryv1alpha1.SkillCatalog{
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "terraform-skill-v1.5.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.SkillCatalogSpec{
-				Name: "terraform-skill", Version: "1.5.0", Title: "Terraform Skill",
-				Category: "infrastructure", Description: "Infrastructure management",
+	// Track all created resources for final count
+	var allServers, allAgents, allSkills, allDeployments int
+
+	// Create catalog resources in agentregistry namespace
+	// These represent the centralized catalog that Agent Registry manages
+	catalogNamespace := "agentregistry"
+
+	// Create resources per environment in the catalog
+	for _, ns := range namespaces {
+		log.Info().Str("environment", ns).Msg("creating catalog entries for environment")
+
+		// MCP Servers - all in agentregistry namespace
+		// Each environment has varied verification states for filtering demo
+		servers := []*agentregistryv1alpha1.MCPServerCatalog{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("filesystem-server-%s-v1.0.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("filesystem-server-%s", ns),
+					Version:     "1.0.0",
+					Title:       fmt.Sprintf("Filesystem MCP Server (%s)", ns),
+					Description: fmt.Sprintf("File system operations for AI agents in %s", ns),
+					Metadata:    createMetadata(true, false), // Verified org only
+					Packages: []agentregistryv1alpha1.Package{
+						{
+							RegistryType: "npm",
+							Identifier:   "@modelcontextprotocol/server-filesystem",
+							Transport:    agentregistryv1alpha1.Transport{Type: "stdio"},
+						},
+					},
+				},
 			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "sql-query-skill-v0.8.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.SkillCatalogSpec{
-				Name: "sql-query-skill", Version: "0.8.0", Title: "SQL Query Skill",
-				Category: "data", Description: "SQL query generation",
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("github-server-%s-v2.1.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("github-server-%s", ns),
+					Version:     "2.1.0",
+					Title:       fmt.Sprintf("GitHub MCP Server (%s)", ns),
+					Description: fmt.Sprintf("GitHub API integration in %s", ns),
+					Metadata:    createMetadata(true, true), // Both verified
+					Remotes: []agentregistryv1alpha1.Transport{
+						{Type: "streamable-http", URL: fmt.Sprintf("https://mcp.%s.example.com/github", ns)},
+					},
+				},
 			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "code-generation-skill-v2.0.0", Namespace: "default"},
-			Spec: agentregistryv1alpha1.SkillCatalogSpec{
-				Name: "code-generation-skill", Version: "2.0.0", Title: "Code Generation Skill",
-				Category: "development", Description: "Multi-language code generation",
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("slack-server-%s-v1.3.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("slack-server-%s", ns),
+					Version:     "1.3.0",
+					Title:       fmt.Sprintf("Slack MCP Server (%s)", ns),
+					Description: fmt.Sprintf("Slack messaging integration in %s", ns),
+					Metadata:    createMetadata(false, true), // Verified publisher only
+					Packages: []agentregistryv1alpha1.Package{
+						{
+							RegistryType: "npm",
+							Identifier:   "@modelcontextprotocol/server-slack",
+							Transport:    agentregistryv1alpha1.Transport{Type: "stdio"},
+						},
+					},
+				},
 			},
-		},
-	}
-	for _, s := range skills {
-		if err := c.Create(ctx, s); err != nil {
-			return err
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("postgres-server-%s-v0.9.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+					Name:        fmt.Sprintf("postgres-server-%s", ns),
+					Version:     "0.9.0",
+					Title:       fmt.Sprintf("PostgreSQL MCP Server (%s)", ns),
+					Description: fmt.Sprintf("PostgreSQL database operations in %s", ns),
+					Metadata:    nil, // No verification (community)
+					Packages: []agentregistryv1alpha1.Package{
+						{
+							RegistryType: "npm",
+							Identifier:   "@modelcontextprotocol/server-postgres",
+							Transport:    agentregistryv1alpha1.Transport{Type: "stdio"},
+						},
+					},
+				},
+			},
 		}
-	}
-	time.Sleep(100 * time.Millisecond)
-	for _, s := range skills {
-		if err := c.Get(ctx, client.ObjectKeyFromObject(s), s); err != nil {
-			return err
+
+		for _, s := range servers {
+			if err := c.Create(ctx, s); err != nil {
+				return err
+			}
 		}
-		s.Status.Published = true
-		s.Status.IsLatest = true
-		s.Status.PublishedAt = &now
-		s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-		if err := c.Status().Update(ctx, s); err != nil {
-			return err
+		time.Sleep(100 * time.Millisecond)
+		for _, s := range servers {
+			if err := c.Get(ctx, client.ObjectKeyFromObject(s), s); err != nil {
+				return err
+			}
+			s.Status.Published = true
+			s.Status.IsLatest = true
+			s.Status.PublishedAt = &now
+			s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+			if err := c.Status().Update(ctx, s); err != nil {
+				return err
+			}
 		}
+		allServers += len(servers)
+
+		// Agents - all in agentregistry namespace
+		agents := []*agentregistryv1alpha1.AgentCatalog{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("research-agent-%s-v0.5.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.AgentCatalogSpec{
+					Name:          fmt.Sprintf("research-agent-%s", ns),
+					Version:       "0.5.0",
+					Title:         fmt.Sprintf("Research Agent (%s)", ns),
+					Description:   fmt.Sprintf("AI research assistant in %s", ns),
+					Image:         "ghcr.io/example/research-agent:0.5.0",
+					Framework:     "langgraph",
+					ModelProvider: "anthropic",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("code-review-agent-%s-v1.2.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.AgentCatalogSpec{
+					Name:          fmt.Sprintf("code-review-agent-%s", ns),
+					Version:       "1.2.0",
+					Title:         fmt.Sprintf("Code Review Agent (%s)", ns),
+					Description:   fmt.Sprintf("Automated code review in %s", ns),
+					Image:         "ghcr.io/example/code-review-agent:1.2.0",
+					Framework:     "autogen",
+					ModelProvider: "openai",
+				},
+			},
+		}
+
+		for _, a := range agents {
+			if err := c.Create(ctx, a); err != nil {
+				return err
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+		for _, a := range agents {
+			if err := c.Get(ctx, client.ObjectKeyFromObject(a), a); err != nil {
+				return err
+			}
+			a.Status.Published = true
+			a.Status.IsLatest = true
+			a.Status.PublishedAt = &now
+			a.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+			if err := c.Status().Update(ctx, a); err != nil {
+				return err
+			}
+		}
+		allAgents += len(agents)
+
+		// Skills - all in agentregistry namespace
+		// Each environment has varied verification states for filtering demo
+		skills := []*agentregistryv1alpha1.SkillCatalog{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("terraform-skill-%s-v1.5.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("terraform-skill-%s", ns),
+					Version:     "1.5.0",
+					Title:       fmt.Sprintf("Terraform Skill (%s)", ns),
+					Category:    "infrastructure",
+					Description: fmt.Sprintf("Infrastructure management in %s", ns),
+					Metadata:    createMetadata(true, false), // Verified org only
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("sql-query-skill-%s-v0.8.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("sql-query-skill-%s", ns),
+					Version:     "0.8.0",
+					Title:       fmt.Sprintf("SQL Query Skill (%s)", ns),
+					Category:    "data",
+					Description: fmt.Sprintf("SQL query generation in %s", ns),
+					Metadata:    createMetadata(true, true), // Both verified
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("kubernetes-skill-%s-v1.0.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("kubernetes-skill-%s", ns),
+					Version:     "1.0.0",
+					Title:       fmt.Sprintf("Kubernetes Skill (%s)", ns),
+					Category:    "infrastructure",
+					Description: fmt.Sprintf("Kubernetes cluster management in %s", ns),
+					Metadata:    createMetadata(false, true), // Verified publisher only
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("python-skill-%s-v0.5.0", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.SkillCatalogSpec{
+					Name:        fmt.Sprintf("python-skill-%s", ns),
+					Version:     "0.5.0",
+					Title:       fmt.Sprintf("Python Skill (%s)", ns),
+					Category:    "development",
+					Description: fmt.Sprintf("Python code execution in %s", ns),
+					Metadata:    nil, // No verification (community)
+				},
+			},
+		}
+
+		for _, s := range skills {
+			if err := c.Create(ctx, s); err != nil {
+				return err
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+		for _, s := range skills {
+			if err := c.Get(ctx, client.ObjectKeyFromObject(s), s); err != nil {
+				return err
+			}
+			s.Status.Published = true
+			s.Status.IsLatest = true
+			s.Status.PublishedAt = &now
+			s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+			if err := c.Status().Update(ctx, s); err != nil {
+				return err
+			}
+		}
+		allSkills += len(skills)
+
+		// RegistryDeployments - in agentregistry namespace, deploying to target namespaces
+		deployments := []*agentregistryv1alpha1.RegistryDeployment{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("filesystem-server-%s-deploy", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
+					ResourceName: fmt.Sprintf("filesystem-server-%s", ns),
+					Version:      "1.0.0",
+					ResourceType: agentregistryv1alpha1.ResourceTypeMCP,
+					Runtime:      agentregistryv1alpha1.RuntimeTypeKubernetes,
+					Namespace:    ns, // Deploy TO this namespace
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("research-agent-%s-deploy", ns),
+					Namespace: catalogNamespace,
+					Labels:    map[string]string{"environment": ns},
+				},
+				Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
+					ResourceName: fmt.Sprintf("research-agent-%s", ns),
+					Version:      "0.5.0",
+					ResourceType: agentregistryv1alpha1.ResourceTypeAgent,
+					Runtime:      agentregistryv1alpha1.RuntimeTypeKubernetes,
+					Namespace:    ns, // Deploy TO this namespace
+				},
+			},
+		}
+
+		for _, d := range deployments {
+			if err := c.Create(ctx, d); err != nil {
+				return err
+			}
+		}
+		allDeployments += len(deployments)
 	}
 
 	// Models (cluster-scoped)
@@ -358,22 +580,29 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "claude-3-opus-prod"},
 			Spec: agentregistryv1alpha1.ModelCatalogSpec{
-				Name: "claude-3-opus-prod", Provider: "Anthropic", Model: "claude-3-opus-20240229",
+				Name:        "claude-3-opus-prod",
+				Provider:    "Anthropic",
+				Model:       "claude-3-opus-20240229",
 				Description: "Claude 3 Opus",
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "gpt-4-dev"},
 			Spec: agentregistryv1alpha1.ModelCatalogSpec{
-				Name: "gpt-4-dev", Provider: "OpenAI", Model: "gpt-4-turbo",
+				Name:        "gpt-4-dev",
+				Provider:    "OpenAI",
+				Model:       "gpt-4-turbo",
 				Description: "GPT-4 Turbo",
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "llama3-local"},
 			Spec: agentregistryv1alpha1.ModelCatalogSpec{
-				Name: "llama3-local", Provider: "Ollama", Model: "llama3:70b",
-				BaseURL: "http://localhost:11434", Description: "Local Llama 3",
+				Name:        "llama3-local",
+				Provider:    "Ollama",
+				Model:       "llama3:70b",
+				BaseURL:     "http://localhost:11434",
+				Description: "Local Llama 3",
 			},
 		},
 	}
@@ -396,47 +625,31 @@ func createSampleResources(ctx context.Context, c client.Client) error {
 		}
 	}
 
-	// RegistryDeployments
-	deployments := []*agentregistryv1alpha1.RegistryDeployment{
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "filesystem-server-deploy", Namespace: "default"},
-			Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
-				ResourceName: "filesystem-server",
-				Version:      "1.0.0",
-				ResourceType: agentregistryv1alpha1.ResourceTypeMCP,
-				Runtime:      agentregistryv1alpha1.RuntimeTypeKubernetes,
-				Namespace:    "default",
-			},
+	// Create DiscoveryConfig for environments
+	discoveryConfig := &agentregistryv1alpha1.DiscoveryConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "environments",
+			Namespace: "agentregistry",
 		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "research-agent-deploy", Namespace: "default"},
-			Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
-				ResourceName: "research-agent",
-				Version:      "0.5.0",
-				ResourceType: agentregistryv1alpha1.ResourceTypeAgent,
-				Runtime:      agentregistryv1alpha1.RuntimeTypeKubernetes,
-				Namespace:    "default",
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "github-server-deploy", Namespace: "default"},
-			Spec: agentregistryv1alpha1.RegistryDeploymentSpec{
-				ResourceName: "github-server",
-				Version:      "2.1.0",
-				ResourceType: agentregistryv1alpha1.ResourceTypeMCP,
-				Runtime:      agentregistryv1alpha1.RuntimeTypeKubernetes,
-				Namespace:    "default",
-				PreferRemote: true,
+		Spec: agentregistryv1alpha1.DiscoveryConfigSpec{
+			Environments: []agentregistryv1alpha1.Environment{
+				{Name: "dev", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "dev"}, Namespaces: []string{"dev"}, DiscoveryEnabled: true},
+				{Name: "staging", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "staging"}, Namespaces: []string{"staging"}, DiscoveryEnabled: true},
+				{Name: "prod", Cluster: agentregistryv1alpha1.ClusterConfig{Name: "local", Namespace: "prod"}, Namespaces: []string{"prod"}, DiscoveryEnabled: true},
 			},
 		},
 	}
-	for _, d := range deployments {
-		if err := c.Create(ctx, d); err != nil {
-			return err
-		}
+	if err := c.Create(ctx, discoveryConfig); err != nil {
+		log.Warn().Err(err).Msg("failed to create DiscoveryConfig")
 	}
-	// Let the reconciler handle status updates
 
-	log.Info().Int("servers", len(servers)).Int("agents", len(agents)).Int("skills", len(skills)).Int("models", len(models)).Int("deployments", len(deployments)).Msg("sample resources created")
+	log.Info().
+		Int("servers", allServers).
+		Int("agents", allAgents).
+		Int("skills", allSkills).
+		Int("models", len(models)).
+		Int("deployments", allDeployments).
+		Int("namespaces", len(namespaces)).
+		Msg("sample resources created")
 	return nil
 }

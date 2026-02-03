@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, CheckCircle2, XCircle, Clock, Check, X } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, Clock, Check, X } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
@@ -31,7 +31,6 @@ interface ServerCardProps {
 export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, onReject, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, showApproval = false, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
   const official = _meta?.['io.modelcontextprotocol.registry/official']
-  const deployment = _meta?.deployment
 
   // Check if this is a pending review submission
   const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
@@ -298,28 +297,6 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
             </TooltipTrigger>
             <TooltipContent>
               <p>This resource is awaiting approval</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {deployment && !isPendingReview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant={deployment.ready ? "default" : "destructive"}
-                className={`text-xs ${deployment.ready ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}`}
-              >
-                {deployment.ready ? (
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                ) : (
-                  <XCircle className="h-3 w-3 mr-1" />
-                )}
-                {deployment.ready ? 'Running' : 'Not Ready'}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{deployment.message || (deployment.ready ? 'Deployment is healthy' : 'Deployment has issues')}</p>
-              {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
             </TooltipContent>
           </Tooltip>
         )}

@@ -19,7 +19,6 @@ import {
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
 import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, BadgeCheck, Bot, Zap } from "lucide-react"
 import MCPIcon from "@/components/icons/mcp"
-import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { ServerDetail } from "@/components/server-detail"
 import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
@@ -64,6 +63,11 @@ export default function PublishedPage() {
   const [itemToUnpublish, setItemToUnpublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' } | null>(null)
   const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
+  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
+    { name: "agentregistry", namespace: "agentregistry" }
+  ])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
@@ -72,7 +76,6 @@ export default function PublishedPage() {
   const [currentPageServers, setCurrentPageServers] = useState(1)
   const [currentPageSkills, setCurrentPageSkills] = useState(1)
   const [currentPageAgents, setCurrentPageAgents] = useState(1)
-  const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const itemsPerPage = 5
 
   const fetchPublished = async () => {
@@ -176,6 +179,11 @@ export default function PublishedPage() {
     return deployments.some(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
   }
 
+  const getDeploymentStatus = (name: string, version: string, type: 'server' | 'agent') => {
+    const d = deployments.find(d => d.serverName === name && d.version === version && d.resourceType === (type === 'server' ? 'mcp' : 'agent'))
+    return d?.status || null
+  }
+
   const handleUnpublish = async (name: string, version: string, type: 'server' | 'skill' | 'agent') => {
     // Check if the resource is deployed (check specific version)
     if (type !== 'skill' && isDeployed(name, version, type)) {
@@ -187,6 +195,33 @@ export default function PublishedPage() {
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
     setItemToDeploy({ name, version, type })
+  }
+
+  // Fetch environments when deploy dialog opens
+  useEffect(() => {
+    if (itemToDeploy) {
+      fetchEnvironments()
+    }
+  }, [itemToDeploy])
+
+  const fetchEnvironments = async () => {
+    console.log("=== fetchEnvironments called")
+    setLoadingEnvironments(true)
+    try {
+      const envs = await adminApiClient.listEnvironments()
+      console.log("=== API returned environments:", envs)
+      if (envs && envs.length > 0) {
+        setEnvironments(envs)
+        setDeployNamespace(envs[0].namespace)
+        console.log("=== Set environments to:", envs)
+      } else {
+        console.log("=== No environments returned from API")
+      }
+    } catch (err) {
+      console.error("=== Failed to fetch environments:", err)
+    } finally {
+      setLoadingEnvironments(false)
+    }
   }
 
   const confirmDeploy = async () => {
@@ -205,10 +240,11 @@ export default function PublishedPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
+        namespace: deployNamespace,
       })
 
       setItemToDeploy(null)
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployRuntime}!`)
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
       // Refresh deployments to update the UI
       await fetchPublished()
     } catch (err) {
@@ -465,16 +501,6 @@ export default function PublishedPage() {
               </div>
             </div>
 
-            {/* Action Button */}
-            <div className="ml-auto">
-              <Button
-                className="gap-2"
-                onClick={() => setSubmitResourceDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Submit Resource
-              </Button>
-            </div>
           </div>
 
           {error && (
@@ -522,6 +548,7 @@ export default function PublishedPage() {
                   const server = serverResponse.server
                   const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(server.name, server.version, 'server')
+                  const deploymentStatus = getDeploymentStatus(server.name, server.version, 'server')
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] as any
@@ -542,15 +569,24 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
                               {server.remotes && server.remotes.length > 0 ? "Remote MCP Server" : "MCP Server"}
                             </Badge>
-                            {deployed ? (
-                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                Running
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
                               </Badge>
-                            ) : (
+                            ) : !deployed ? (
                               <Badge variant="secondary" className="bg-muted">
                                 Not Deployed
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{server.description}</p>
@@ -639,6 +675,7 @@ export default function PublishedPage() {
                   const agent = agentResponse.agent
                   const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(agent.name, agent.version, 'agent')
+                  const deploymentStatus = getDeploymentStatus(agent.name, agent.version, 'agent')
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = (agent as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -659,15 +696,24 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
                               Agent
                             </Badge>
-                            {deployed ? (
-                              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                Running
+                            {deployed && deploymentStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  deploymentStatus === "Running"
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                    : deploymentStatus === "Failed"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                                }
+                              >
+                                {deploymentStatus}
                               </Badge>
-                            ) : (
+                            ) : !deployed ? (
                               <Badge variant="secondary" className="bg-muted">
                                 Not Deployed
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
 
                           <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
@@ -907,7 +953,9 @@ export default function PublishedPage() {
       </Dialog>
 
       {/* Deploy Confirmation Dialog */}
-      <Dialog open={!!itemToDeploy} onOpenChange={(open) => !open && setItemToDeploy(null)}>
+      <Dialog open={!!itemToDeploy} onOpenChange={(open) => {
+        if (!open) setItemToDeploy(null)
+      }}>
         <DialogContent onClose={() => setItemToDeploy(null)}>
           <DialogHeader>
             <DialogTitle>Deploy Resource</DialogTitle>
@@ -918,9 +966,29 @@ export default function PublishedPage() {
               This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-4">
-            <Label>Deployment destination</Label>
-            <p className="text-sm text-muted-foreground">Kubernetes</p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Deployment destination</Label>
+              <p className="text-sm text-muted-foreground">Kubernetes</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
+              <Select value={deployNamespace} onValueChange={setDeployNamespace} disabled={loadingEnvironments}>
+                <SelectTrigger id="deploy-namespace">
+                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env.namespace} value={env.namespace}>
+                      {env.name}/{env.namespace}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which namespace/environment to deploy to
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -941,11 +1009,6 @@ export default function PublishedPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Submit Resource Dialog (GitOps Workflow) */}
-      <SubmitResourceDialog
-        open={submitResourceDialogOpen}
-        onOpenChange={setSubmitResourceDialogOpen}
-      />
     </main>
   )
 }

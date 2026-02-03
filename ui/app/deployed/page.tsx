@@ -32,6 +32,7 @@ type DeploymentResponse = {
   resourceType: string // "mcp" or "agent"
   k8sResourceType?: string // "MCPServer", "RemoteMCPServer", "Agent"
   runtime: string
+  environment?: string // Environment label (dev, staging, prod, etc.)
   isExternal?: boolean // true if not managed by registry
 }
 
@@ -318,6 +319,11 @@ export default function DeployedPage() {
                           <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
                             {item.k8sResourceType === "RemoteMCPServer" ? "Remote MCP Server" : "MCP Server"}
                           </Badge>
+                          {item.environment && (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              {item.environment}
+                            </Badge>
+                          )}
                           <Badge variant="outline">
                             {item.runtime || "local"}
                           </Badge>
@@ -432,6 +438,11 @@ export default function DeployedPage() {
                           <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
                             Agent
                           </Badge>
+                          {item.environment && (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              {item.environment}
+                            </Badge>
+                          )}
                           <Badge variant="outline">
                             {item.runtime || "local"}
                           </Badge>

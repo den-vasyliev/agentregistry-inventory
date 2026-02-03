@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "agentregistry.fullname" . }}-controller
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.namespace.name }}
   labels:
     {{- include "agentregistry.labels" . | nindent 4 }}
     app.kubernetes.io/component: controller

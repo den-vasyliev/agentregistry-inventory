@@ -191,6 +191,7 @@ export interface SkillJSON {
   repository?: SkillRepository
   packages?: SkillPackageInfo[]
   remotes?: SkillRemoteInfo[]
+  metadata?: Record<string, unknown>
 }
 
 export interface SkillRegistryExtensions {
@@ -204,6 +205,14 @@ export interface SkillResponse {
   skill: SkillJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: SkillRegistryExtensions
+    'io.modelcontextprotocol.registry/publisher-provided'?: {
+      'aregistry.ai/metadata'?: {
+        identity?: {
+          org_is_verified?: boolean
+          publisher_identity_verified_by_jwt?: boolean
+        }
+      }
+    }
   }
 }
 
@@ -975,6 +984,7 @@ class AdminApiClient {
     k8sResourceType?: string
     runtime: string
     namespace?: string
+    environment?: string
     isExternal?: boolean
   }>> {
     const queryParams = new URLSearchParams()
@@ -999,8 +1009,25 @@ class AdminApiClient {
       k8sResourceType: d.k8sResourceType,
       runtime: d.runtime || 'kubernetes',
       namespace: d.namespace,
+      environment: d.environment,
       isExternal: d.isExternal,
     }))
+  }
+
+  // List available environments from DiscoveryConfig
+  async listEnvironments(): Promise<Array<{
+    name: string
+    namespace: string
+    labels?: Record<string, string>
+  }>> {
+    const response = await fetch(`${this.baseUrl}/v0/environments`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch environments')
+    }
+    const data = await response.json()
+    console.log('Environments API response:', data)
+    // Huma might return data directly or wrapped in Body
+    return data.environments || data.Body?.environments || []
   }
 
   // Remove a deployment

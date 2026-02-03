@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload, BadgeCheck, Clock, Check, X } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload, BadgeCheck, Clock, Check, X, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface SkillCardProps {
@@ -33,8 +33,9 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
   const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
 
   // Extract metadata
-  const publisherMetadata = (skillData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
-  const identityData = publisherMetadata?.identity
+  const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided'] as Record<string, unknown> | undefined
+  const aregistryMetadata = publisherMetadata?.['aregistry.ai/metadata'] as Record<string, unknown> | undefined
+  const identityData = aregistryMetadata?.['identity'] as Record<string, unknown> | undefined
 
   // Get owner from metadata or extract from repository URL
   const getOwner = () => {
@@ -90,6 +91,34 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
               <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
                 Skill
               </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShieldCheck
+                    className={`h-4 w-4 flex-shrink-0 ${
+                      identityData?.org_is_verified
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-400 dark:text-gray-600 opacity-40'
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{identityData?.org_is_verified ? 'Verified Organization' : 'Organization Not Verified'}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <BadgeCheck
+                    className={`h-4 w-4 flex-shrink-0 ${
+                      identityData?.publisher_identity_verified_by_jwt
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-gray-400 dark:text-gray-600 opacity-40'
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{identityData?.publisher_identity_verified_by_jwt ? 'Verified Publisher' : 'Publisher Not Verified'}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <p className="text-sm text-muted-foreground">{skillData.name}</p>
           </div>

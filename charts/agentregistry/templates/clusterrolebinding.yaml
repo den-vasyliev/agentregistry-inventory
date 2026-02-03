@@ -11,4 +11,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ include "agentregistry.serviceAccountName" . }}
-    namespace: {{ .Values.namespace }}
+    namespace: {{ .Values.namespace.name }}

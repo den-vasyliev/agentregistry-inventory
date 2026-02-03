@@ -12,7 +12,7 @@ spec:
     listKind: DiscoveryConfigList
     plural: discoveryconfigs
     singular: discoveryconfig
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.environments

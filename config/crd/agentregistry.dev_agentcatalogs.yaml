@@ -61,6 +61,11 @@ spec:
           spec:
             description: AgentCatalogSpec defines the desired state of AgentCatalog
             properties:
+              _meta:
+                description: Metadata contains additional metadata for the agent (stars,
+                  verification, etc.)
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               description:
                 description: Description is a human-readable description of the agent
                 type: string

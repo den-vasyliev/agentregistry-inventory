@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -109,6 +110,11 @@ type AgentCatalogSpec struct {
 	// McpServers are the MCP server configurations for the agent
 	// +optional
 	McpServers []McpServerConfig `json:"mcpServers,omitempty"`
+	// Metadata contains additional metadata for the agent (stars, verification, etc.)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Metadata *apiextensionsv1.JSON `json:"_meta,omitempty"`
 }
 
 // AgentCatalogStatus defines the observed state of AgentCatalog

@@ -79,8 +79,17 @@ tolerations: []
 
 affinity: {}
 
-# Namespace to deploy resources
-namespace: agentregistry
+# Namespace configuration
+namespace:
+  # Name of the namespace where Agent Registry resources are stored
+  name: agentregistry
+
+  # Create the agentregistry namespace if it doesn't exist
+  create: true
+
+  # Labels to add to the agentregistry namespace
+  labels:
+    app: agentregistry
 
 # Target namespace for KAgent/KMCP resources created by deployments
 kagentNamespace: kagent

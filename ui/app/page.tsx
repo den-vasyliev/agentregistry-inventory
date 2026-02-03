@@ -70,6 +70,8 @@ export default function AdminPage() {
   const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
+  const [filterSkillVerifiedOrg, setFilterSkillVerifiedOrg] = useState(false)
+  const [filterSkillVerifiedPublisher, setFilterSkillVerifiedPublisher] = useState(false)
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' | 'model' } | null>(null)
@@ -208,6 +210,8 @@ export default function AdminPage() {
       } while (modelCursor)
 
       setModels(allModels)
+
+      setServers(allServers)
 
       // Group servers by name
       const grouped = groupServersByName(allServers)
@@ -440,6 +444,22 @@ export default function AdminPage() {
           s.skill.description?.toLowerCase().includes(query)
       )
     }
+    if (filterSkillVerifiedOrg) {
+      filteredSk = filteredSk.filter((s) => {
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
+        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
+        return identity?.["org_is_verified"] === true
+      })
+    }
+    if (filterSkillVerifiedPublisher) {
+      filteredSk = filteredSk.filter((s) => {
+        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
+        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
+        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
+        return identity?.["publisher_identity_verified_by_jwt"] === true
+      })
+    }
     setFilteredSkills(filteredSk)
 
     // Filter agents
@@ -466,7 +486,7 @@ export default function AdminPage() {
       )
     }
     setFilteredModels(filteredM)
-  }, [searchQuery, skills, agents, models])
+  }, [searchQuery, skills, agents, models, filterSkillVerifiedOrg, filterSkillVerifiedPublisher])
 
   if (loading) {
     return (
@@ -575,7 +595,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold">{stats.total_server_names}</p>
-                    <p className="text-xs text-muted-foreground">Servers</p>
+                    <p className="text-xs text-muted-foreground">MCP</p>
                   </div>
                 </div>
               </Card>
@@ -628,7 +648,7 @@ export default function AdminPage() {
                 <span className="h-4 w-4 flex items-center justify-center">
                   <MCPIcon />
                 </span>
-                Servers
+                MCP
               </TabsTrigger>
               <TabsTrigger value="agents" className="gap-2">
                 <Bot className="h-4 w-4" />
@@ -679,7 +699,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Servers Tab */}
+          {/* MCP Tab */}
           <TabsContent value="servers">
             {/* Sort and Filter controls */}
             <div className="flex items-center justify-between mb-6">
@@ -731,7 +751,7 @@ export default function AdminPage() {
             {/* Server List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
-                Servers
+                MCP
                 <span className="text-muted-foreground ml-2">
                   ({filteredServers.length})
                 </span>
@@ -745,12 +765,12 @@ export default function AdminPage() {
                     </div>
                     <p className="text-lg font-medium mb-2">
                       {groupedServers.length === 0
-                        ? "No servers in inventory"
-                        : "No servers match your filters"}
+                        ? "No MCP servers in inventory"
+                        : "No MCP servers match your filters"}
                     </p>
                     <p className="text-sm mb-4">
                       {groupedServers.length === 0
-                        ? "Submit a server to get started"
+                        ? "Submit an MCP server to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
                     {groupedServers.length === 0 && (
@@ -760,7 +780,7 @@ export default function AdminPage() {
                         onClick={() => setSubmitResourceDialogOpen(true)}
                       >
                         <GitPullRequest className="h-4 w-4" />
-                        Submit Server
+                        Submit MCP Server
                       </Button>
                     )}
                   </div>
@@ -814,6 +834,39 @@ export default function AdminPage() {
 
           {/* Skills Tab */}
           <TabsContent value="skills">
+            {/* Filter controls */}
+            <div className="flex items-center justify-end mb-6">
+              <div className="flex items-center gap-4">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-skill-verified-org"
+                    checked={filterSkillVerifiedOrg}
+                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedOrg(checked)}
+                  />
+                  <Label
+                    htmlFor="filter-skill-verified-org"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Verified Organization
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-skill-verified-publisher"
+                    checked={filterSkillVerifiedPublisher}
+                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedPublisher(checked)}
+                  />
+                  <Label
+                    htmlFor="filter-skill-verified-publisher"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Verified Publisher
+                  </Label>
+                </div>
+              </div>
+            </div>
+
             {/* Skills List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">

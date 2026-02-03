@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Git Workflow
 
-**IMPORTANT: Always use this command to push changes:**
+**CRITICAL: NO commits or pushes until ALL tests pass.** Run `make test` first. If any test fails, fix it before committing. NEVER commit or push untested code.
+
+**CRITICAL: NEVER push before user tests!** After committing, WAIT for the user to test and explicitly ask to push.
+
+**IMPORTANT: Always use this command to push changes (when user approves):**
 
 ```bash
 git push origin HEAD:enterprise-controller
@@ -39,6 +43,22 @@ The project consists of two main components:
 
 1. **Controller** - Kubernetes controller with embedded HTTP API
 2. **UI** - Next.js web interface
+
+### Namespace Structure
+
+**IMPORTANT**: Agent Registry uses `agentregistry` as the default namespace for all its resources:
+
+- **agentregistry** namespace - Contains all Agent Registry resources:
+  - `MCPServerCatalog`, `AgentCatalog`, `SkillCatalog`, `ModelCatalog` - Catalog entries
+  - `RegistryDeployment` - Deployment manifests
+  - `DiscoveryConfig` - Discovery configuration (namespace-scoped)
+
+- **Environment namespaces** (dev, staging, prod, etc.) - Contain actual deployed resources:
+  - `MCPServer` (kmcp) - Deployed MCP servers
+  - `Agent` (kagent) - Deployed agents
+  - `ModelConfig` (kagent) - Model configurations
+
+The DiscoveryConfig watches environment namespaces and creates catalog entries in the `agentregistry` namespace.
 
 ### Directory Structure
 
