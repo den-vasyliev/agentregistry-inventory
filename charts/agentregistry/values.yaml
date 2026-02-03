@@ -29,9 +29,6 @@ controller:
 
 # HTTP API configuration
 httpApi:
-  # Enable the HTTP API server
-  enabled: true
-
   # HTTP API bind address
   port: 8080
 
@@ -78,18 +75,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-
-# Namespace configuration
-namespace:
-  # Name of the namespace where Agent Registry resources are stored
-  name: agentregistry
-
-  # Create the agentregistry namespace if it doesn't exist
-  create: true
-
-  # Labels to add to the agentregistry namespace
-  labels:
-    app: agentregistry
 
 # Target namespace for KAgent/KMCP resources created by deployments
 kagentNamespace: kagent
