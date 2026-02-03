@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { adminApiClient, createAuthenticatedClient } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, LogIn, Bot } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Copy, Check, Search, Bot } from "lucide-react"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -83,22 +83,20 @@ export default function DeployedPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Filter deployments by search query
+  // Filter deployments by search query and sort by name for stable ordering
   useEffect(() => {
     const query = searchQuery.toLowerCase()
     setFilteredDeployments(
-      deployments.filter(d =>
-        d.serverName.toLowerCase().includes(query) ||
-        d.version.toLowerCase().includes(query)
-      )
+      deployments
+        .filter(d =>
+          d.serverName.toLowerCase().includes(query) ||
+          d.version.toLowerCase().includes(query)
+        )
+        .sort((a, b) => a.serverName.localeCompare(b.serverName))
     )
   }, [searchQuery, deployments])
 
   const handleRemove = async (serverName: string, version: string, resourceType: string) => {
-    if (!session) {
-      toast.error("Please sign in to remove deployments")
-      return
-    }
     setServerToRemove({ name: serverName, version, resourceType })
   }
 
@@ -381,18 +379,13 @@ export default function DeployedPage() {
 
                       {!item.isExternal && (
                         <Button
-                          variant={session ? "destructive" : "outline"}
+                          variant="destructive"
                           size="sm"
                           className="ml-4"
                           onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
                           disabled={removing}
-                          title={!session ? "Sign in to remove" : undefined}
                         >
-                          {session ? (
-                            <><Trash2 className="h-4 w-4 mr-2" />Remove</>
-                          ) : (
-                            <><LogIn className="h-4 w-4 mr-2" />Sign in to remove</>
-                          )}
+                          <Trash2 className="h-4 w-4 mr-2" />Remove
                         </Button>
                       )}
                     </div>
@@ -497,18 +490,13 @@ export default function DeployedPage() {
 
                       {!item.isExternal && (
                         <Button
-                          variant={session ? "destructive" : "outline"}
+                          variant="destructive"
                           size="sm"
                           className="ml-4"
                           onClick={() => handleRemove(item.serverName, item.version, item.resourceType)}
                           disabled={removing}
-                          title={!session ? "Sign in to remove" : undefined}
                         >
-                          {session ? (
-                            <><Trash2 className="h-4 w-4 mr-2" />Remove</>
-                          ) : (
-                            <><LogIn className="h-4 w-4 mr-2" />Sign in to remove</>
-                          )}
+                          <Trash2 className="h-4 w-4 mr-2" />Remove
                         </Button>
                       )}
                     </div>
