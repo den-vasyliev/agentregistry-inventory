@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse } from "@/lib/admin-api"
-import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, LogIn, BadgeCheck, Bot, Zap } from "lucide-react"
+import { Trash2, AlertCircle, Calendar, Package, Rocket, Plus, Search, BadgeCheck, Bot, Zap } from "lucide-react"
 import MCPIcon from "@/components/icons/mcp"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
 import { ServerDetail } from "@/components/server-detail"
@@ -180,10 +180,6 @@ export default function PublishedPage() {
   }
 
   const handleDeploy = async (name: string, version: string, type: 'server' | 'agent') => {
-    if (!session) {
-      toast.error("Please sign in to deploy resources")
-      return
-    }
     setItemToDeploy({ name, version, type })
   }
 
@@ -579,11 +575,8 @@ export default function PublishedPage() {
                               handleDeploy(server.name, server.version, 'server')
                             }}
                             disabled={deploying || deployed}
-                            title={!session ? "Sign in to deploy" : undefined}
                           >
-                            {!session ? (
-                              <><LogIn className="h-4 w-4 mr-2" />Sign in to deploy</>
-                            ) : deployed ? (
+                            {deployed ? (
                               <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
                             ) : (
                               <><Rocket className="h-4 w-4 mr-2" />Deploy</>
@@ -696,11 +689,8 @@ export default function PublishedPage() {
                               handleDeploy(agent.name, agent.version, 'agent')
                             }}
                             disabled={deploying || deployed}
-                            title={!session ? "Sign in to deploy" : undefined}
                           >
-                            {!session ? (
-                              <><LogIn className="h-4 w-4 mr-2" />Sign in to deploy</>
-                            ) : deployed ? (
+                            {deployed ? (
                               <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
                             ) : (
                               <><Rocket className="h-4 w-4 mr-2" />Deploy</>
