@@ -164,6 +164,10 @@ make release
 Available make targets:
 - `make help` - Show all available targets
 - `make build` - Build controller binary
+- `make demo` - Run demo environment with envtest
+- `make demo-stop` - Stop demo environment
+- `make dev` - Run controller and UI in development mode
+- `make dev-ui` - Run UI dev server only
 - `make test` - Run tests with coverage
 - `make lint` - Run linters
 - `make image` - Build container image
@@ -190,6 +194,38 @@ make dev-ui
 ```
 
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for detailed development instructions.
+
+### Demo Mode
+
+Try Agent Registry locally without a Kubernetes cluster using the built-in demo environment:
+
+```bash
+# Start demo with envtest, sample data, and UI
+make demo
+
+# Access:
+# - UI: http://localhost:3000
+# - API: http://localhost:8080
+# - Kubeconfig: ./demo-kubeconfig.yaml
+
+# Stop demo
+make demo-stop
+
+# Use kubectl with demo cluster
+kubectl --kubeconfig=./demo-kubeconfig.yaml get mcpservercatalog
+```
+
+The demo environment includes:
+- **envtest** - Lightweight Kubernetes API server + etcd
+- **Sample resources** - Pre-populated MCP servers, agents, skills, and models
+- **No authentication** - Deploy and remove resources without sign-in
+- **Isolated** - Separate from your real Kubernetes clusters
+
+Perfect for:
+- 🎯 Trying out Agent Registry features
+- 👨‍💻 Local development without cluster access
+- 🧪 Testing changes quickly
+- 📚 Learning how it works
 
 ## 📚 Core Concepts
 
