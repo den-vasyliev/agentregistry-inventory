@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,9 +17,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/config"
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 )
+
+// informerError tracks errors from informer handlers for retry
+type informerError struct {
+	err        error
+	retryCount int
+	lastRetry  time.Time
+}
 
 // DiscoveryConfigReconciler reconciles DiscoveryConfig and sets up informers per cluster/namespace
 type DiscoveryConfigReconciler struct {
@@ -31,6 +40,10 @@ type DiscoveryConfigReconciler struct {
 	informersMu sync.RWMutex
 	informers   map[string]cache.SharedIndexInformer
 	stopChans   map[string]chan struct{}
+
+	// errorTracker tracks errors from informer handlers for retry
+	errorTrackerMu sync.RWMutex
+	errorTracker   map[string]*informerError
 }
 
 // RemoteClientFactory creates clients for remote clusters (injectable for testing)
@@ -52,6 +65,11 @@ func (r *DiscoveryConfigReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		r.informers = make(map[string]cache.SharedIndexInformer)
 		r.stopChans = make(map[string]chan struct{})
 		r.informersMu.Unlock()
+	}
+	if r.errorTracker == nil {
+		r.errorTrackerMu.Lock()
+		r.errorTracker = make(map[string]*informerError)
+		r.errorTrackerMu.Unlock()
 	}
 
 	// Fetch DiscoveryConfig
@@ -196,20 +214,23 @@ func (r *DiscoveryConfigReconciler) createMCPServerInformer(
 		AddFunc: func(obj interface{}) {
 			mcpServer := obj.(*kmcpv1alpha1.MCPServer)
 			logger.Info().Str("mcpserver", mcpServer.Name).Msg("MCPServer added")
-			if err := r.handleMCPServerAdd(ctx, mcpServer, env); err != nil {
-				logger.Error().Err(err).Str("mcpserver", mcpServer.Name).Msg("failed to handle add")
-			}
+			resourceKey := fmt.Sprintf("mcpserver/%s/%s", mcpServer.Namespace, mcpServer.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleMCPServerAdd(ctx, mcpServer, env)
+			}, logger)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			mcpServer := newObj.(*kmcpv1alpha1.MCPServer)
 			logger.Debug().Str("mcpserver", mcpServer.Name).Msg("MCPServer updated")
-			if err := r.handleMCPServerAdd(ctx, mcpServer, env); err != nil {
-				logger.Error().Err(err).Str("mcpserver", mcpServer.Name).Msg("failed to handle update")
-			}
+			resourceKey := fmt.Sprintf("mcpserver/%s/%s", mcpServer.Namespace, mcpServer.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleMCPServerAdd(ctx, mcpServer, env)
+			}, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
 			mcpServer := obj.(*kmcpv1alpha1.MCPServer)
 			logger.Info().Str("mcpserver", mcpServer.Name).Msg("MCPServer deleted")
+			// TODO: Handle deletion - mark catalog entry as deleted or remove it
 		},
 	})
 
@@ -244,20 +265,23 @@ func (r *DiscoveryConfigReconciler) createAgentInformer(
 		AddFunc: func(obj interface{}) {
 			agent := obj.(*kagentv1alpha2.Agent)
 			logger.Info().Str("agent", agent.Name).Msg("Agent added")
-			if err := r.handleAgentAdd(ctx, agent, env); err != nil {
-				logger.Error().Err(err).Str("agent", agent.Name).Msg("failed to handle add")
-			}
+			resourceKey := fmt.Sprintf("agent/%s/%s", agent.Namespace, agent.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleAgentAdd(ctx, agent, env)
+			}, logger)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			agent := newObj.(*kagentv1alpha2.Agent)
 			logger.Debug().Str("agent", agent.Name).Msg("Agent updated")
-			if err := r.handleAgentAdd(ctx, agent, env); err != nil {
-				logger.Error().Err(err).Str("agent", agent.Name).Msg("failed to handle update")
-			}
+			resourceKey := fmt.Sprintf("agent/%s/%s", agent.Namespace, agent.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleAgentAdd(ctx, agent, env)
+			}, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
 			agent := obj.(*kagentv1alpha2.Agent)
 			logger.Info().Str("agent", agent.Name).Msg("Agent deleted")
+			// TODO: Handle deletion
 		},
 	})
 
@@ -292,20 +316,23 @@ func (r *DiscoveryConfigReconciler) createModelConfigInformer(
 		AddFunc: func(obj interface{}) {
 			model := obj.(*kagentv1alpha2.ModelConfig)
 			logger.Info().Str("modelconfig", model.Name).Msg("ModelConfig added")
-			if err := r.handleModelConfigAdd(ctx, model, env); err != nil {
-				logger.Error().Err(err).Str("modelconfig", model.Name).Msg("failed to handle add")
-			}
+			resourceKey := fmt.Sprintf("model/%s/%s", model.Namespace, model.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleModelConfigAdd(ctx, model, env)
+			}, logger)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			model := newObj.(*kagentv1alpha2.ModelConfig)
 			logger.Debug().Str("modelconfig", model.Name).Msg("ModelConfig updated")
-			if err := r.handleModelConfigAdd(ctx, model, env); err != nil {
-				logger.Error().Err(err).Str("modelconfig", model.Name).Msg("failed to handle update")
-			}
+			resourceKey := fmt.Sprintf("model/%s/%s", model.Namespace, model.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleModelConfigAdd(ctx, model, env)
+			}, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
 			model := obj.(*kagentv1alpha2.ModelConfig)
 			logger.Info().Str("modelconfig", model.Name).Msg("ModelConfig deleted")
+			// TODO: Handle deletion
 		},
 	})
 
@@ -320,6 +347,7 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 ) error {
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateCatalogName(mcpServer.Namespace, mcpServer.Name)
+	namespace := config.GetNamespace()
 
 	// Extract version
 	version := "latest"
@@ -361,7 +389,7 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 	catalog := agentregistryv1alpha1.MCPServerCatalog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      catalogName,
-			Namespace: "default",
+			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
@@ -384,7 +412,7 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 
 	// Create or update
 	existing := &agentregistryv1alpha1.MCPServerCatalog{}
-	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: "default"}, existing)
+	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
 		return r.Create(ctx, &catalog)
@@ -405,6 +433,7 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 ) error {
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateAgentCatalogName(agent.Namespace, agent.Name)
+	namespace := config.GetNamespace()
 
 	// Extract version
 	version := "latest"
@@ -434,7 +463,7 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	catalog := agentregistryv1alpha1.AgentCatalog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      catalogName,
-			Namespace: "default",
+			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
@@ -448,7 +477,7 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 
 	// Create or update
 	existing := &agentregistryv1alpha1.AgentCatalog{}
-	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: "default"}, existing)
+	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
 		return r.Create(ctx, &catalog)
@@ -469,6 +498,7 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 ) error {
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateModelCatalogName(model.Namespace, model.Name)
+	namespace := config.GetNamespace()
 
 	// Build labels
 	labels := make(map[string]string)
@@ -485,7 +515,7 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 	catalog := agentregistryv1alpha1.ModelCatalog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      catalogName,
-			Namespace: "default",
+			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.ModelCatalogSpec{
@@ -502,7 +532,7 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 
 	// Create or update
 	existing := &agentregistryv1alpha1.ModelCatalog{}
-	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: "default"}, existing)
+	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
 		return r.Create(ctx, &catalog)
@@ -535,6 +565,94 @@ func (r *DiscoveryConfigReconciler) stopAllInformers() {
 	}
 	r.informers = make(map[string]cache.SharedIndexInformer)
 	r.stopChans = make(map[string]chan struct{})
+}
+
+// shouldRetry determines if an error should be retried based on error type and retry count
+func shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Retry on conflict errors (resource modified)
+	if apierrors.IsConflict(err) {
+		return true
+	}
+	// Retry on timeout errors
+	if apierrors.IsTimeout(err) {
+		return true
+	}
+	// Retry on server errors (500s)
+	if apierrors.IsInternalError(err) || apierrors.IsServiceUnavailable(err) {
+		return true
+	}
+	// Don't retry on not found, already exists, or invalid
+	if apierrors.IsNotFound(err) || apierrors.IsAlreadyExists(err) || apierrors.IsInvalid(err) {
+		return false
+	}
+	// Default: retry on unknown errors
+	return true
+}
+
+// maxRetries is the maximum number of retries for informer handlers
+const maxRetries = 3
+
+// retryBackoff is the base backoff duration between retries
+const retryBackoff = 500 * time.Millisecond
+
+// executeWithRetry executes a handler function with retry logic
+func (r *DiscoveryConfigReconciler) executeWithRetry(
+	ctx context.Context,
+	resourceKey string,
+	handler func() error,
+	logger zerolog.Logger,
+) {
+	err := handler()
+	if err == nil {
+		// Clear error tracker on success
+		r.errorTrackerMu.Lock()
+		delete(r.errorTracker, resourceKey)
+		r.errorTrackerMu.Unlock()
+		return
+	}
+
+	// Check if we should retry
+	if !shouldRetry(err) {
+		logger.Error().Err(err).Str("key", resourceKey).Msg("informer handler failed, not retrying")
+		return
+	}
+
+	// Check retry count
+	r.errorTrackerMu.Lock()
+	tracker, exists := r.errorTracker[resourceKey]
+	if !exists {
+		tracker = &informerError{}
+		r.errorTracker[resourceKey] = tracker
+	}
+	tracker.err = err
+	tracker.retryCount++
+	retryCount := tracker.retryCount
+	r.errorTrackerMu.Unlock()
+
+	if retryCount > maxRetries {
+		logger.Error().Err(err).Str("key", resourceKey).Int("retries", retryCount).Msg("informer handler failed after max retries")
+		return
+	}
+
+	// Calculate backoff with jitter
+	backoff := retryBackoff * time.Duration(retryCount)
+	logger.Warn().Err(err).Str("key", resourceKey).Int("retry", retryCount).Dur("backoff", backoff).Msg("informer handler failed, will retry")
+
+	// Retry after backoff
+	time.AfterFunc(backoff, func() {
+		retryErr := handler()
+		if retryErr != nil {
+			logger.Error().Err(retryErr).Str("key", resourceKey).Int("retry", retryCount).Msg("informer handler retry failed")
+		} else {
+			logger.Info().Str("key", resourceKey).Int("retry", retryCount).Msg("informer handler retry succeeded")
+			r.errorTrackerMu.Lock()
+			delete(r.errorTracker, resourceKey)
+			r.errorTrackerMu.Unlock()
+		}
+	})
 }
 
 // SetupWithManager sets up the controller

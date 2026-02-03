@@ -13,7 +13,7 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Demo
 
 ```bash
 git clone https://github.com/agentregistry-dev/agentregistry.git
@@ -24,6 +24,21 @@ make dev
 UI at `http://localhost:3000` with sample data. 
 
 Uses envtest (embedded etcd + kube-apiserver) — no real cluster needed.
+
+---
+
+## ✨ Main features
+
+*Discover → inventory → create → publish → deploy.* 
+
+All Kubernetes-native, based on Kgateway and Kagent runtimes.
+
+| | |
+|---|---|
+| **🔍 Auto-discovery** | Scans clusters and environments for AI workloads — MCP servers, agents, skills, models — and **adds them to your inventory** automatically. No manual cataloging. |
+| **📋 One inventory** | Everything in one place: dev, staging, prod, multi-cluster. Git as single source of truth. |
+| **➕ Create & publish** | Add new entries via UI or API.  Generate a manifest, submit for review, open a PR — or publish straight into the catalog. |
+| **🚀 Deploy** | One-click deploy from catalog to any AI environment. Controller reconciles to MCPServer/Agent resources and tracks status. |
 
 ---
 
