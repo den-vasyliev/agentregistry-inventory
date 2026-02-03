@@ -1,113 +1,143 @@
 <div align="center">
   <picture>
-    <img alt="agentregistry enterprise" src="./img/agentregistry-enterprise-logo.svg" height="180"/>
+    <img alt="Agent Registry Enterprise" src="./img/agentregistry-enterprise-logo.svg" height="160"/>
   </picture>
 
-  [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/doc/install)
-  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-  [![Test Coverage](https://img.shields.io/badge/coverage-24.7%25-yellow.svg)](https://github.com/agentregistry-dev/agentregistry)
-  [![Discord](https://img.shields.io/discord/1435836734666707190?label=Join%20Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/HTYNjF2y2t)
+  <h3>The Control Plane for AI Infrastructure</h3>
+  
+  <p>
+    <strong>Kubernetes-native registry for MCP servers, agents, skills & models</strong>
+  </p>
 
-  ### A Kubernetes-native registry to securely curate, discover, deploy, and manage agentic infrastructure — MCP servers, agents, skills, and models.
+  <p>
+    <a href="https://golang.org/doc/install"><img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.25+"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
+    <a href="https://github.com/agentregistry-dev/agentregistry"><img src="https://img.shields.io/badge/coverage-24.7%25-yellow?style=flat-square" alt="Coverage"></a>
+    <a href="https://discord.gg/HTYNjF2y2t"><img src="https://img.shields.io/discord/1435836734666707190?style=flat-square&label=Discord&logo=discord&logoColor=white&color=5865F2" alt="Discord"></a>
+  </p>
+
+  <p>
+    <a href="#-quick-start">🚀 Quick Start</a> •
+    <a href="#-features">✨ Features</a> •
+    <a href="#-architecture">🏗️ Architecture</a> •
+    <a href="#-documentation">📚 Docs</a>
+  </p>
 </div>
 
 ---
 
-## 🚀 Quick Demo
+## 🚀 Quick Start
+
+### One command to rule them all
 
 ```bash
 git clone https://github.com/agentregistry-dev/agentregistry.git
-cd agentregistry
-make dev
+cd agentregistry && make dev
 ```
 
-UI at `http://localhost:3000` with sample data. 
+> 🎯 **That's it.** UI opens at http://localhost:3000 with sample data pre-loaded.
+> 
+> No Kubernetes cluster needed — uses envtest (embedded etcd + kube-apiserver).
 
-Uses envtest (embedded etcd + kube-apiserver) — no real cluster needed.
+**☸️ Have a cluster?**
 
----
-
-## ✨ Main features
-
-*Discover → inventory → create → publish → deploy.* 
-
-All Kubernetes-native, based on Kgateway and Kagent runtimes.
-
-| | |
-|---|---|
-| **🔍 Auto-discovery** | Scans clusters and environments for AI workloads — MCP servers, agents, skills, models — and **adds them to your inventory** automatically. No manual cataloging. |
-| **📋 One inventory** | Everything in one place: dev, staging, prod, multi-cluster. Git as single source of truth. |
-| **➕ Create & publish** | Add new entries via UI or API.  Generate a manifest, submit for review, open a PR — or publish straight into the catalog. |
-| **🚀 Deploy** | One-click deploy from catalog to any AI environment. Controller reconciles to MCPServer/Agent resources and tracks status. |
+```bash
+kubectl apply -f https://raw.githubusercontent.com/agentregistry-dev/agentregistry/main/config/crd/
+helm install agentregistry ./charts/agentregistry -n agentregistry --create-namespace
+```
 
 ---
 
-## What is Agent Registry?
+## ✨ What You Get
 
-A **Kubernetes controller** that brings governance and control to AI infrastructure. Teams publish, discover, and deploy AI artifacts as Kubernetes CRDs — with a web UI, REST API, auto-discovery, and multi-cluster support out of the box.
+```
+Discover → Inventory → Publish → Deploy → Monitor
+     ↑_________________________________________↓
+              (Auto-discovery loop)
+```
 
-| Feature | Description |
-|---|---|
-| ☸️ Kubernetes-Native | CRD-based storage, controller-runtime |
-| 📦 Centralized Catalog | MCP servers, agents, skills, models in one place |
-| 🔒 Review & Approval | GitOps workflow with pending_review → approve/reject |
-| 📊 Auto-Discovery | Automatically indexes deployed resources |
-| 🌐 Multi-Cluster | Discover across clusters with workload identity |
-| 🚀 One-click Deploy | Deploy from catalog to K8s via UI or API |
+| Capability | What It Means |
+|------------|---------------|
+| 🔍 **Auto-Discovery** | Scans your clusters for AI workloads — MCP servers, agents, skills, models — and catalogs them automatically. Zero manual work. |
+| 📦 **Unified Inventory** | Everything in one place across dev, staging, prod. Git as the single source of truth. |
+| ✍️ **Create & Publish** | Generate manifests via UI/API, submit for review, open PRs — or publish directly. |
+| 🚀 **One-Click Deploy** | Deploy from catalog to any environment. Controller handles the lifecycle. |
+| 🔒 **GitOps Native** | `pending_review` → approve/reject workflows built-in. |
+| 🌐 **Multi-Cluster** | Discover and deploy across clusters with workload identity. |
 
-## 💼 How It Works
+---
 
-### Operator Workflow
+## 🎬 See It In Action
+
+### 👨‍💻 Operator View
+*Manage AI infrastructure across environments*
 
 <div align="center">
-  <img src="./img/operator-scenario.png" alt="Operator Workflow" width="800"/>
+  <img src="./img/operator-scenario.png" alt="Operator managing deployments" width="800"/>
 </div>
 
-### Developer Workflow
+### 👩‍💻 Developer View  
+*Discover and deploy AI tools*
 
 <div align="center">
-  <img src="./img/dev-scenario.png" alt="Developer Workflow" width="800"/>
+  <img src="./img/dev-scenario.png" alt="Developer workflow" width="800"/>
 </div>
 
-### GitOps Approval
-
-Submit in UI → manifest generated → GitHub PR → CI/CD creates resource in `pending_review` → team approves in Inventory.
-
-### Multi-Cluster Discovery
-
-Define clusters in a `DiscoveryConfig` CR → workload identity auth → resources auto-cataloged across dev/staging/prod. See [Autodiscovery docs](docs/AUTODISCOVERY.md).
+---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────┐
-│   Web UI (Next.js)  │  :3000
-└──────────┬──────────┘
-           │ HTTP
-           ▼
-┌─────────────────────┐
-│   Controller        │  :8080  HTTP API
-│   9 Reconcilers     │  :8081  Metrics
-└──────────┬──────────┘  :8082  Health
-           │ K8s API
-           ▼
-┌─────────────────────┐
-│ CRDs                │
-│  MCPServerCatalog   │
-│  AgentCatalog       │
-│  SkillCatalog       │
-│  RegistryDeployment │
-│  DiscoveryConfig    │
-└─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      WEB UI (Next.js)                       │
+│                    http://localhost:3000                    │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ REST / GraphQL
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CONTROLLER (Go)                          │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
+│  │  HTTP API   │ │ 9 Reconcilers│ │  Auto-Discovery     │   │
+│  │   :8080     │ │              │ │                     │   │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
+│  │  Metrics    │ │   Health    │ │   Leader Election   │   │
+│  │   :8081     │ │   :8082     │ │                     │   │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ K8s API
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     CRDs (etcd)                             │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌──────────────┐  │
+│  │ MCPServerCatalog│ │  AgentCatalog   │ │ SkillCatalog │  │
+│  └─────────────────┘ └─────────────────┘ └──────────────┘  │
+│  ┌─────────────────┐ ┌─────────────────┐                   │
+│  │RegistryDeployment│ │ DiscoveryConfig │                   │
+│  └─────────────────┘ └─────────────────┘                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              RUNTIME (Kagent + KMCP)                        │
+│         Agent ↔ MCP Server ↔ Model Config                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 📚 CRD Reference
+**Built on:**
+- [Kgateway](https://kgateway.dev) — Gateway API for AI traffic
+- [Kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime  
+- [KMCP](https://github.com/kagent-dev/kmcp) — MCP server operator
 
-### Catalog
+---
+
+## 📋 CRD Examples
+
+### 📦 Publish a Catalog Entry
 
 ```yaml
 apiVersion: agentregistry.dev/v1alpha1
-kind: MCPServerCatalog          # also: AgentCatalog, SkillCatalog, ModelCatalog
+kind: MCPServerCatalog          # Also: AgentCatalog, SkillCatalog, ModelCatalog
 metadata:
   name: filesystem-v1-0-0
   namespace: agentregistry
@@ -124,7 +154,7 @@ spec:
         type: stdio
 ```
 
-### Deploy
+### 🚀 Deploy to Runtime
 
 ```yaml
 apiVersion: agentregistry.dev/v1alpha1
@@ -136,12 +166,13 @@ spec:
   resourceName: "filesystem"
   version: "1.0.0"
   resourceType: mcp             # mcp | agent | skill
-  namespace: default            # target namespace
+  namespace: default            # Target namespace
+  preferRemote: false           # Use local package vs remote endpoint
 ```
 
-Controller looks up the catalog entry, creates the runtime CR (MCPServer/Agent), and tracks status.
+The controller reconciles this → creates MCPServer/Agent CRs → tracks status.
 
-### Multi-Cluster Discovery
+### 🌍 Multi-Cluster Discovery
 
 ```yaml
 apiVersion: agentregistry.dev/v1alpha1
@@ -151,81 +182,137 @@ metadata:
   namespace: agentregistry
 spec:
   environments:
-    - name: dev
+    - name: production
       cluster:
-        name: dev-cluster
+        name: prod-gke
         projectId: my-gcp-project
         zone: us-central1
         useWorkloadIdentity: true
       provider: gcp
-      namespaces: [default, ai-workloads]
+      namespaces: [ai-workloads, agents]
       resourceTypes: [MCPServer, Agent, ModelConfig]
       labels:
-        environment: dev
+        environment: production
+        tier: critical
 ```
 
-See [Multi-Cluster Autodiscovery](docs/AUTODISCOVERY.md) for full docs.
+[→ Full Autodiscovery Docs](docs/AUTODISCOVERY.md)
 
-## 🔌 API
+---
 
-### Public (read-only)
+## 🔌 API Reference
+
+### Public API (Read-Only)
 
 ```bash
+# Browse catalog
 curl http://localhost:8080/v0/servers
 curl http://localhost:8080/v0/servers/filesystem/1.0.0
-curl http://localhost:8080/v0/agents
-curl http://localhost:8080/v0/skills
-curl http://localhost:8080/v0/models
+
+# Search agents & skills
+curl http://localhost:8080/v0/agents?framework=langchain
+curl http://localhost:8080/v0/skills?category=code-generation
 ```
 
-### Admin
+### Admin API (Write)
 
 ```bash
-curl -X POST http://localhost:8080/admin/v0/servers -H "Content-Type: application/json" -d @server.json
+# Create catalog entry
+curl -X POST http://localhost:8080/admin/v0/servers \
+  -H "Content-Type: application/json" \
+  -d @server.json
 
-curl -X POST http://localhost:8080/admin/v0/deploy -H "Content-Type: application/json" \
-  -d '{"resourceName":"filesystem","version":"1.0.0","resourceType":"mcp"}'
+# Deploy to cluster
+curl -X POST http://localhost:8080/admin/v0/deploy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resourceName": "filesystem",
+    "version": "1.0.0",
+    "resourceType": "mcp",
+    "namespace": "default"
+  }'
 ```
 
-## ☸️ Production
+---
+
+## ☸️ Production Deployment
 
 ```bash
 helm install agentregistry ./charts/agentregistry \
   --namespace agentregistry \
   --create-namespace \
-  --set replicaCount=2
+  --set replicaCount=2 \
+  --set controller.leaderElection=true
 ```
 
-CRDs are bundled in the chart. Key `values.yaml` knobs:
+### Key Configuration
 
-| Setting | Default | Description |
-|---|---|---|
+| Setting | Default | When to Change |
+|---------|---------|----------------|
 | `replicaCount` | 1 | Set to 2+ for HA |
 | `controller.leaderElection` | true | Required for multi-replica |
-| `controller.logLevel` | info | debug \| info \| warn \| error |
-| `httpApi.port` | 8080 | HTTP API port |
-| `httpApi.serviceType` | ClusterIP | ClusterIP \| LoadBalancer \| NodePort |
+| `controller.logLevel` | info | Use `debug` for troubleshooting |
+| `httpApi.serviceType` | ClusterIP | Use `LoadBalancer` for external access |
+
+---
 
 ## 🧪 Development
 
 ```bash
-make dev          # controller + UI with sample data
-make dev-ui       # UI only (hot reload)
-make test         # tests with coverage
-make lint         # gofmt + go vet
-make build        # build binary
-make image        # build container image
+make dev          # Full stack: controller + UI + sample data
+make dev-ui       # UI only (Next.js hot reload)
+make test         # Run test suite with coverage
+make test-dev-env # Integration tests with envtest
+make lint         # gofmt + go vet + eslint
+make build        # Build controller binary
+make image        # Build container image (KO)
 ```
 
-See [`DEVELOPMENT.md`](DEVELOPMENT.md) for details.
+[→ Development Guide](DEVELOPMENT.md) | [→ Contributing](CONTRIBUTING.md)
+
+---
+
+## 🌟 Why Agent Registry?
+
+| Without Agent Registry | With Agent Registry |
+|------------------------|---------------------|
+| 😵 Sprawl of AI tools across clusters | 📦 Single source of truth |
+| 🔍 Manual discovery of MCP servers | 🤖 Auto-discovery & cataloging |
+| 😰 No version control for AI configs | 📝 GitOps-native workflows |
+| 🤷 "What agents are running in prod?" | 📊 Real-time inventory & status |
+| 😱 Direct K8s yaml edits | 🚀 One-click deploy from UI/API |
+
+---
 
 ## 🔗 Ecosystem
 
-- [Model Context Protocol](https://modelcontextprotocol.io/) — the protocol
-- [kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime
-- [kmcp](https://github.com/kagent-dev/kmcp) — MCP server operator
-- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) — official SDK
+<div align="center">
 
-## 📄 License
+| Project | Description | Link |
+|---------|-------------|------|
+| **MCP** | Model Context Protocol specification | [modelcontextprotocol.io](https://modelcontextprotocol.io) |
+| **Kagent** | Kubernetes AI agent runtime | [github.com/kagent-dev/kagent](https://github.com/kagent-dev/kagent) |
+| **KMCP** | MCP server operator for Kubernetes | [github.com/kagent-dev/kmcp](https://github.com/kagent-dev/kmcp) |
+| **MCP Go SDK** | Official Go SDK | [github.com/modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk) |
 
-MIT — see [`LICENSE`](LICENSE).
+</div>
+
+---
+
+## 💬 Join the Community
+
+- 💬 [Discord](https://discord.gg/HTYNjF2y2t) — Chat with the team
+- 🐛 [Issues](https://github.com/agentregistry-dev/agentregistry/issues) — Report bugs or request features
+- 🤝 [PRs Welcome](CONTRIBUTING.md) — We love contributions!
+
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#-the-control-plane-for-ai-infrastructure)**
+
+Made with ❤️ by the Agent Registry team
+
+[MIT License](LICENSE)
+
+</div>
