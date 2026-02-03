@@ -972,6 +972,7 @@ class AdminApiClient {
     config: Record<string, string>
     preferRemote: boolean
     resourceType: string
+    k8sResourceType?: string
     runtime: string
     namespace?: string
     isExternal?: boolean
@@ -995,6 +996,7 @@ class AdminApiClient {
       config: d.config || {},
       preferRemote: d.preferRemote,
       resourceType: d.resourceType,
+      k8sResourceType: d.k8sResourceType,
       runtime: d.runtime || 'kubernetes',
       namespace: d.namespace,
       isExternal: d.isExternal,
