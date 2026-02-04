@@ -61,7 +61,12 @@ type MCPServerCatalogStatus struct {
 	// Status is the lifecycle status (active, deprecated, deleted)
 	// +optional
 	Status CatalogStatus `json:"status,omitempty"`
+	// ManagementType indicates how this resource is managed (external or managed)
+	// +optional
+	ManagementType ManagementType `json:"managementType,omitempty"`
 	// Deployment tracks the runtime deployment info (optional, set by user or discovered)
+	// For external resources: synced from SourceRef
+	// For managed resources: set by RegistryDeployment
 	// +optional
 	Deployment *DeploymentRef `json:"deployment,omitempty"`
 	// Conditions represent the latest available observations of the server's state

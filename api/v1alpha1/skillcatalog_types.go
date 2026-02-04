@@ -97,6 +97,9 @@ type SkillCatalogStatus struct {
 	// Status is the lifecycle status (active, deprecated, deleted)
 	// +optional
 	Status CatalogStatus `json:"status,omitempty"`
+	// ManagementType indicates how this resource is managed (external or managed)
+	// +optional
+	ManagementType ManagementType `json:"managementType,omitempty"`
 	// UsedBy lists the agents that reference this skill
 	// +optional
 	UsedBy []SkillUsageRef `json:"usedBy,omitempty"`
