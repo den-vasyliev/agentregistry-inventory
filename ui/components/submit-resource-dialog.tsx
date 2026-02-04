@@ -51,6 +51,7 @@ interface ManifestData {
   mcpServers?: string  // Comma-separated list of MCP server names
   // Common
   repositoryUrl?: string
+  environment?: string
 }
 
 export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialogProps) {
@@ -73,12 +74,26 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
     modelName: "",
     mcpServers: "",
     repositoryUrl: "",
+    environment: "dev",
   })
 
   const generateManifest = (): string => {
     // Generate Kubernetes CRD manifest for Agent Registry
     const resourceName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
     const crName = `${resourceName}-${formData.version.replace(/\./g, '-')}`
+    const environment = formData.environment || "dev"
+    
+    // Generate universal resource UID: name-env-ver
+    const resourceUID = `${resourceName}-${environment}-${formData.version.replace(/\./g, '-')}`
+    
+    // Universal resource labels
+    const resourceLabels = {
+      "agentregistry.dev/resource-uid": resourceUID,
+      "agentregistry.dev/resource-name": resourceName,
+      "agentregistry.dev/resource-version": formData.version,
+      "agentregistry.dev/resource-environment": environment,
+      "agentregistry.dev/resource-source": "manual",
+    }
     
     let manifest: Record<string, unknown>
     
@@ -88,10 +103,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
         kind: "MCPServerCatalog",
         metadata: {
           name: crName,
-          labels: {
-            "agentregistry.dev/name": resourceName,
-            "agentregistry.dev/version": formData.version,
-          },
+          labels: resourceLabels,
         },
         spec: {
           name: formData.name,
@@ -123,10 +135,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
         kind: "AgentCatalog",
         metadata: {
           name: crName,
-          labels: {
-            "agentregistry.dev/name": resourceName,
-            "agentregistry.dev/version": formData.version,
-          },
+          labels: resourceLabels,
         },
         spec: {
           name: formData.name,
@@ -143,10 +152,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
         kind: "SkillCatalog",
         metadata: {
           name: crName,
-          labels: {
-            "agentregistry.dev/name": resourceName,
-            "agentregistry.dev/version": formData.version,
-          },
+          labels: resourceLabels,
         },
         spec: {
           name: formData.name,
@@ -278,6 +284,7 @@ ${formatAsYaml(manifest)}`
       modelName: "",
       mcpServers: "",
       repositoryUrl: "",
+      environment: "dev",
     })
   }
 
@@ -351,14 +358,35 @@ ${formatAsYaml(manifest)}`
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="repositoryUrl">Repository URL *</Label>
-                  <Input
-                    id="repositoryUrl"
-                    placeholder="https://github.com/owner/repo"
-                    value={formData.repositoryUrl}
-                    onChange={(e) => setFormData(prev => ({ ...prev, repositoryUrl: e.target.value }))}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="environment">Environment</Label>
+                    <Select
+                      value={formData.environment}
+                      onValueChange={(v) => setFormData(prev => ({ ...prev, environment: v }))}
+                    >
+                      <SelectTrigger id="environment">
+                        <SelectValue placeholder="Select environment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dev">Development</SelectItem>
+                        <SelectItem value="staging">Staging</SelectItem>
+                        <SelectItem value="prod">Production</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Used for resource UID generation
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="repositoryUrl">Repository URL *</Label>
+                    <Input
+                      id="repositoryUrl"
+                      placeholder="https://github.com/owner/repo"
+                      value={formData.repositoryUrl}
+                      onChange={(e) => setFormData(prev => ({ ...prev, repositoryUrl: e.target.value }))}
+                    />
+                  </div>
                 </div>
 
                 {/* MCP Server specific fields */}
