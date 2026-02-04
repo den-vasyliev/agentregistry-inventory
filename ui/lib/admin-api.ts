@@ -135,6 +135,7 @@ export interface ServerResponse {
   server: ServerJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: RegistryExtensions
+    'io.modelcontextprotocol.registry/publisher-provided'?: Record<string, unknown>
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
@@ -274,6 +275,7 @@ export interface AgentResponse {
   agent: AgentJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: AgentRegistryExtensions
+    'io.modelcontextprotocol.registry/publisher-provided'?: Record<string, unknown>
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
