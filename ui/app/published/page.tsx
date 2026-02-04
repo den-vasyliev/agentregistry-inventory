@@ -528,9 +528,9 @@ export default function PublishedPage() {
                               {server.remotes && server.remotes.length > 0 ? "Remote MCP Server" : "MCP Server"}
                             </Badge>
                             {/* Check deployments list (managed) or _meta.deployment (external) */}
-                            {(deployed && deploymentStatus) || agentResponse._meta?.deployment ? (
+                            {(deployed && deploymentStatus) || serverResponse._meta?.deployment ? (
                               (() => {
-                                const metaDeployment = agentResponse._meta?.deployment
+                                const metaDeployment = serverResponse._meta?.deployment
                                 const isReady = metaDeployment?.ready
                                 const status = deploymentStatus || (isReady ? "Running" : "Not Ready")
                                 return (
@@ -671,9 +671,9 @@ export default function PublishedPage() {
                               Agent
                             </Badge>
                             {/* Check deployments list (managed) or _meta.deployment (external) */}
-                            {(deployed && deploymentStatus) || serverResponse._meta?.deployment ? (
+                            {(deployed && deploymentStatus) || agentResponse._meta?.deployment ? (
                               (() => {
-                                const metaDeployment = serverResponse._meta?.deployment
+                                const metaDeployment = agentResponse._meta?.deployment
                                 const isReady = metaDeployment?.ready
                                 const status = deploymentStatus || (isReady ? "Running" : "Not Ready")
                                 return (
