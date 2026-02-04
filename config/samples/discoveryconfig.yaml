@@ -1,0 +1,28 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: environments
+  namespace: agentregistry
+spec:
+  environments:
+    - name: dev
+      cluster:
+        name: local
+        namespace: dev
+      namespaces:
+        - dev
+      discoveryEnabled: true
+    - name: staging
+      cluster:
+        name: local
+        namespace: staging
+      namespaces:
+        - staging
+      discoveryEnabled: true
+    - name: prod
+      cluster:
+        name: local
+        namespace: prod
+      namespaces:
+        - prod
+      discoveryEnabled: true

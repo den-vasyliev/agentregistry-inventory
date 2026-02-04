@@ -1,0 +1,17 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: terraform-skill
+  namespace: agentregistry
+spec:
+  name: terraform
+  version: "1.0.0"
+  title: "Terraform Skill"
+  description: "Infrastructure as Code using Terraform"
+  category: "infrastructure"
+  packages:
+    - identifier: "terraform-skill"
+      registryType: "oci"
+      version: "1.0.0"
+      transport:
+        type: "stdio"

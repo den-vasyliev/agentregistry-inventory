@@ -1,0 +1,73 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: terraform-skill-prod-v1.5.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: terraform-skill-prod
+  version: "1.5.0"
+  title: "Terraform Skill (prod)"
+  description: "Terraform skill in prod"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: false
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: sql-query-skill-prod-v0.8.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: sql-query-skill-prod
+  version: "0.8.0"
+  title: "Sql Query Skill (prod)"
+  description: "Sql query skill in prod"
+  category: data
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: kubernetes-skill-prod-v1.0.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: kubernetes-skill-prod
+  version: "1.0.0"
+  title: "Kubernetes Skill (prod)"
+  description: "Kubernetes skill in prod"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: false
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: python-skill-prod-v0.5.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: python-skill-prod
+  version: "0.5.0"
+  title: "Python Skill (prod)"
+  description: "Python skill in prod"
+  category: development

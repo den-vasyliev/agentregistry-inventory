@@ -1,0 +1,21 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: AgentCatalog
+metadata:
+  name: demo-agent
+  namespace: agentregistry
+  labels:
+    agentregistry.dev/resource-uid: "demo-agent-dev-1"
+    agentregistry.dev/resource-name: "demo-agent"
+    agentregistry.dev/resource-version: "1"
+    agentregistry.dev/resource-environment: "dev"
+    agentregistry.dev/resource-source: "manual"
+spec:
+  name: demo-agent
+  version: "1.0.0"
+  title: "Demo Agent"
+  description: "A demo agent for testing purposes"
+  image: "ghcr.io/example/demo-agent:v1.0.0"
+  framework: "langgraph"
+  language: "python"
+  modelProvider: "openai"
+  modelName: "gpt-4o"

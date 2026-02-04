@@ -1,0 +1,33 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: AgentCatalog
+metadata:
+  name: research-agent-staging-v0.5.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: research-agent-staging
+  version: "0.5.0"
+  title: "Research Agent (staging)"
+  description: "Research agent in staging"
+  image: ghcr.io/example/research-agent:0.5.0
+  framework: langgraph
+  language: python
+  modelProvider: anthropic
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: AgentCatalog
+metadata:
+  name: code-review-agent-staging-v1.2.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: code-review-agent-staging
+  version: "1.2.0"
+  title: "Code Review Agent (staging)"
+  description: "Code review agent in staging"
+  image: ghcr.io/example/code-review-agent:1.2.0
+  framework: autogen
+  language: python
+  modelProvider: openai

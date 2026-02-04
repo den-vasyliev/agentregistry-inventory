@@ -1,0 +1,121 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: filesystem-server-dev-v1.0.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: filesystem-server-dev
+  version: "1.0.0"
+  title: "Filesystem MCP Server (dev)"
+  description: "File system operations in dev"
+  packages:
+    - identifier: "@modelcontextprotocol/server-filesystem"
+      registryType: npm
+      transport:
+        type: stdio
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: false
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: github-server-dev-v2.1.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: github-server-dev
+  version: "2.1.0"
+  title: "Github MCP Server (dev)"
+  description: "GitHub API integration in dev"
+  remotes:
+    - type: streamable-http
+      url: https://mcp.dev.example.com/github
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: slack-server-dev-v1.3.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: slack-server-dev
+  version: "1.3.0"
+  title: "Slack MCP Server (dev)"
+  description: "Slack messaging integration in dev"
+  packages:
+    - identifier: "@modelcontextprotocol/server-slack"
+      registryType: npm
+      transport:
+        type: stdio
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: false
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: postgres-server-dev-v0.9.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: postgres-server-dev
+  version: "0.9.0"
+  title: "Postgres MCP Server (dev)"
+  description: "PostgreSQL database operations in dev"
+  packages:
+    - identifier: "@modelcontextprotocol/server-postgres"
+      registryType: npm
+      transport:
+        type: stdio
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: sqlite-server-dev-v0.1.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: sqlite-server-dev
+  version: "0.1.0"
+  title: "SQLite MCP Server (dev)"
+  description: "SQLite database operations — work in progress"
+  packages:
+    - identifier: "@modelcontextprotocol/server-sqlite"
+      registryType: npm
+      transport:
+        type: stdio
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: brave-search-server-dev-v0.2.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: brave-search-server-dev
+  version: "0.2.0"
+  title: "Brave Search MCP Server (dev)"
+  description: "Brave Search API integration — early draft"
+  remotes:
+    - type: streamable-http
+      url: https://mcp.dev.example.com/brave-search

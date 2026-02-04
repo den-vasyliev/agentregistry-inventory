@@ -1,0 +1,33 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: AgentCatalog
+metadata:
+  name: research-agent-prod-v0.5.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: research-agent-prod
+  version: "0.5.0"
+  title: "Research Agent (prod)"
+  description: "Research agent in prod"
+  image: ghcr.io/example/research-agent:0.5.0
+  framework: langgraph
+  language: python
+  modelProvider: anthropic
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: AgentCatalog
+metadata:
+  name: code-review-agent-prod-v1.2.0
+  namespace: agentregistry
+  labels:
+    environment: prod
+spec:
+  name: code-review-agent-prod
+  version: "1.2.0"
+  title: "Code Review Agent (prod)"
+  description: "Code review agent in prod"
+  image: ghcr.io/example/code-review-agent:1.2.0
+  framework: autogen
+  language: python
+  modelProvider: openai

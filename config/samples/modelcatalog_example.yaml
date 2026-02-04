@@ -1,0 +1,11 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: gpt-4o
+  namespace: agentregistry
+spec:
+  name: openai-gpt-4o
+  provider: "OpenAI"
+  model: "gpt-4o"
+  description: "GPT-4o model for general purpose AI tasks"
+  baseUrl: "https://api.openai.com/v1"

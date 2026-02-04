@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentregistry
+  labels:
+    app.kubernetes.io/name: agentregistry
+    app.kubernetes.io/component: controller

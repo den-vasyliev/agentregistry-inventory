@@ -2,13 +2,14 @@ apiVersion: agentregistry.dev/v1alpha1
 kind: DiscoveryConfig
 metadata:
   name: multi-cluster-discovery
+  namespace: agentregistry
 spec:
   environments:
     # Remote GKE cluster - Development environment
     - name: dev
       cluster:
         name: panda
-        namespace: ops
+        namespace: default
         projectId: gfk-eco-ops-black-9258
         zone: europe-west3
         useWorkloadIdentity: true
@@ -19,7 +20,7 @@ spec:
         useWorkloadIdentity: true
       discoveryEnabled: true
       namespaces:
-        - ops
+        - default
       resourceTypes:
         - MCPServer
         - Agent
@@ -32,7 +33,7 @@ spec:
     - name: staging
       cluster:
         name: panda
-        namespace: default
+        namespace: kagent
         projectId: gfk-eco-ops-black-9258
         zone: europe-west3
         useWorkloadIdentity: true
@@ -43,7 +44,7 @@ spec:
         useWorkloadIdentity: true
       discoveryEnabled: true
       namespaces:
-        - default
+        - kagent
       resourceTypes:
         - MCPServer
         - Agent
@@ -55,9 +56,9 @@ spec:
     # Remote GKE cluster - Production environment
     - name: prod
       cluster:
-        name: panda
+        name: owl
         namespace: kagent
-        projectId: gfk-eco-ops-black-9258
+        projectId: gfk-eco-dev-green
         zone: europe-west3
         useWorkloadIdentity: true
       provider: gcp

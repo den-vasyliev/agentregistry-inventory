@@ -1,0 +1,26 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: filesystem-server
+  namespace: agentregistry
+  labels:
+    agentregistry.dev/resource-uid: "filesystem-dev-1"
+    agentregistry.dev/resource-name: "filesystem-server"
+    agentregistry.dev/resource-version: "1"
+    agentregistry.dev/resource-environment: "dev"
+    agentregistry.dev/resource-source: "manual"
+spec:
+  name: github/modelcontextprotocol/filesystem
+  version: "1.0.0"
+  title: "Filesystem MCP Server"
+  description: "MCP server for filesystem operations"
+  repository:
+    source: "github"
+    url: "https://github.com/modelcontextprotocol/servers"
+    subfolder: "src/filesystem"
+  packages:
+    - identifier: "@modelcontextprotocol/server-filesystem"
+      registryType: "npm"
+      version: "1.0.0"
+      transport:
+        type: "stdio"

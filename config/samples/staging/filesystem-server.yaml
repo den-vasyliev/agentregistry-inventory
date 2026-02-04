@@ -1,0 +1,87 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: filesystem-server-staging-v1.0.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: filesystem-server-staging
+  version: "1.0.0"
+  title: "Filesystem MCP Server (staging)"
+  description: "File system operations in staging"
+  packages:
+    - identifier: "@modelcontextprotocol/server-filesystem"
+      registryType: npm
+      transport:
+        type: stdio
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: false
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: github-server-staging-v2.1.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: github-server-staging
+  version: "2.1.0"
+  title: "Github MCP Server (staging)"
+  description: "GitHub API integration in staging"
+  remotes:
+    - type: streamable-http
+      url: https://mcp.staging.example.com/github
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: slack-server-staging-v1.3.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: slack-server-staging
+  version: "1.3.0"
+  title: "Slack MCP Server (staging)"
+  description: "Slack messaging integration in staging"
+  packages:
+    - identifier: "@modelcontextprotocol/server-slack"
+      registryType: npm
+      transport:
+        type: stdio
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: false
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: MCPServerCatalog
+metadata:
+  name: postgres-server-staging-v0.9.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: postgres-server-staging
+  version: "0.9.0"
+  title: "Postgres MCP Server (staging)"
+  description: "PostgreSQL database operations in staging"
+  packages:
+    - identifier: "@modelcontextprotocol/server-postgres"
+      registryType: npm
+      transport:
+        type: stdio

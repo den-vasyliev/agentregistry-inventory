@@ -1,0 +1,27 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: filesystem-server-staging-staging-deploy
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  resourceName: filesystem-server-staging
+  version: "1.0.0"
+  resourceType: mcp-server
+  runtime: kubernetes
+  namespace: staging
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: research-agent-staging-staging-deploy
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  resourceName: research-agent-staging
+  version: "0.5.0"
+  resourceType: agent
+  runtime: kubernetes
+  namespace: staging

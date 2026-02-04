@@ -1,0 +1,73 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: terraform-skill-staging-v1.5.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: terraform-skill-staging
+  version: "1.5.0"
+  title: "Terraform Skill (staging)"
+  description: "Terraform skill in staging"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: false
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: sql-query-skill-staging-v0.8.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: sql-query-skill-staging
+  version: "0.8.0"
+  title: "Sql Query Skill (staging)"
+  description: "Sql query skill in staging"
+  category: data
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: kubernetes-skill-staging-v1.0.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: kubernetes-skill-staging
+  version: "1.0.0"
+  title: "Kubernetes Skill (staging)"
+  description: "Kubernetes skill in staging"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: false
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: python-skill-staging-v0.5.0
+  namespace: agentregistry
+  labels:
+    environment: staging
+spec:
+  name: python-skill-staging
+  version: "0.5.0"
+  title: "Python Skill (staging)"
+  description: "Python skill in staging"
+  category: development

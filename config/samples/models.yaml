@@ -1,0 +1,33 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: claude-3-opus-prod
+  namespace: agentregistry
+spec:
+  name: claude-3-opus-prod
+  provider: Anthropic
+  model: claude-3-opus-20240229
+  description: Claude 3 Opus
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: gpt-4-dev
+  namespace: agentregistry
+spec:
+  name: gpt-4-dev
+  provider: OpenAI
+  model: gpt-4-turbo
+  description: GPT-4 Turbo
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: llama3-local
+  namespace: agentregistry
+spec:
+  name: llama3-local
+  provider: Ollama
+  model: llama3:70b
+  baseUrl: http://localhost:11434
+  description: Local Llama 3

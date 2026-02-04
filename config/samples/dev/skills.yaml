@@ -1,0 +1,87 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: terraform-skill-dev-v1.5.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: terraform-skill-dev
+  version: "1.5.0"
+  title: "Terraform Skill (dev)"
+  description: "Terraform skill in dev"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: false
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: sql-query-skill-dev-v0.8.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: sql-query-skill-dev
+  version: "0.8.0"
+  title: "Sql Query Skill (dev)"
+  description: "Sql query skill in dev"
+  category: data
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: true
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: kubernetes-skill-dev-v1.0.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: kubernetes-skill-dev
+  version: "1.0.0"
+  title: "Kubernetes Skill (dev)"
+  description: "Kubernetes skill in dev"
+  category: infrastructure
+  _meta:
+    io.modelcontextprotocol.registry/publisher-provided:
+      aregistry.ai/metadata:
+        identity:
+          org_is_verified: false
+          publisher_identity_verified_by_jwt: true
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: python-skill-dev-v0.5.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: python-skill-dev
+  version: "0.5.0"
+  title: "Python Skill (dev)"
+  description: "Python skill in dev"
+  category: development
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: csv-parser-skill-dev-v0.1.0
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  name: csv-parser-skill-dev
+  version: "0.1.0"
+  title: "CSV Parser Skill (dev)"
+  description: "CSV parsing and transformation — draft"
+  category: data

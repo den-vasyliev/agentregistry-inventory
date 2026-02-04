@@ -1,0 +1,27 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: filesystem-server-dev-dev-deploy
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  resourceName: filesystem-server-dev
+  version: "1.0.0"
+  resourceType: mcp-server
+  runtime: kubernetes
+  namespace: dev
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: research-agent-dev-dev-deploy
+  namespace: agentregistry
+  labels:
+    environment: dev
+spec:
+  resourceName: research-agent-dev
+  version: "0.5.0"
+  resourceType: agent
+  runtime: kubernetes
+  namespace: dev

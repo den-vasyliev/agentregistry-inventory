@@ -2,6 +2,7 @@ apiVersion: agentregistry.dev/v1alpha1
 kind: SkillCatalog
 metadata:
   name: terraform-skill
+  namespace: agentregistry
 spec:
   name: terraform-skill
   version: "1.5.0"
