@@ -9,28 +9,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, Upload, BadgeCheck, Clock, Check, X, ShieldCheck } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, BadgeCheck, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface SkillCardProps {
   skill: SkillResponse
   onDelete?: (skill: SkillResponse) => void
-  onPublish?: (skill: SkillResponse) => void
-  onApprove?: (skill: SkillResponse) => void
-  onReject?: (skill: SkillResponse) => void
   showDelete?: boolean
-  showPublish?: boolean
   showExternalLinks?: boolean
-  showApproval?: boolean
   onClick?: () => void
 }
 
-export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, showDelete = false, showPublish = false, showExternalLinks = true, showApproval = false, onClick }: SkillCardProps) {
+export function SkillCard({ skill, onDelete, showDelete = true, showExternalLinks = true, onClick }: SkillCardProps) {
   const { skill: skillData, _meta } = skill
-  const official = _meta?.['io.modelcontextprotocol.registry/official']
-
-  // Check if this is a pending review submission
-  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
 
   // Extract metadata
   const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided'] as Record<string, unknown> | undefined
@@ -38,11 +29,12 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
   const identityData = aregistryMetadata?.['identity'] as Record<string, unknown> | undefined
 
   // Get owner from metadata or extract from repository URL
-  const getOwner = () => {
+  const getOwner = (): string | null => {
     // Try to get email from metadata first
-    if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
-    if (identityData?.email) return identityData.email
-    if ((official as any)?.submitter) return (official as any).submitter
+    const contactEmail = publisherMetadata?.contact_email as string | undefined
+    if (contactEmail) return contactEmail
+    const identityEmail = identityData?.email as string | undefined
+    if (identityEmail) return identityEmail
 
     // Fallback to extracting owner/org from GitHub repository URL
     if (skillData.repository?.url) {
@@ -86,10 +78,15 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="font-semibold text-lg">{skillData.title || skillData.name}</h3>
               <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
                 Skill
+              </Badge>
+              {/* Skills are metadata - show as Active */}
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Active
               </Badge>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -124,68 +121,6 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showApproval && isPendingReview && onApprove && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onApprove(skill)
-                  }}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Approve
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Approve and publish this skill</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {showApproval && isPendingReview && onReject && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onReject(skill)
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Reject
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Reject this submission</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {showPublish && onPublish && !isPendingReview && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onPublish(skill)
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Publish this skill to your registry</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
           {showExternalLinks && skillData.repository?.url && (
             <Button
               variant="ghost"
@@ -248,30 +183,6 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
           <span>{skillData.version}</span>
         </div>
 
-        {isPendingReview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
-              >
-                <Clock className="h-3 w-3 mr-1" />
-                Pending Review
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>This skill is awaiting approval</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {official?.publishedAt && !isPendingReview && (
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>{formatDate(official.publishedAt)}</span>
-          </div>
-        )}
-
         {skillData.packages && skillData.packages.length > 0 && (
           <div className="flex items-center gap-1">
             <Package className="h-3 w-3" />
@@ -297,4 +208,3 @@ export function SkillCard({ skill, onDelete, onPublish, onApprove, onReject, sho
     </TooltipProvider>
   )
 }
-

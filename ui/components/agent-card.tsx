@@ -10,28 +10,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Bot, Upload, Container, Cpu, Brain, Github, CheckCircle2, XCircle, Circle, BadgeCheck, Clock, Check, X } from "lucide-react"
+import { Calendar, Tag, Bot, Trash2, Container, Cpu, Brain, Github, BadgeCheck, Play, StopCircle, CheckCircle2, XCircle } from "lucide-react"
 
 interface AgentCardProps {
   agent: AgentResponse
   onDelete?: (agent: AgentResponse) => void
-  onPublish?: (agent: AgentResponse) => void
-  onApprove?: (agent: AgentResponse) => void
-  onReject?: (agent: AgentResponse) => void
+  onDeploy?: (agent: AgentResponse) => void
+  onUndeploy?: (agent: AgentResponse) => void
   showDelete?: boolean
-  showPublish?: boolean
+  showDeploy?: boolean
   showExternalLinks?: boolean
-  showApproval?: boolean
   onClick?: () => void
 }
 
-export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, showDelete = false, showPublish = false, showApproval = false, onClick }: AgentCardProps) {
+export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = true, showDeploy = true, showExternalLinks = true, onClick }: AgentCardProps) {
   const { agent: agentData, _meta } = agent
-  const official = _meta?.['io.modelcontextprotocol.registry/official']
-  const deployment = _meta?.deployment
 
-  // Check if this is a pending review submission
-  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
+  // Get deployment status
+  const deployment = _meta?.deployment
+  const isExternal = _meta?.isDiscovered || _meta?.source === 'discovery'
+  const deploymentStatus = deployment?.ready ? "Running" : deployment ? "Failed" : "Not Deployed"
 
   // Extract metadata
   const publisherMetadata = (agentData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -42,7 +40,6 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
     // Try to get email from metadata first
     if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
     if (identityData?.email) return identityData.email
-    if ((official as any)?.submitter) return (official as any).submitter
 
     // Fallback to extracting owner/org from GitHub repository URL
     if (agentData.repository?.url) {
@@ -74,6 +71,20 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
     }
   }
 
+  // Get status badge styles
+  const getStatusBadgeStyles = (status: string) => {
+    switch (status) {
+      case "Deployed":
+        return 'bg-green-500/10 text-green-600 border-green-500/20'
+      case "Failed":
+        return 'bg-red-500/10 text-red-600 border-red-500/20'
+      case "Deploying":
+        return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+      default:
+        return 'bg-gray-500/10 text-gray-600 border-gray-500/20'
+    }
+  }
+
   return (
     <TooltipProvider>
       <Card
@@ -86,10 +97,19 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="font-semibold text-lg">{agentData.name}</h3>
               <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-xs">
                 Agent
+              </Badge>
+              {/* Deployment status badge */}
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${getStatusBadgeStyles(deploymentStatus)}`}
+              >
+                {deploymentStatus === "Running" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                {deploymentStatus === "Failed" && <XCircle className="h-3 w-3 mr-1" />}
+                {deploymentStatus}
               </Badge>
               {/* External badge for discovered resources */}
               {_meta?.isDiscovered && (
@@ -109,108 +129,67 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
                   {agentData.language}
                 </Badge>
               )}
-              {isPendingReview && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
-                    >
-                      <Clock className="h-3 w-3 mr-1" />
-                      Pending Review
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>This agent is awaiting approval</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {deployment && !isPendingReview && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant={deployment.ready ? "default" : "destructive"}
-                      className={`text-xs ${deployment.ready ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}`}
-                    >
-                      {deployment.ready ? (
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                      ) : (
-                        <XCircle className="h-3 w-3 mr-1" />
-                      )}
-                      {deployment.ready ? 'Running' : 'Not Ready'}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{deployment.message || (deployment.ready ? 'Deployment is healthy' : 'Deployment has issues')}</p>
-                    {deployment.namespace && <p className="text-xs text-muted-foreground">Namespace: {deployment.namespace}</p>}
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showApproval && isPendingReview && onApprove && (
+          {/* Deploy/Undeploy buttons - only for managed (non-external) resources */}
+          {!isExternal && showDeploy && deploymentStatus === "Not Deployed" && onDeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="default"
                   size="sm"
-                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
+                  className="h-8 gap-1.5"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onApprove(agent)
+                    onDeploy(agent)
                   }}
                 >
-                  <Check className="h-3.5 w-3.5" />
-                  Approve
+                  <Play className="h-3.5 w-3.5" />
+                  Deploy
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Approve and publish this agent</p>
+                <p>Deploy this agent</p>
               </TooltipContent>
             </Tooltip>
           )}
-          {showApproval && isPendingReview && onReject && (
+          {!isExternal && showDeploy && deploymentStatus === "Running" && onUndeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   size="sm"
                   className="h-8 gap-1.5"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onReject(agent)
+                    onUndeploy(agent)
                   }}
                 >
-                  <X className="h-3.5 w-3.5" />
-                  Reject
+                  <StopCircle className="h-3.5 w-3.5" />
+                  Undeploy
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Reject this submission</p>
+                <p>Undeploy this agent</p>
               </TooltipContent>
             </Tooltip>
           )}
-          {showPublish && onPublish && !isPendingReview && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onPublish(agent)
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Publish this agent to your registry</p>
-              </TooltipContent>
-            </Tooltip>
+          {/* Delete button - only for managed (non-external) resources */}
+          {!isExternal && showDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(agent)
+              }}
+              title="Remove from registry"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </div>
@@ -233,13 +212,6 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
           <Tag className="h-3 w-3" />
           <span>{agentData.version}</span>
         </div>
-
-        {official?.publishedAt && (
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>{formatDate(official.publishedAt)}</span>
-          </div>
-        )}
 
         {agentData.modelProvider && (
           <div className="flex items-center gap-1">
@@ -264,7 +236,7 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
           </div>
         )}
 
-        {agentData.repository?.url && (
+        {showExternalLinks && agentData.repository?.url && (
           <a
             href={agentData.repository.url}
             target="_blank"
@@ -281,4 +253,3 @@ export function AgentCard({ agent, onDelete, onPublish, onApprove, onReject, sho
     </TooltipProvider>
   )
 }
-

@@ -10,30 +10,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Upload, ShieldCheck, BadgeCheck, Play, Clock, Check, X } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
   onDelete?: (server: ServerResponse) => void
-  onPublish?: (server: ServerResponse) => void
   onDeploy?: (server: ServerResponse) => void
-  onApprove?: (server: ServerResponse) => void
-  onReject?: (server: ServerResponse) => void
+  onUndeploy?: (server: ServerResponse) => void
   showDelete?: boolean
-  showPublish?: boolean
   showDeploy?: boolean
   showExternalLinks?: boolean
-  showApproval?: boolean
   onClick?: () => void
   versionCount?: number
 }
 
-export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, onReject, showDelete = false, showPublish = false, showDeploy = false, showExternalLinks = true, showApproval = false, onClick, versionCount }: ServerCardProps) {
+export function ServerCard({ server, onDelete, onDeploy, onUndeploy, showDelete = true, showDeploy = true, showExternalLinks = true, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
-  const official = _meta?.['io.modelcontextprotocol.registry/official']
 
-  // Check if this is a pending review submission
-  const isPendingReview = official?.status === 'pending_review' || (official as any)?.reviewStatus === 'pending'
+  // Get deployment status
+  const deployment = _meta?.deployment
+  const isExternal = _meta?.isDiscovered || _meta?.source === 'discovery'
+  const deploymentStatus = deployment?.ready ? "Running" : deployment ? "Failed" : "Not Deployed"
 
   // Extract metadata
   const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -45,7 +42,6 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
     // Try to get email from metadata first
     if (publisherMetadata?.contact_email) return publisherMetadata.contact_email
     if (identityData?.email) return identityData.email
-    if ((official as any)?.submitter) return (official as any).submitter
 
     // Fallback to extracting owner/org from GitHub repository URL
     if (serverData.repository?.url) {
@@ -80,6 +76,20 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
   // Get the first icon if available
   const icon = serverData.icons?.[0]
 
+  // Get status badge styles
+  const getStatusBadgeStyles = (status: string) => {
+    switch (status) {
+      case "Running":
+        return 'bg-green-500/10 text-green-600 border-green-500/20'
+      case "Failed":
+        return 'bg-red-500/10 text-red-600 border-red-500/20'
+      case "Deploying":
+        return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+      default:
+        return 'bg-gray-500/10 text-gray-600 border-gray-500/20'
+    }
+  }
+
   return (
     <TooltipProvider>
       <Card
@@ -96,22 +106,20 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
             />
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="font-semibold text-lg">{serverData.title || serverData.name}</h3>
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs">
                 {serverData.remotes && serverData.remotes.length > 0 ? "Remote MCP" : "MCP Server"}
               </Badge>
               {/* Deployment status badge */}
-              {_meta?.deployment && (
-                <Badge 
-                  variant="outline" 
-                  className={`text-xs ${_meta.deployment.ready 
-                    ? 'bg-green-500/10 text-green-600 border-green-500/20' 
-                    : 'bg-red-500/10 text-red-600 border-red-500/20'}`}
-                >
-                  {_meta.deployment.ready ? 'Running' : 'Not Ready'}
-                </Badge>
-              )}
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${getStatusBadgeStyles(deploymentStatus)}`}
+              >
+                {deploymentStatus === "Running" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                {deploymentStatus === "Failed" && <XCircle className="h-3 w-3 mr-1" />}
+                {deploymentStatus}
+              </Badge>
               {/* External badge for discovered resources */}
               {_meta?.isDiscovered && (
                 <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-xs">
@@ -151,49 +159,8 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showApproval && isPendingReview && onApprove && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onApprove(server)
-                  }}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Approve
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Approve and publish this server</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {showApproval && isPendingReview && onReject && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onReject(server)
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Reject
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Reject this submission</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {showDeploy && onDeploy && !isPendingReview && (
+          {/* Deploy/Undeploy buttons - only for managed (non-external) resources */}
+          {!isExternal && showDeploy && deploymentStatus === "Not Deployed" && onDeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -214,23 +181,24 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
               </TooltipContent>
             </Tooltip>
           )}
-          {showPublish && onPublish && !isPendingReview && (
+          {!isExternal && showDeploy && deploymentStatus === "Running" && onUndeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onPublish(server)
+                    onUndeploy(server)
                   }}
                 >
-                  <Upload className="h-4 w-4" />
+                  <StopCircle className="h-3.5 w-3.5" />
+                  Undeploy
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Publish this server to your registry</p>
+                <p>Undeploy this server</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -262,7 +230,8 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
               <Globe className="h-4 w-4" />
             </Button>
           )}
-          {showDelete && onDelete && (
+          {/* Delete button - only for managed (non-external) resources */}
+          {!isExternal && showDelete && onDelete && (
             <Button
               variant="ghost"
               size="icon"
@@ -301,30 +270,6 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
           )}
         </div>
 
-        {isPendingReview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className="text-xs bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20"
-              >
-                <Clock className="h-3 w-3 mr-1" />
-                Pending Review
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>This resource is awaiting approval</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {official?.publishedAt && (
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>{formatDate(official.publishedAt)}</span>
-          </div>
-        )}
-
         {serverData.packages && serverData.packages.length > 0 && (
           <div className="flex items-center gap-1">
             <Package className="h-3 w-3" />
@@ -357,4 +302,3 @@ export function ServerCard({ server, onDelete, onPublish, onDeploy, onApprove, o
     </TooltipProvider>
   )
 }
-

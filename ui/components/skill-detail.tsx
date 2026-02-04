@@ -25,17 +25,15 @@ import {
   Link,
   ArrowLeft,
   Zap,
-  Upload,
   BadgeCheck,
 } from "lucide-react"
 
 interface SkillDetailProps {
   skill: SkillResponse
   onClose: () => void
-  onPublish?: (skill: SkillResponse) => void
 }
 
-export function SkillDetail({ skill, onClose, onPublish }: SkillDetailProps) {
+export function SkillDetail({ skill, onClose }: SkillDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
 
   const { skill: skillData, _meta } = skill
@@ -118,25 +116,6 @@ export function SkillDetail({ skill, onClose, onPublish }: SkillDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {onPublish && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => onPublish(skill)}
-                      className="gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Publish
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Publish this skill to your registry</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>

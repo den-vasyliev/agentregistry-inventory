@@ -249,6 +249,13 @@ func (h *ServerHandler) listServers(ctx context.Context, input *ListServersInput
 		return nil, huma.Error500InternalServerError("Failed to list servers", err)
 	}
 
+	// Fetch all RegistryDeployments to build a lookup map
+	deploymentMap, err := h.buildDeploymentMap(ctx)
+	if err != nil {
+		h.logger.Warn().Err(err).Msg("Failed to list RegistryDeployments, continuing without deployment status")
+		deploymentMap = make(map[string]*agentregistryv1alpha1.RegistryDeployment)
+	}
+
 	// Apply additional filters
 	servers := make([]ServerResponse, 0, len(serverList.Items))
 	for _, s := range serverList.Items {
@@ -262,7 +269,10 @@ func (h *ServerHandler) listServers(ctx context.Context, input *ListServersInput
 			continue
 		}
 
-		servers = append(servers, h.convertToServerResponse(&s))
+		// Get deployment status for this server
+		key := s.Spec.Name + "/" + s.Spec.Version
+		deployment := deploymentMap[key]
+		servers = append(servers, h.convertToServerResponse(&s, deployment))
 	}
 
 	// Apply pagination
@@ -282,6 +292,44 @@ func (h *ServerHandler) listServers(ctx context.Context, input *ListServersInput
 			},
 		},
 	}, nil
+}
+
+// buildDeploymentMap creates a map of resourceName/version to RegistryDeployment
+func (h *ServerHandler) buildDeploymentMap(ctx context.Context) (map[string]*agentregistryv1alpha1.RegistryDeployment, error) {
+	var deploymentList agentregistryv1alpha1.RegistryDeploymentList
+	if err := h.listFromCacheOrClient(ctx, &deploymentList); err != nil {
+		return nil, err
+	}
+
+	deploymentMap := make(map[string]*agentregistryv1alpha1.RegistryDeployment)
+	for i := range deploymentList.Items {
+		deployment := &deploymentList.Items[i]
+		// Only include MCP resource type deployments
+		if deployment.Spec.ResourceType == agentregistryv1alpha1.ResourceTypeMCP {
+			key := deployment.Spec.ResourceName + "/" + deployment.Spec.Version
+			deploymentMap[key] = deployment
+		}
+	}
+	return deploymentMap, nil
+}
+
+// getDeploymentForServer looks up a RegistryDeployment for a specific server by name and version
+func (h *ServerHandler) getDeploymentForServer(ctx context.Context, resourceName, version string) (*agentregistryv1alpha1.RegistryDeployment, error) {
+	var deploymentList agentregistryv1alpha1.RegistryDeploymentList
+	if err := h.listFromCacheOrClient(ctx, &deploymentList); err != nil {
+		return nil, err
+	}
+
+	for i := range deploymentList.Items {
+		deployment := &deploymentList.Items[i]
+		if deployment.Spec.ResourceType == agentregistryv1alpha1.ResourceTypeMCP &&
+			deployment.Spec.ResourceName == resourceName &&
+			deployment.Spec.Version == version {
+			return deployment, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (h *ServerHandler) getServer(ctx context.Context, input *ServerDetailInput, isAdmin bool) (*Response[ServerResponse], error) {
@@ -306,8 +354,16 @@ func (h *ServerHandler) getServer(ctx context.Context, input *ServerDetailInput,
 		return nil, huma.Error404NotFound("Server not found")
 	}
 
+	server := &serverList.Items[0]
+
+	// Fetch deployment for this server
+	deployment, err := h.getDeploymentForServer(ctx, server.Spec.Name, server.Spec.Version)
+	if err != nil {
+		h.logger.Warn().Err(err).Str("server", server.Spec.Name).Str("version", server.Spec.Version).Msg("Failed to get deployment for server")
+	}
+
 	return &Response[ServerResponse]{
-		Body: h.convertToServerResponse(&serverList.Items[0]),
+		Body: h.convertToServerResponse(server, deployment),
 	}, nil
 }
 
@@ -328,10 +384,16 @@ func (h *ServerHandler) getServerVersion(ctx context.Context, input *ServerVersi
 		return nil, huma.Error500InternalServerError("Failed to get server", err)
 	}
 
-	for _, s := range serverList.Items {
-		if s.Spec.Version == version {
+	for i := range serverList.Items {
+		if serverList.Items[i].Spec.Version == version {
+			server := &serverList.Items[i]
+			// Fetch deployment for this server version
+			deployment, err := h.getDeploymentForServer(ctx, server.Spec.Name, server.Spec.Version)
+			if err != nil {
+				h.logger.Warn().Err(err).Str("server", server.Spec.Name).Str("version", server.Spec.Version).Msg("Failed to get deployment for server")
+			}
 			return &Response[ServerResponse]{
-				Body: h.convertToServerResponse(&s),
+				Body: h.convertToServerResponse(server, deployment),
 			}, nil
 		}
 	}
@@ -462,7 +524,7 @@ func (h *ServerHandler) createServer(ctx context.Context, input *CreateServerInp
 	}
 
 	return &Response[ServerResponse]{
-		Body: h.convertToServerResponse(server),
+		Body: h.convertToServerResponse(server, nil),
 	}, nil
 }
 
@@ -479,9 +541,19 @@ func (h *ServerHandler) listServerVersions(ctx context.Context, input *ServerDet
 		return nil, huma.Error500InternalServerError("Failed to list server versions", err)
 	}
 
+	// Fetch all RegistryDeployments to build a lookup map
+	deploymentMap, err := h.buildDeploymentMap(ctx)
+	if err != nil {
+		h.logger.Warn().Err(err).Msg("Failed to list RegistryDeployments, continuing without deployment status")
+		deploymentMap = make(map[string]*agentregistryv1alpha1.RegistryDeployment)
+	}
+
 	servers := make([]ServerResponse, 0, len(serverList.Items))
-	for _, s := range serverList.Items {
-		servers = append(servers, h.convertToServerResponse(&s))
+	for i := range serverList.Items {
+		// Get deployment status for this server version
+		key := serverList.Items[i].Spec.Name + "/" + serverList.Items[i].Spec.Version
+		deployment := deploymentMap[key]
+		servers = append(servers, h.convertToServerResponse(&serverList.Items[i], deployment))
 	}
 
 	return &Response[ServerListResponse]{
@@ -520,7 +592,7 @@ func (h *ServerHandler) deleteServerVersion(ctx context.Context, input *ServerVe
 	}, nil
 }
 
-func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServerCatalog) ServerResponse {
+func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServerCatalog, deployment *agentregistryv1alpha1.RegistryDeployment) ServerResponse {
 	// Convert repository using conversion package
 	var repoJSON *RepositoryJSON
 	if repo := conversion.RepositoryFromCRD(s.Spec.Repository); repo != nil {
@@ -607,8 +679,10 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 		}
 	}
 
-	// Include deployment status from catalog status
-	if s.Status.Deployment != nil {
+	// Include deployment status from RegistryDeployment if available, otherwise from catalog status
+	if deployment != nil {
+		resp.Meta.Deployment = h.convertRegistryDeploymentToDeploymentInfo(deployment)
+	} else if s.Status.Deployment != nil {
 		resp.Meta.Deployment = &DeploymentInfo{
 			Namespace:   s.Status.Deployment.Namespace,
 			ServiceName: s.Status.Deployment.ServiceName,
@@ -623,6 +697,48 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 	}
 
 	return resp
+}
+
+// convertRegistryDeploymentToDeploymentInfo converts a RegistryDeployment to DeploymentInfo
+func (h *ServerHandler) convertRegistryDeploymentToDeploymentInfo(d *agentregistryv1alpha1.RegistryDeployment) *DeploymentInfo {
+	info := &DeploymentInfo{
+		Namespace: d.Spec.Namespace,
+	}
+
+	// Determine ready status based on phase
+	switch d.Status.Phase {
+	case agentregistryv1alpha1.DeploymentPhaseRunning:
+		info.Ready = true
+		info.Message = ""
+	case agentregistryv1alpha1.DeploymentPhaseFailed:
+		info.Ready = false
+		info.Message = d.Status.Message
+	case agentregistryv1alpha1.DeploymentPhasePending:
+		info.Ready = false
+		info.Message = "Pending"
+	default:
+		info.Ready = false
+		if d.Status.Message != "" {
+			info.Message = d.Status.Message
+		}
+	}
+
+	// Extract service name from managed resources
+	for _, r := range d.Status.ManagedResources {
+		if r.Kind == "Service" {
+			info.ServiceName = r.Name
+			if r.Namespace != "" {
+				info.Namespace = r.Namespace
+			}
+		}
+	}
+
+	if d.Status.UpdatedAt != nil {
+		t := d.Status.UpdatedAt.Time
+		info.LastChecked = &t
+	}
+
+	return info
 }
 
 // convertArguments converts conversion.ArgumentJSON slice to handlers.ArgumentJSON slice

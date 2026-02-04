@@ -538,6 +538,32 @@ class AdminApiClient {
     }
   }
 
+  // Delete an agent
+  async deleteAgent(agentName: string, version: string): Promise<void> {
+    const encodedName = encodeURIComponent(agentName)
+    const encodedVersion = encodeURIComponent(version)
+    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to delete agent')
+    }
+  }
+
+  // Delete a skill
+  async deleteSkill(skillName: string, version: string): Promise<void> {
+    const encodedName = encodeURIComponent(skillName)
+    const encodedVersion = encodeURIComponent(version)
+    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error || 'Failed to delete skill')
+    }
+  }
+
   // Get registry statistics
   async getStats(): Promise<ServerStats> {
     const response = await fetch(`${this.baseUrl}/admin/v0/stats`)
@@ -722,86 +748,6 @@ class AdminApiClient {
     return response.json()
   }
 
-  // ===== Publish Status API =====
-
-  // Publish a server (change status to published)
-  async publishServerStatus(serverName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(serverName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers/${encodedName}/versions/${encodedVersion}/publish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to publish server')
-    }
-  }
-
-  // Unpublish a server (change status to unpublished)
-  async unpublishServerStatus(serverName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(serverName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers/${encodedName}/versions/${encodedVersion}/unpublish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to unpublish server')
-    }
-  }
-
-  // Publish a skill (change status to published)
-  async publishSkillStatus(skillName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(skillName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}/publish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to publish skill')
-    }
-  }
-
-  // Unpublish a skill (change status to unpublished)
-  async unpublishSkillStatus(skillName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(skillName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}/unpublish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to unpublish skill')
-    }
-  }
-
-  // Publish an agent (change status to published)
-  async publishAgentStatus(agentName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(agentName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}/publish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to publish agent')
-    }
-  }
-
-  // Unpublish an agent (change status to unpublished)
-  async unpublishAgentStatus(agentName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(agentName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}/unpublish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to unpublish agent')
-    }
-  }
-
   // ===== Models API =====
 
   // List models with pagination and filtering (ADMIN - shows all models)
@@ -870,30 +816,6 @@ class AdminApiClient {
     return response.json()
   }
 
-  // Publish a model (change status to published)
-  async publishModelStatus(modelName: string): Promise<void> {
-    const encodedName = encodeURIComponent(modelName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}/publish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to publish model')
-    }
-  }
-
-  // Unpublish a model (change status to unpublished)
-  async unpublishModelStatus(modelName: string): Promise<void> {
-    const encodedName = encodeURIComponent(modelName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}/unpublish`, {
-      method: 'POST',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to unpublish model')
-    }
-  }
-
   // Delete a model
   async deleteModel(modelName: string): Promise<void> {
     const encodedName = encodeURIComponent(modelName)
@@ -948,68 +870,6 @@ class AdminApiClient {
       throw new Error(error.message || 'Failed to import models')
     }
     return response.json()
-  }
-
-  // ===== Submit API (GitOps Approval Workflow) =====
-
-  // Submit a resource from a repository for review
-  async submitResource(request: SubmitRequest): Promise<SubmitResponse> {
-    const response = await fetch(`${this.baseUrl}/admin/v0/submit`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(request),
-    })
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.message || 'Failed to submit resource')
-    }
-    return response.json()
-  }
-
-  // Approve a pending server (same as publish)
-  async approveServer(serverName: string, version: string): Promise<void> {
-    return this.publishServerStatus(serverName, version)
-  }
-
-  // Reject a pending server (delete it)
-  async rejectServer(serverName: string, version: string): Promise<void> {
-    return this.deleteServer(serverName, version)
-  }
-
-  // Approve a pending agent (same as publish)
-  async approveAgent(agentName: string, version: string): Promise<void> {
-    return this.publishAgentStatus(agentName, version)
-  }
-
-  // Reject a pending agent (delete it)
-  async rejectAgent(agentName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(agentName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to reject agent')
-    }
-  }
-
-  // Approve a pending skill (same as publish)
-  async approveSkill(skillName: string, version: string): Promise<void> {
-    return this.publishSkillStatus(skillName, version)
-  }
-
-  // Reject a pending skill (delete it)
-  async rejectSkill(skillName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(skillName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to reject skill')
-    }
   }
 
   // ===== Deployments API =====
