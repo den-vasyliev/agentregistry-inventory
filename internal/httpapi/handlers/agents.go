@@ -84,6 +84,8 @@ type AgentMeta struct {
 	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
 	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
 	Deployment        *DeploymentInfo        `json:"deployment,omitempty"`
+	Source            string                 `json:"source,omitempty"` // discovery, manual, deployment
+	IsDiscovered      bool                   `json:"isDiscovered,omitempty"`
 }
 
 type AgentResponse struct {
@@ -664,6 +666,16 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 				Published:   a.Status.Published,
 			},
 		},
+	}
+
+	// Check for discovery labels to determine source
+	if a.Labels != nil {
+		if a.Labels["agentregistry.dev/discovered"] == "true" {
+			resp.Meta.IsDiscovered = true
+			resp.Meta.Source = "discovery"
+		} else if source := a.Labels["agentregistry.dev/resource-source"]; source != "" {
+			resp.Meta.Source = source
+		}
 	}
 
 	// Include publisher-provided metadata if available

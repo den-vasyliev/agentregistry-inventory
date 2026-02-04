@@ -136,6 +136,8 @@ export interface ServerResponse {
   _meta: {
     'io.modelcontextprotocol.registry/official'?: RegistryExtensions
     deployment?: DeploymentInfo
+    source?: string // discovery, manual, deployment
+    isDiscovered?: boolean
   }
 }
 
@@ -273,6 +275,8 @@ export interface AgentResponse {
   _meta: {
     'io.modelcontextprotocol.registry/official'?: AgentRegistryExtensions
     deployment?: DeploymentInfo
+    source?: string // discovery, manual, deployment
+    isDiscovered?: boolean
   }
 }
 

@@ -102,6 +102,8 @@ type ServerMeta struct {
 	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
 	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
 	Deployment        *DeploymentInfo        `json:"deployment,omitempty"`
+	Source            string                 `json:"source,omitempty"` // discovery, manual, deployment
+	IsDiscovered      bool                   `json:"isDiscovered,omitempty"`
 }
 
 type OfficialMeta struct {
@@ -708,6 +710,16 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 				Published:   s.Status.Published,
 			},
 		},
+	}
+
+	// Check for discovery labels to determine source
+	if s.Labels != nil {
+		if s.Labels["agentregistry.dev/discovered"] == "true" {
+			resp.Meta.IsDiscovered = true
+			resp.Meta.Source = "discovery"
+		} else if source := s.Labels["agentregistry.dev/resource-source"]; source != "" {
+			resp.Meta.Source = source
+		}
 	}
 
 	// Include publisher-provided metadata if available

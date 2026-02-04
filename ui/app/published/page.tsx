@@ -506,6 +506,7 @@ export default function PublishedPage() {
                   const meta = serverResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(server.name, server.version, 'server')
                   const deploymentStatus = getDeploymentStatus(server.name, server.version, 'server')
+                  const isDiscovered = serverResponse._meta?.isDiscovered || serverResponse._meta?.source === 'discovery'
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] as any
@@ -569,21 +570,23 @@ export default function PublishedPage() {
                         </div>
 
                         <div className="flex gap-2 ml-4">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeploy(server.name, server.version, 'server')
-                            }}
-                            disabled={deploying || deployed}
-                          >
-                            {deployed ? (
-                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
-                            ) : (
-                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
-                            )}
-                          </Button>
+                          {!isDiscovered && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeploy(server.name, server.version, 'server')
+                              }}
+                              disabled={deploying || deployed}
+                            >
+                              {deployed ? (
+                                <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                              ) : (
+                                <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -633,6 +636,7 @@ export default function PublishedPage() {
                   const meta = agentResponse._meta?.['io.modelcontextprotocol.registry/official']
                   const deployed = isDeployed(agent.name, agent.version, 'agent')
                   const deploymentStatus = getDeploymentStatus(agent.name, agent.version, 'agent')
+                  const isDiscovered = agentResponse._meta?.isDiscovered || agentResponse._meta?.source === 'discovery'
 
                   // Extract owner from metadata or repository URL
                   const publisherMetadata = (agent as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -696,21 +700,23 @@ export default function PublishedPage() {
                         </div>
 
                         <div className="flex gap-2 ml-4">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeploy(agent.name, agent.version, 'agent')
-                            }}
-                            disabled={deploying || deployed}
-                          >
-                            {deployed ? (
-                              <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
-                            ) : (
-                              <><Rocket className="h-4 w-4 mr-2" />Deploy</>
-                            )}
-                          </Button>
+                          {!isDiscovered && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeploy(agent.name, agent.version, 'agent')
+                              }}
+                              disabled={deploying || deployed}
+                            >
+                              {deployed ? (
+                                <><Rocket className="h-4 w-4 mr-2" />Already Deployed</>
+                              ) : (
+                                <><Rocket className="h-4 w-4 mr-2" />Deploy</>
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
