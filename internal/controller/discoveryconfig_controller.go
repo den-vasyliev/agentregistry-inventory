@@ -49,6 +49,99 @@ type DiscoveryConfigReconciler struct {
 // RemoteClientFactory creates clients for remote clusters (injectable for testing)
 var RemoteClientFactory func(env *agentregistryv1alpha1.Environment, scheme *runtime.Scheme) (client.WithWatch, error)
 
+// DiscoveredResourceCache provides read access to resources from discovered namespaces.
+// Populated by DiscoveryConfig informers, used by catalog reconcilers for SourceRef lookups.
+type DiscoveredResourceCache struct {
+	mu          sync.RWMutex
+	mcpservers  map[string]*kmcpv1alpha1.MCPServer    // key: "namespace/name"
+	agents      map[string]*kagentv1alpha2.Agent      // key: "namespace/name"
+	modelconfigs map[string]*kagentv1alpha2.ModelConfig // key: "namespace/name"
+}
+
+var discoveredCache = &DiscoveredResourceCache{
+	mcpservers:   make(map[string]*kmcpv1alpha1.MCPServer),
+	agents:       make(map[string]*kagentv1alpha2.Agent),
+	modelconfigs: make(map[string]*kagentv1alpha2.ModelConfig),
+}
+
+// GetMCPServer retrieves an MCPServer from the discovered cache.
+func GetMCPServer(ctx context.Context, namespace, name string) (*kmcpv1alpha1.MCPServer, error) {
+	key := namespace + "/" + name
+	discoveredCache.mu.RLock()
+	defer discoveredCache.mu.RUnlock()
+	
+	if server, ok := discoveredCache.mcpservers[key]; ok {
+		return server.DeepCopy(), nil
+	}
+	return nil, fmt.Errorf("MCPServer %s/%s not found in discovery cache", namespace, name)
+}
+
+func setDiscoveredMCPServer(server *kmcpv1alpha1.MCPServer) {
+	key := server.Namespace + "/" + server.Name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	discoveredCache.mcpservers[key] = server.DeepCopy()
+}
+
+func deleteDiscoveredMCPServer(namespace, name string) {
+	key := namespace + "/" + name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	delete(discoveredCache.mcpservers, key)
+}
+
+// GetAgent retrieves an Agent from the discovered cache.
+func GetAgent(ctx context.Context, namespace, name string) (*kagentv1alpha2.Agent, error) {
+	key := namespace + "/" + name
+	discoveredCache.mu.RLock()
+	defer discoveredCache.mu.RUnlock()
+	
+	if agent, ok := discoveredCache.agents[key]; ok {
+		return agent.DeepCopy(), nil
+	}
+	return nil, fmt.Errorf("Agent %s/%s not found in discovery cache", namespace, name)
+}
+
+func setDiscoveredAgent(agent *kagentv1alpha2.Agent) {
+	key := agent.Namespace + "/" + agent.Name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	discoveredCache.agents[key] = agent.DeepCopy()
+}
+
+func deleteDiscoveredAgent(namespace, name string) {
+	key := namespace + "/" + name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	delete(discoveredCache.agents, key)
+}
+
+// GetModelConfig retrieves a ModelConfig from the discovered cache.
+func GetModelConfig(ctx context.Context, namespace, name string) (*kagentv1alpha2.ModelConfig, error) {
+	key := namespace + "/" + name
+	discoveredCache.mu.RLock()
+	defer discoveredCache.mu.RUnlock()
+	
+	if model, ok := discoveredCache.modelconfigs[key]; ok {
+		return model.DeepCopy(), nil
+	}
+	return nil, fmt.Errorf("ModelConfig %s/%s not found in discovery cache", namespace, name)
+}
+
+func setDiscoveredModelConfig(model *kagentv1alpha2.ModelConfig) {
+	key := model.Namespace + "/" + model.Name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	discoveredCache.modelconfigs[key] = model.DeepCopy()
+}
+
+func deleteDiscoveredModelConfig(namespace, name string) {
+	key := namespace + "/" + name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	delete(discoveredCache.modelconfigs, key)
+}
+
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=discoveryconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=discoveryconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=mcpservercatalogs,verbs=get;list;watch;create;update;patch;delete
@@ -214,6 +307,8 @@ func (r *DiscoveryConfigReconciler) createMCPServerInformer(
 		AddFunc: func(obj interface{}) {
 			mcpServer := obj.(*kmcpv1alpha1.MCPServer)
 			logger.Info().Str("mcpserver", mcpServer.Name).Msg("MCPServer added")
+			// Add to discovery cache for SourceRef lookups
+			setDiscoveredMCPServer(mcpServer)
 			resourceKey := fmt.Sprintf("mcpserver/%s/%s", mcpServer.Namespace, mcpServer.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleMCPServerAdd(ctx, mcpServer, env)
@@ -222,6 +317,8 @@ func (r *DiscoveryConfigReconciler) createMCPServerInformer(
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			mcpServer := newObj.(*kmcpv1alpha1.MCPServer)
 			logger.Debug().Str("mcpserver", mcpServer.Name).Msg("MCPServer updated")
+			// Update discovery cache
+			setDiscoveredMCPServer(mcpServer)
 			resourceKey := fmt.Sprintf("mcpserver/%s/%s", mcpServer.Namespace, mcpServer.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleMCPServerAdd(ctx, mcpServer, env)
@@ -230,6 +327,8 @@ func (r *DiscoveryConfigReconciler) createMCPServerInformer(
 		DeleteFunc: func(obj interface{}) {
 			mcpServer := obj.(*kmcpv1alpha1.MCPServer)
 			logger.Info().Str("mcpserver", mcpServer.Name).Msg("MCPServer deleted")
+			// Remove from discovery cache
+			deleteDiscoveredMCPServer(mcpServer.Namespace, mcpServer.Name)
 			// TODO: Handle deletion - mark catalog entry as deleted or remove it
 		},
 	})
@@ -265,6 +364,8 @@ func (r *DiscoveryConfigReconciler) createAgentInformer(
 		AddFunc: func(obj interface{}) {
 			agent := obj.(*kagentv1alpha2.Agent)
 			logger.Info().Str("agent", agent.Name).Msg("Agent added")
+			// Add to discovery cache
+			setDiscoveredAgent(agent)
 			resourceKey := fmt.Sprintf("agent/%s/%s", agent.Namespace, agent.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleAgentAdd(ctx, agent, env)
@@ -273,6 +374,8 @@ func (r *DiscoveryConfigReconciler) createAgentInformer(
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			agent := newObj.(*kagentv1alpha2.Agent)
 			logger.Debug().Str("agent", agent.Name).Msg("Agent updated")
+			// Update discovery cache
+			setDiscoveredAgent(agent)
 			resourceKey := fmt.Sprintf("agent/%s/%s", agent.Namespace, agent.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleAgentAdd(ctx, agent, env)
@@ -281,6 +384,8 @@ func (r *DiscoveryConfigReconciler) createAgentInformer(
 		DeleteFunc: func(obj interface{}) {
 			agent := obj.(*kagentv1alpha2.Agent)
 			logger.Info().Str("agent", agent.Name).Msg("Agent deleted")
+			// Remove from discovery cache
+			deleteDiscoveredAgent(agent.Namespace, agent.Name)
 			// TODO: Handle deletion
 		},
 	})
@@ -316,6 +421,8 @@ func (r *DiscoveryConfigReconciler) createModelConfigInformer(
 		AddFunc: func(obj interface{}) {
 			model := obj.(*kagentv1alpha2.ModelConfig)
 			logger.Info().Str("modelconfig", model.Name).Msg("ModelConfig added")
+			// Add to discovery cache
+			setDiscoveredModelConfig(model)
 			resourceKey := fmt.Sprintf("model/%s/%s", model.Namespace, model.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleModelConfigAdd(ctx, model, env)
@@ -324,6 +431,8 @@ func (r *DiscoveryConfigReconciler) createModelConfigInformer(
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			model := newObj.(*kagentv1alpha2.ModelConfig)
 			logger.Debug().Str("modelconfig", model.Name).Msg("ModelConfig updated")
+			// Update discovery cache
+			setDiscoveredModelConfig(model)
 			resourceKey := fmt.Sprintf("model/%s/%s", model.Namespace, model.Name)
 			r.executeWithRetry(ctx, resourceKey, func() error {
 				return r.handleModelConfigAdd(ctx, model, env)
@@ -332,6 +441,8 @@ func (r *DiscoveryConfigReconciler) createModelConfigInformer(
 		DeleteFunc: func(obj interface{}) {
 			model := obj.(*kagentv1alpha2.ModelConfig)
 			logger.Info().Str("modelconfig", model.Name).Msg("ModelConfig deleted")
+			// Remove from discovery cache
+			deleteDiscoveredModelConfig(model.Namespace, model.Name)
 			// TODO: Handle deletion
 		},
 	})
@@ -415,14 +526,31 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
-		return r.Create(ctx, &catalog)
+		if err := r.Create(ctx, &catalog); err != nil {
+			return err
+		}
+		// Set external management type and published status
+		catalog.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		catalog.Status.Published = true
+		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		return r.Status().Update(ctx, &catalog)
 	} else if err != nil {
 		return err
 	}
 
 	existing.Spec = catalog.Spec
 	existing.Labels = labels
-	return r.Update(ctx, existing)
+	if err := r.Update(ctx, existing); err != nil {
+		return err
+	}
+	// Ensure status is set for external resources
+	if existing.Status.ManagementType == "" {
+		existing.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		existing.Status.Published = true
+		existing.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		return r.Status().Update(ctx, existing)
+	}
+	return nil
 }
 
 // handleAgentAdd creates/updates catalog entry for discovered Agent
@@ -480,14 +608,31 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
-		return r.Create(ctx, &catalog)
+		if err := r.Create(ctx, &catalog); err != nil {
+			return err
+		}
+		// Set external management type and published status
+		catalog.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		catalog.Status.Published = true
+		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		return r.Status().Update(ctx, &catalog)
 	} else if err != nil {
 		return err
 	}
 
 	existing.Spec = catalog.Spec
 	existing.Labels = labels
-	return r.Update(ctx, existing)
+	if err := r.Update(ctx, existing); err != nil {
+		return err
+	}
+	// Ensure status is set for external resources
+	if existing.Status.ManagementType == "" {
+		existing.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		existing.Status.Published = true
+		existing.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		return r.Status().Update(ctx, existing)
+	}
+	return nil
 }
 
 // handleModelConfigAdd creates/updates catalog entry for discovered ModelConfig
@@ -535,14 +680,33 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
 
 	if apierrors.IsNotFound(err) {
-		return r.Create(ctx, &catalog)
+		if err := r.Create(ctx, &catalog); err != nil {
+			return err
+		}
+		// Set external management type and published status
+		catalog.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		catalog.Status.Published = true
+		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		catalog.Status.Ready = true
+		return r.Status().Update(ctx, &catalog)
 	} else if err != nil {
 		return err
 	}
 
 	existing.Spec = catalog.Spec
 	existing.Labels = labels
-	return r.Update(ctx, existing)
+	if err := r.Update(ctx, existing); err != nil {
+		return err
+	}
+	// Ensure status is set for external resources
+	if existing.Status.ManagementType == "" {
+		existing.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		existing.Status.Published = true
+		existing.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		existing.Status.Ready = true
+		return r.Status().Update(ctx, existing)
+	}
+	return nil
 }
 
 // getRemoteClient gets or creates a client for remote cluster

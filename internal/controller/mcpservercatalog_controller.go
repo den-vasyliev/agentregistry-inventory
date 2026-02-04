@@ -10,12 +10,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
-	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 )
 
 // MCPServerCatalogReconciler reconciles a MCPServerCatalog object
@@ -48,8 +46,9 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	statusChanged := false
 
-	// Sync from sourceRef if present
-	if server.Spec.SourceRef != nil {
+	// Sync from sourceRef only for external resources (discovered)
+	// Managed resources get their status from RegistryDeployment
+	if server.Spec.SourceRef != nil && server.Status.ManagementType == agentregistryv1alpha1.ManagementTypeExternal {
 		if err := r.syncFromSource(ctx, &server, &statusChanged); err != nil {
 			if apierrors.IsNotFound(err) {
 				// Source was deleted, this is expected
@@ -81,8 +80,8 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Requeue to periodically sync sourceRef status
-	if server.Spec.SourceRef != nil {
+	// Requeue to periodically sync sourceRef status (only for external resources)
+	if server.Spec.SourceRef != nil && server.Status.ManagementType == agentregistryv1alpha1.ManagementTypeExternal {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -98,12 +97,9 @@ func (r *MCPServerCatalogReconciler) syncFromSource(ctx context.Context, server 
 		return nil
 	}
 
-	// Get the MCPServer resource
-	var mcpServer kmcpv1alpha1.MCPServer
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      ref.Name,
-		Namespace: ref.Namespace,
-	}, &mcpServer); err != nil {
+	// Get the MCPServer resource from discovery cache (populated by DiscoveryConfig informers)
+	mcpServer, err := GetMCPServer(ctx, ref.Namespace, ref.Name)
+	if err != nil {
 		// Update status to reflect source not found
 		now := metav1.Now()
 		newDeployment := &agentregistryv1alpha1.DeploymentRef{

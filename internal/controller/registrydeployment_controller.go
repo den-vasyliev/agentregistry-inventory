@@ -149,6 +149,14 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 		return fmt.Errorf("MCP server %s version %s not found", deployment.Spec.ResourceName, deployment.Spec.Version)
 	}
 
+	// Mark as managed if not already set
+	if catalogEntry.Status.ManagementType != agentregistryv1alpha1.ManagementTypeManaged {
+		catalogEntry.Status.ManagementType = agentregistryv1alpha1.ManagementTypeManaged
+		if err := r.Status().Update(ctx, catalogEntry); err != nil {
+			return fmt.Errorf("failed to update catalog management type: %w", err)
+		}
+	}
+
 	// Convert catalog to runtime format
 	mcpServer, err := r.convertCatalogToMCPServer(catalogEntry, deployment)
 	if err != nil {
@@ -223,6 +231,14 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 
 	if catalogEntry == nil {
 		return fmt.Errorf("agent %s version %s not found", deployment.Spec.ResourceName, deployment.Spec.Version)
+	}
+
+	// Mark as managed if not already set
+	if catalogEntry.Status.ManagementType != agentregistryv1alpha1.ManagementTypeManaged {
+		catalogEntry.Status.ManagementType = agentregistryv1alpha1.ManagementTypeManaged
+		if err := r.Status().Update(ctx, catalogEntry); err != nil {
+			return fmt.Errorf("failed to update catalog management type: %w", err)
+		}
 	}
 
 	// Convert catalog to runtime format
