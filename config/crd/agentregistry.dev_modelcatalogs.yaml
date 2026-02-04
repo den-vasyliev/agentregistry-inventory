@@ -15,7 +15,7 @@ spec:
     - mcat
     - modelcat
     singular: modelcatalog
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.name
@@ -133,6 +133,10 @@ spec:
                   - type
                   type: object
                 type: array
+              managementType:
+                description: ManagementType indicates how this resource is managed
+                  (external or managed)
+                type: string
               message:
                 description: Message provides additional status information
                 type: string
@@ -150,7 +154,10 @@ spec:
                 format: date-time
                 type: string
               ready:
-                description: Ready indicates if the model config is ready for use
+                description: |-
+                  Ready indicates if the model config is ready for use
+                  For external resources: synced from SourceRef
+                  For managed resources: set by RegistryDeployment
                 type: boolean
               status:
                 description: Status is the lifecycle status (active, deprecated, deleted)

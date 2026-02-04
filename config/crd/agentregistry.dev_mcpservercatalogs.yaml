@@ -346,8 +346,10 @@ spec:
                   type: object
                 type: array
               deployment:
-                description: Deployment tracks the runtime deployment info (optional,
-                  set by user or discovered)
+                description: |-
+                  Deployment tracks the runtime deployment info (optional, set by user or discovered)
+                  For external resources: synced from SourceRef
+                  For managed resources: set by RegistryDeployment
                 properties:
                   lastChecked:
                     description: LastChecked is when health was last verified
@@ -373,6 +375,10 @@ spec:
                 description: IsLatest indicates whether this is the latest version
                   of the server
                 type: boolean
+              managementType:
+                description: ManagementType indicates how this resource is managed
+                  (external or managed)
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the generation last observed by
                   the controller

@@ -179,6 +179,10 @@ spec:
                 description: IsLatest indicates whether this is the latest version
                   of the skill
                 type: boolean
+              managementType:
+                description: ManagementType indicates how this resource is managed
+                  (external or managed)
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the generation last observed by
                   the controller
