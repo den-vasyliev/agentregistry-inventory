@@ -14,6 +14,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -117,8 +118,23 @@ func main() {
 	// Get Kubernetes config (uses --kubeconfig flag or KUBECONFIG env var or in-cluster)
 	config := ctrl.GetConfigOrDie()
 
+	// Watch namespace for controller resources (catalogs, etc.)
+	watchNamespace := os.Getenv("WATCH_NAMESPACE")
+	if watchNamespace == "" {
+		watchNamespace = "agentregistry"
+	}
+
+	// Configure cache to only watch controller namespace
+	// DiscoveryConfig creates separate informers for discovered namespaces
+	cacheOpts := cache.Options{
+		DefaultNamespaces: map[string]cache.Config{
+			watchNamespace: {},
+		},
+	}
+
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme: scheme,
+		Cache:  cacheOpts,
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
