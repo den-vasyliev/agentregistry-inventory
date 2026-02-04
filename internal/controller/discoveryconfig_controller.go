@@ -52,9 +52,9 @@ var RemoteClientFactory func(env *agentregistryv1alpha1.Environment, scheme *run
 // DiscoveredResourceCache provides read access to resources from discovered namespaces.
 // Populated by DiscoveryConfig informers, used by catalog reconcilers for SourceRef lookups.
 type DiscoveredResourceCache struct {
-	mu          sync.RWMutex
-	mcpservers  map[string]*kmcpv1alpha1.MCPServer    // key: "namespace/name"
-	agents      map[string]*kagentv1alpha2.Agent      // key: "namespace/name"
+	mu           sync.RWMutex
+	mcpservers   map[string]*kmcpv1alpha1.MCPServer     // key: "namespace/name"
+	agents       map[string]*kagentv1alpha2.Agent       // key: "namespace/name"
 	modelconfigs map[string]*kagentv1alpha2.ModelConfig // key: "namespace/name"
 }
 
@@ -69,7 +69,7 @@ func GetMCPServer(ctx context.Context, namespace, name string) (*kmcpv1alpha1.MC
 	key := namespace + "/" + name
 	discoveredCache.mu.RLock()
 	defer discoveredCache.mu.RUnlock()
-	
+
 	if server, ok := discoveredCache.mcpservers[key]; ok {
 		return server.DeepCopy(), nil
 	}
@@ -95,7 +95,7 @@ func GetAgent(ctx context.Context, namespace, name string) (*kagentv1alpha2.Agen
 	key := namespace + "/" + name
 	discoveredCache.mu.RLock()
 	defer discoveredCache.mu.RUnlock()
-	
+
 	if agent, ok := discoveredCache.agents[key]; ok {
 		return agent.DeepCopy(), nil
 	}
@@ -121,7 +121,7 @@ func GetModelConfig(ctx context.Context, namespace, name string) (*kagentv1alpha
 	key := namespace + "/" + name
 	discoveredCache.mu.RLock()
 	defer discoveredCache.mu.RUnlock()
-	
+
 	if model, ok := discoveredCache.modelconfigs[key]; ok {
 		return model.DeepCopy(), nil
 	}
