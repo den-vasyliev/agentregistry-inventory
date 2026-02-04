@@ -149,6 +149,18 @@ const (
 	ResourceSourceImport     = "import"
 )
 
+// ManagementType indicates how the resource is managed
+type ManagementType string
+
+const (
+	// ManagementTypeExternal indicates the resource was discovered from an external cluster
+	// Status comes from the original resource, cannot be deployed
+	ManagementTypeExternal ManagementType = "external"
+	// ManagementTypeManaged indicates the resource was created in the catalog first
+	// Status comes from RegistryDeployment, can be deployed
+	ManagementTypeManaged ManagementType = "managed"
+)
+
 // GenerateResourceUID generates a unique resource identifier in format "name-env-ver"
 // This ensures uniqueness across environments and versions
 func GenerateResourceUID(name, environment, version string) string {

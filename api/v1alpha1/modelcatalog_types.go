@@ -56,10 +56,15 @@ type ModelCatalogStatus struct {
 	// Status is the lifecycle status (active, deprecated, deleted)
 	// +optional
 	Status CatalogStatus `json:"status,omitempty"`
+	// ManagementType indicates how this resource is managed (external or managed)
+	// +optional
+	ManagementType ManagementType `json:"managementType,omitempty"`
 	// UsedBy lists the agents that reference this model config
 	// +optional
 	UsedBy []ModelUsageRef `json:"usedBy,omitempty"`
 	// Ready indicates if the model config is ready for use
+	// For external resources: synced from SourceRef
+	// For managed resources: set by RegistryDeployment
 	// +optional
 	Ready bool `json:"ready,omitempty"`
 	// Message provides additional status information
@@ -75,7 +80,7 @@ type ModelCatalogStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=mcat;modelcat
+// +kubebuilder:resource:scope=Namespaced,shortName=mcat;modelcat
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Provider",type=string,JSONPath=`.spec.provider`
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=`.spec.model`
