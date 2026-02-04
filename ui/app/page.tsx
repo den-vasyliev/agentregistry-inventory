@@ -122,9 +122,9 @@ export default function AdminPage() {
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
-  // Helper function to get resource date (for sorting)
+  // Helper function to get resource creation date (for sorting)
   const getResourceDate = (server: ServerResponse): Date | null => {
-    // Use updatedAt (creation time) since publishedAt may not be set
+    // Backend sets updatedAt to CreationTimestamp (catalog creation time)
     const dateStr = server._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
     if (!dateStr) return null
     try {
