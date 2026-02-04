@@ -32,6 +32,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
@@ -46,6 +52,8 @@ import {
   GitPullRequest,
   Rocket,
   Trash2,
+  ShieldCheck,
+  BadgeCheck,
 } from "lucide-react"
 
 // Grouped server type
@@ -72,7 +80,7 @@ export default function AdminPage() {
   const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
+  const [sortBy, setSortBy] = useState<"name" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
   const [filterSkillVerifiedOrg, setFilterSkillVerifiedOrg] = useState(false)
@@ -114,18 +122,13 @@ export default function AdminPage() {
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
-  // Helper function to extract GitHub stars from server metadata
-  const getStars = (server: ServerResponse): number => {
-    const publisherMetadata = server.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
-    return publisherMetadata?.stars ?? 0
-  }
-
-  // Helper function to get published date
-  const getPublishedDate = (server: ServerResponse): Date | null => {
-    const publishedAt = server._meta?.['io.modelcontextprotocol.registry/official']?.publishedAt
-    if (!publishedAt) return null
+  // Helper function to get resource date (for sorting)
+  const getResourceDate = (server: ServerResponse): Date | null => {
+    // Use updatedAt (creation time) since publishedAt may not be set
+    const dateStr = server._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
+    if (!dateStr) return null
     try {
-      return new Date(publishedAt)
+      return new Date(dateStr)
     } catch {
       return null
     }
@@ -134,11 +137,17 @@ export default function AdminPage() {
   // Get deployment status for filtering
   const getDeploymentStatus = (item: ServerResponse | AgentResponse): "external" | "not_deployed" | "running" | "failed" => {
     const isExternal = item._meta?.isDiscovered || item._meta?.source === 'discovery'
-    if (isExternal) return "external"
     const deployment = item._meta?.deployment
-    if (!deployment) return "not_deployed"
-    if (deployment.ready) return "running"
-    return "failed"
+
+    // Check deployment status first (both managed and discovered resources have this)
+    if (deployment) {
+      if (deployment.ready) return "running"
+      return "failed"
+    }
+
+    // No deployment info - check if external or not deployed
+    if (isExternal) return "external"
+    return "not_deployed"
   }
 
   // Group servers by name, keeping the latest version as the representative
@@ -158,8 +167,8 @@ export default function AdminPage() {
     return Array.from(grouped.entries()).map(([name, versions]) => {
       // Sort versions by date (newest first) or version string
       const sortedVersions = [...versions].sort((a, b) => {
-        const dateA = getPublishedDate(a)
-        const dateB = getPublishedDate(b)
+        const dateA = getResourceDate(a)
+        const dateB = getResourceDate(b)
         if (dateA && dateB) {
           return dateB.getTime() - dateA.getTime()
         }
@@ -458,11 +467,9 @@ export default function AdminPage() {
     // Sort servers
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case "stars":
-          return getStars(b) - getStars(a)
         case "date": {
-          const dateA = getPublishedDate(a)
-          const dateB = getPublishedDate(b)
+          const dateA = getResourceDate(a)
+          const dateB = getResourceDate(b)
           if (!dateA && !dateB) return 0
           if (!dateA) return 1
           if (!dateB) return -1
@@ -831,13 +838,13 @@ export default function AdminPage() {
             {/* Sort */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-              <Select value={sortBy} onValueChange={(value: "name" | "stars" | "date") => setSortBy(value)}>
+              <Select value={sortBy} onValueChange={(value: "name" | "date") => setSortBy(value)}>
                 <SelectTrigger className="w-[150px] h-9">
                   <SelectValue placeholder="Sort by..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="stars">Stars</SelectItem>
+                  
                   <SelectItem value="date">Date</SelectItem>
                 </SelectContent>
               </Select>
@@ -845,34 +852,50 @@ export default function AdminPage() {
 
             {/* Verified Filters - for Servers and Agents */}
             {(activeTab === 'servers' || activeTab === 'agents') && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="filter-verified-org"
-                    checked={filterVerifiedOrg}
-                    onCheckedChange={(checked: boolean) => setFilterVerifiedOrg(checked)}
-                  />
-                  <Label
-                    htmlFor="filter-verified-org"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Org
-                  </Label>
+              <TooltipProvider>
+                <div className="flex items-center gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="filter-verified-org"
+                          checked={filterVerifiedOrg}
+                          onCheckedChange={(checked: boolean) => setFilterVerifiedOrg(checked)}
+                        />
+                        <Label
+                          htmlFor="filter-verified-org"
+                          className="cursor-pointer"
+                        >
+                          <ShieldCheck className={`h-5 w-5 ${filterVerifiedOrg ? 'text-blue-600' : 'text-gray-400'}`} />
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Verified Organization</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="filter-verified-publisher"
+                          checked={filterVerifiedPublisher}
+                          onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
+                        />
+                        <Label
+                          htmlFor="filter-verified-publisher"
+                          className="cursor-pointer"
+                        >
+                          <BadgeCheck className={`h-5 w-5 ${filterVerifiedPublisher ? 'text-green-600' : 'text-gray-400'}`} />
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Verified Publisher</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="filter-verified-publisher"
-                    checked={filterVerifiedPublisher}
-                    onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
-                  />
-                  <Label
-                    htmlFor="filter-verified-publisher"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Publisher
-                  </Label>
-                </div>
-              </div>
+              </TooltipProvider>
             )}
 
             {/* Action Buttons */}
