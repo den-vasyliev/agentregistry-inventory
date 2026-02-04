@@ -29,7 +29,9 @@ export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = 
   // Get deployment status
   const deployment = _meta?.deployment
   const isExternal = _meta?.isDiscovered || _meta?.source === 'discovery'
-  const deploymentStatus = deployment?.ready ? "Running" : deployment ? "Failed" : "Not Deployed"
+  const deploymentStatus = isExternal
+    ? (deployment?.ready ? "Running" : deployment ? "Failed" : "External")
+    : (deployment?.ready ? "Running" : deployment ? "Failed" : "Not Deployed")
 
   // Extract metadata
   const publisherMetadata = (agentData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
@@ -74,12 +76,12 @@ export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = 
   // Get status badge styles
   const getStatusBadgeStyles = (status: string) => {
     switch (status) {
-      case "Deployed":
+      case "Running":
         return 'bg-green-500/10 text-green-600 border-green-500/20'
       case "Failed":
         return 'bg-red-500/10 text-red-600 border-red-500/20'
-      case "Deploying":
-        return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+      case "External":
+        return 'bg-teal-500/10 text-teal-600 border-teal-500/20'
       default:
         return 'bg-gray-500/10 text-gray-600 border-gray-500/20'
     }
@@ -111,8 +113,8 @@ export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = 
                 {deploymentStatus === "Failed" && <XCircle className="h-3 w-3 mr-1" />}
                 {deploymentStatus}
               </Badge>
-              {/* External badge for discovered resources */}
-              {_meta?.isDiscovered && (
+              {/* External badge for discovered resources that also have a deployment status */}
+              {isExternal && deploymentStatus !== "External" && (
                 <Badge variant="outline" className="bg-teal-500/10 text-teal-600 border-teal-500/20 text-xs">
                   External
                 </Badge>

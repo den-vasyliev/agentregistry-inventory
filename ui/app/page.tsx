@@ -139,17 +139,14 @@ export default function AdminPage() {
     const isExternal = item._meta?.isDiscovered || item._meta?.source === 'discovery'
     const deployment = item._meta?.deployment
 
-    // External/discovered resources always return "external" for filtering purposes
-    // They may also have deployment status, but the filter focuses on source
-    if (isExternal) return "external"
-
-    // For managed resources, check deployment status
+    // Check deployment status first (applies to both managed and discovered)
     if (deployment) {
       if (deployment.ready) return "running"
       return "failed"
     }
 
-    // Managed resource without deployment
+    // No deployment info - distinguish between external and managed
+    if (isExternal) return "external"
     return "not_deployed"
   }
 
