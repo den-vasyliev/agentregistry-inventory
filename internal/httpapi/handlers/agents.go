@@ -119,11 +119,6 @@ type CreateAgentInput struct {
 	Body AgentJSON
 }
 
-type PublishAgentInput struct {
-	AgentName string `path:"agentName" json:"agentName"`
-	Version   string `path:"version" json:"version"`
-}
-
 // RegisterRoutes registers agent endpoints
 func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin bool) {
 	tags := []string{"agents"}
@@ -199,28 +194,6 @@ func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			return h.listAgentVersions(ctx, input)
 		})
 
-		// Publish agent
-		huma.Register(api, huma.Operation{
-			OperationID: "publish-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/agents/{agentName}/versions/{version}/publish",
-			Summary:     "Publish agent version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-			return h.publishAgent(ctx, input)
-		})
-
-		// Unpublish agent
-		huma.Register(api, huma.Operation{
-			OperationID: "unpublish-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/agents/{agentName}/versions/{version}/unpublish",
-			Summary:     "Unpublish agent version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-			return h.unpublishAgent(ctx, input)
-		})
-
 		// Delete agent version
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-agent-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -238,12 +211,6 @@ func (h *AgentHandler) listAgents(ctx context.Context, input *ListAgentsInput, i
 	var agentList agentregistryv1alpha1.AgentCatalogList
 
 	listOpts := []client.ListOption{}
-
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexAgentPublished: "true",
-		})
-	}
 
 	if input.Version == "latest" {
 		listOpts = append(listOpts, client.MatchingFields{
@@ -300,12 +267,6 @@ func (h *AgentHandler) getAgent(ctx context.Context, input *AgentDetailInput, is
 		},
 	}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexAgentPublished: "true",
-		})
-	}
-
 	if err := h.cache.List(ctx, &agentList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get agent", err)
 	}
@@ -338,9 +299,6 @@ func (h *AgentHandler) getAgentVersion(ctx context.Context, input *AgentVersionD
 
 	for _, a := range agentList.Items {
 		if a.Spec.Version == version {
-			if !isAdmin && !a.Status.Published {
-				return nil, huma.Error404NotFound("Agent not found")
-			}
 			return &Response[AgentResponse]{
 				Body: h.convertToAgentResponse(&a),
 			}, nil
@@ -471,86 +429,6 @@ func (h *AgentHandler) listAgentVersions(ctx context.Context, input *AgentDetail
 	}, nil
 }
 
-func (h *AgentHandler) publishAgent(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-	agentName, err := url.PathUnescape(input.AgentName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid agent name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
-		controller.IndexAgentName: agentName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find agent", err)
-	}
-
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		if a.Spec.Version == version {
-			now := metav1.Now()
-			a.Status.Published = true
-			a.Status.PublishedAt = &now
-			a.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-			a.Status.Conditions = SetCatalogCondition(a.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionTrue, "Published", "Agent version published")
-
-			if err := h.client.Status().Update(ctx, a); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to publish agent", err)
-			}
-
-			return &Response[AgentResponse]{
-				Body: h.convertToAgentResponse(a),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Agent version not found")
-}
-
-func (h *AgentHandler) unpublishAgent(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-	agentName, err := url.PathUnescape(input.AgentName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid agent name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
-		controller.IndexAgentName: agentName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find agent", err)
-	}
-
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		if a.Spec.Version == version {
-			a.Status.Published = false
-			a.Status.Status = agentregistryv1alpha1.CatalogStatusDeprecated
-			a.Status.Conditions = SetCatalogCondition(a.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionFalse, "Unpublished", "Agent version unpublished")
-
-			if err := h.client.Status().Update(ctx, a); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to unpublish agent", err)
-			}
-
-			return &Response[AgentResponse]{
-				Body: h.convertToAgentResponse(a),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Agent version not found")
-}
-
 func (h *AgentHandler) deleteAgentVersion(ctx context.Context, input *AgentVersionDetailInput) (*Response[EmptyResponse], error) {
 	agentName, err := url.PathUnescape(input.AgentName)
 	if err != nil {
@@ -663,7 +541,7 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 				PublishedAt: publishedAt,
 				UpdatedAt:   a.CreationTimestamp.Time,
 				IsLatest:    a.Status.IsLatest,
-				Published:   a.Status.Published,
+				Published:   true,
 			},
 		},
 	}

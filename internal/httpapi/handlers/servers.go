@@ -145,11 +145,6 @@ type CreateServerInput struct {
 	Body ServerJSON
 }
 
-type PublishServerInput struct {
-	ServerName string `path:"serverName" json:"serverName"`
-	Version    string `path:"version" json:"version"`
-}
-
 // RegisterRoutes registers server endpoints
 func (h *ServerHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin bool) {
 	tags := []string{"servers"}
@@ -225,28 +220,6 @@ func (h *ServerHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin 
 			return h.listServerVersions(ctx, input)
 		})
 
-		// Publish server
-		huma.Register(api, huma.Operation{
-			OperationID: "publish-server" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/servers/{serverName}/versions/{version}/publish",
-			Summary:     "Publish MCP server version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishServerInput) (*Response[ServerResponse], error) {
-			return h.publishServer(ctx, input)
-		})
-
-		// Unpublish server
-		huma.Register(api, huma.Operation{
-			OperationID: "unpublish-server" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/servers/{serverName}/versions/{version}/unpublish",
-			Summary:     "Unpublish MCP server version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishServerInput) (*Response[ServerResponse], error) {
-			return h.unpublishServer(ctx, input)
-		})
-
 		// Delete server version
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-server-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -264,13 +237,6 @@ func (h *ServerHandler) listServers(ctx context.Context, input *ListServersInput
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
 
 	listOpts := []client.ListOption{}
-
-	// Filter by published status for non-admin
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexMCPServerPublished: "true",
-		})
-	}
 
 	// Filter by latest version if requested
 	if input.Version == "latest" {
@@ -332,12 +298,6 @@ func (h *ServerHandler) getServer(ctx context.Context, input *ServerDetailInput,
 		},
 	}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexMCPServerPublished: "true",
-		})
-	}
-
 	if err := h.listFromCacheOrClient(ctx, &serverList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get server", err)
 	}
@@ -370,9 +330,6 @@ func (h *ServerHandler) getServerVersion(ctx context.Context, input *ServerVersi
 
 	for _, s := range serverList.Items {
 		if s.Spec.Version == version {
-			if !isAdmin && !s.Status.Published {
-				return nil, huma.Error404NotFound("Server not found")
-			}
 			return &Response[ServerResponse]{
 				Body: h.convertToServerResponse(&s),
 			}, nil
@@ -537,88 +494,6 @@ func (h *ServerHandler) listServerVersions(ctx context.Context, input *ServerDet
 	}, nil
 }
 
-func (h *ServerHandler) publishServer(ctx context.Context, input *PublishServerInput) (*Response[ServerResponse], error) {
-	serverName, err := url.PathUnescape(input.ServerName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid server name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
-		controller.IndexMCPServerName: serverName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find server", err)
-	}
-
-	for i := range serverList.Items {
-		s := &serverList.Items[i]
-		if s.Spec.Version == version {
-			// Update status to published
-			now := metav1.Now()
-			s.Status.Published = true
-			s.Status.PublishedAt = &now
-			s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-			s.Status.Conditions = SetCatalogCondition(s.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionTrue, "Published", "Server version published")
-
-			if err := h.client.Status().Update(ctx, s); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to publish server", err)
-			}
-
-			return &Response[ServerResponse]{
-				Body: h.convertToServerResponse(s),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Server version not found")
-}
-
-func (h *ServerHandler) unpublishServer(ctx context.Context, input *PublishServerInput) (*Response[ServerResponse], error) {
-	serverName, err := url.PathUnescape(input.ServerName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid server name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := h.listFromCacheOrClient(ctx, &serverList, client.MatchingFields{
-		controller.IndexMCPServerName: serverName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find server", err)
-	}
-
-	for i := range serverList.Items {
-		s := &serverList.Items[i]
-		if s.Spec.Version == version {
-			// Update status to unpublished
-			s.Status.Published = false
-			s.Status.Status = agentregistryv1alpha1.CatalogStatusDeprecated
-			s.Status.Conditions = SetCatalogCondition(s.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionFalse, "Unpublished", "Server version unpublished")
-
-			if err := h.client.Status().Update(ctx, s); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to unpublish server", err)
-			}
-
-			return &Response[ServerResponse]{
-				Body: h.convertToServerResponse(s),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Server version not found")
-}
-
 func (h *ServerHandler) deleteServerVersion(ctx context.Context, input *ServerVersionDetailInput) (*Response[EmptyResponse], error) {
 	serverName, err := url.PathUnescape(input.ServerName)
 	if err != nil {
@@ -707,7 +582,7 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 				PublishedAt: publishedAt,
 				UpdatedAt:   s.CreationTimestamp.Time,
 				IsLatest:    s.Status.IsLatest,
-				Published:   s.Status.Published,
+				Published:   true,
 			},
 		},
 	}

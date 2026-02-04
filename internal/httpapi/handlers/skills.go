@@ -111,11 +111,6 @@ type CreateSkillInput struct {
 	Body SkillJSON
 }
 
-type PublishSkillInput struct {
-	SkillName string `path:"skillName" json:"skillName"`
-	Version   string `path:"version" json:"version"`
-}
-
 // RegisterRoutes registers skill endpoints
 func (h *SkillHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin bool) {
 	tags := []string{"skills"}
@@ -191,28 +186,6 @@ func (h *SkillHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			return h.listSkillVersions(ctx, input)
 		})
 
-		// Publish skill
-		huma.Register(api, huma.Operation{
-			OperationID: "publish-skill" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/skills/{skillName}/versions/{version}/publish",
-			Summary:     "Publish skill version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishSkillInput) (*Response[SkillResponse], error) {
-			return h.publishSkill(ctx, input)
-		})
-
-		// Unpublish skill
-		huma.Register(api, huma.Operation{
-			OperationID: "unpublish-skill" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/skills/{skillName}/versions/{version}/unpublish",
-			Summary:     "Unpublish skill version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishSkillInput) (*Response[SkillResponse], error) {
-			return h.unpublishSkill(ctx, input)
-		})
-
 		// Delete skill version
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-skill-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -230,12 +203,6 @@ func (h *SkillHandler) listSkills(ctx context.Context, input *ListSkillsInput, i
 	var skillList agentregistryv1alpha1.SkillCatalogList
 
 	listOpts := []client.ListOption{}
-
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexSkillPublished: "true",
-		})
-	}
 
 	if input.Version == "latest" {
 		listOpts = append(listOpts, client.MatchingFields{
@@ -296,12 +263,6 @@ func (h *SkillHandler) getSkill(ctx context.Context, input *SkillDetailInput, is
 		},
 	}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexSkillPublished: "true",
-		})
-	}
-
 	if err := h.cache.List(ctx, &skillList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get skill", err)
 	}
@@ -334,9 +295,6 @@ func (h *SkillHandler) getSkillVersion(ctx context.Context, input *SkillVersionD
 
 	for _, s := range skillList.Items {
 		if s.Spec.Version == version {
-			if !isAdmin && !s.Status.Published {
-				return nil, huma.Error404NotFound("Skill not found")
-			}
 			return &Response[SkillResponse]{
 				Body: h.convertToSkillResponse(&s),
 			}, nil
@@ -431,86 +389,6 @@ func (h *SkillHandler) listSkillVersions(ctx context.Context, input *SkillDetail
 	}, nil
 }
 
-func (h *SkillHandler) publishSkill(ctx context.Context, input *PublishSkillInput) (*Response[SkillResponse], error) {
-	skillName, err := url.PathUnescape(input.SkillName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid skill name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var skillList agentregistryv1alpha1.SkillCatalogList
-	if err := h.cache.List(ctx, &skillList, client.MatchingFields{
-		controller.IndexSkillName: skillName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find skill", err)
-	}
-
-	for i := range skillList.Items {
-		s := &skillList.Items[i]
-		if s.Spec.Version == version {
-			now := metav1.Now()
-			s.Status.Published = true
-			s.Status.PublishedAt = &now
-			s.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-			s.Status.Conditions = SetCatalogCondition(s.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionTrue, "Published", "Skill version published")
-
-			if err := h.client.Status().Update(ctx, s); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to publish skill", err)
-			}
-
-			return &Response[SkillResponse]{
-				Body: h.convertToSkillResponse(s),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Skill version not found")
-}
-
-func (h *SkillHandler) unpublishSkill(ctx context.Context, input *PublishSkillInput) (*Response[SkillResponse], error) {
-	skillName, err := url.PathUnescape(input.SkillName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid skill name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var skillList agentregistryv1alpha1.SkillCatalogList
-	if err := h.cache.List(ctx, &skillList, client.MatchingFields{
-		controller.IndexSkillName: skillName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find skill", err)
-	}
-
-	for i := range skillList.Items {
-		s := &skillList.Items[i]
-		if s.Spec.Version == version {
-			s.Status.Published = false
-			s.Status.Status = agentregistryv1alpha1.CatalogStatusDeprecated
-			s.Status.Conditions = SetCatalogCondition(s.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionFalse, "Unpublished", "Skill version unpublished")
-
-			if err := h.client.Status().Update(ctx, s); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to unpublish skill", err)
-			}
-
-			return &Response[SkillResponse]{
-				Body: h.convertToSkillResponse(s),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Skill version not found")
-}
-
 func (h *SkillHandler) deleteSkillVersion(ctx context.Context, input *SkillVersionDetailInput) (*Response[EmptyResponse], error) {
 	skillName, err := url.PathUnescape(input.SkillName)
 	if err != nil {
@@ -598,7 +476,7 @@ func (h *SkillHandler) convertToSkillResponse(s *agentregistryv1alpha1.SkillCata
 				PublishedAt: publishedAt,
 				UpdatedAt:   s.CreationTimestamp.Time,
 				IsLatest:    s.Status.IsLatest,
-				Published:   s.Status.Published,
+				Published:   true,
 			},
 			UsedBy: usedBy,
 		},
