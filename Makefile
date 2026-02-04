@@ -26,6 +26,7 @@ LDFLAGS := \
 	-X 'github.com/agentregistry-dev/agentregistry/internal/version.BuildDate=$(BUILD_DATE)'
 
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+LOCALOS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 .PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev dev-ui ko-controller demo demo-stop
 
@@ -63,7 +64,7 @@ build-ui: ## Build UI static export
 
 build-controller: ## Build controller binary only
 	@echo "Building controller binary..."
-	@CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCALARCH) go build \
+	@CGO_ENABLED=0 GOOS=$(LOCALOS) GOARCH=$(LOCALARCH) go build \
 		-ldflags "$(LDFLAGS)" \
 		-o bin/controller \
 		cmd/controller/main.go
@@ -71,9 +72,12 @@ build-controller: ## Build controller binary only
 
 build: build-ui build-controller ## Build both UI and controller
 
-run: build ## Build and run controller locally
+run: build ## Build and run controller and ui locally
 	@echo "Running controller..."
-	@./bin/controller
+	@cd ui && npm install && npm run dev&
+	@echo "Starting Next.js dev server..."
+	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller --log-level=debug
+
 
 dev: envtest build-ui ## Run dev environment with envtest, sample data, and UI
 	@echo "Starting development environment..."
