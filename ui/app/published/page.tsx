@@ -527,6 +527,12 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
                               {server.remotes && server.remotes.length > 0 ? "Remote MCP Server" : "MCP Server"}
                             </Badge>
+                            {/* Deployed badge */}
+                            {(deployed && deploymentStatus) || serverResponse._meta?.deployment?.ready ? (
+                              <Badge variant="outline" className="bg-teal-500/10 text-teal-600 border-teal-500/20">
+                                Deployed
+                              </Badge>
+                            ) : null}
                             {/* Check deployments list (managed) or _meta.deployment (external) */}
                             {(deployed && deploymentStatus) || serverResponse._meta?.deployment ? (
                               (() => {
@@ -670,6 +676,12 @@ export default function PublishedPage() {
                             <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
                               Agent
                             </Badge>
+                            {/* Deployed badge */}
+                            {(deployed && deploymentStatus) || agentResponse._meta?.deployment?.ready ? (
+                              <Badge variant="outline" className="bg-teal-500/10 text-teal-600 border-teal-500/20">
+                                Deployed
+                              </Badge>
+                            ) : null}
                             {/* Check deployments list (managed) or _meta.deployment (external) */}
                             {(deployed && deploymentStatus) || agentResponse._meta?.deployment ? (
                               (() => {
