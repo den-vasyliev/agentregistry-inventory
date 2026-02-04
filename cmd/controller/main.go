@@ -126,7 +126,7 @@ func main() {
 	}
 
 	// Configure cache to watch controller namespace for AgentRegistry resources,
-	// but watch all namespaces for MCPServer and Agent to enable external resource discovery
+	// but watch all namespaces for MCPServer, Agent, and RegistryDeployment
 	cacheOpts := cache.Options{
 		DefaultNamespaces: map[string]cache.Config{
 			watchNamespace: {},
@@ -140,6 +140,12 @@ func main() {
 			},
 			// Watch Agents in all namespaces for external resource discovery
 			&kagentv1alpha2.Agent{}: {
+				Namespaces: map[string]cache.Config{
+					cache.AllNamespaces: {},
+				},
+			},
+			// Watch RegistryDeployments in all namespaces (including cluster-scoped legacy resources)
+			&agentregistryv1alpha1.RegistryDeployment{}: {
 				Namespaces: map[string]cache.Config{
 					cache.AllNamespaces: {},
 				},
