@@ -90,7 +90,7 @@ type DeploymentRef struct {
 	URL string `json:"url,omitempty"`
 	// Ready indicates if the deployment is healthy
 	// +optional
-	Ready bool `json:"ready,omitempty"`
+	Ready bool `json:"ready"`
 	// LastChecked is when health was last verified
 	// +optional
 	LastChecked *metav1.Time `json:"lastChecked,omitempty"`

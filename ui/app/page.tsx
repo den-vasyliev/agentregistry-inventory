@@ -140,9 +140,11 @@ export default function AdminPage() {
     const deployment = item._meta?.deployment
 
     // Check deployment status first (applies to both managed and discovered)
+    // If deployment info exists, check ready status
     if (deployment) {
-      if (deployment.ready) return "running"
-      return "failed"
+      // Ready field is now always present (not omitempty), so we can check boolean directly
+      if (deployment.ready === true) return "running"
+      if (deployment.ready === false) return "failed"
     }
 
     // No deployment info - distinguish between external and managed

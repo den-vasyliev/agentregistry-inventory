@@ -66,7 +66,7 @@ type ModelCatalogStatus struct {
 	// For external resources: synced from SourceRef
 	// For managed resources: set by RegistryDeployment
 	// +optional
-	Ready bool `json:"ready,omitempty"`
+	Ready bool `json:"ready"`
 	// Message provides additional status information
 	// +optional
 	Message string `json:"message,omitempty"`
