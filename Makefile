@@ -1,6 +1,7 @@
 # Build configuration
-REGISTRY ?= ghcr.io/den-vasyliev/agentregistry-enterprise
+REGISTRY ?= ghcr.io/den-vasyliev/agentregistry-inventory
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d')
+BUILD_TIMESTAMP ?= $(shell date -u '+%Y%m%d%H%M%S')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Auto-increment version based on git tags
@@ -9,11 +10,11 @@ COMMITS_SINCE_TAG ?= $(shell git rev-list $(LAST_TAG)..HEAD --count 2>/dev/null 
 # Fall back to 0.0.0 if no tags exist yet
 BASE_VERSION ?= $(shell if [ -n "$(LAST_TAG)" ]; then echo $(LAST_TAG) | sed 's/^v//'; else echo "0.0.0"; fi)
 
-# If on a tag, use that tag; otherwise auto-increment patch version
+# If on a tag, use that tag; otherwise auto-increment patch version with timestamp
 ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)
-# Not on a tag - auto-increment patch version
+# Not on a tag - auto-increment patch version with timestamp for unique builds
 NEXT_VERSION := $(shell echo $(BASE_VERSION) | awk -F. '{$$3=$$3+1; print $$1"."$$2"."$$3}')
-VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)
+VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)-$(BUILD_TIMESTAMP)
 else
 # On a tag - use the tag as-is (strip v prefix if present)
 VERSION ?= $(shell echo $(LAST_TAG) | sed 's/^v//')

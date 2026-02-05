@@ -5,7 +5,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/den-vasyliev/agentregistry-inventory
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
@@ -52,6 +52,9 @@ podAnnotations: {}
 
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
 

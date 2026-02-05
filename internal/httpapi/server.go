@@ -32,14 +32,15 @@ var UIFiles fs.FS
 
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
-	client        client.Client
-	cache         cache.Cache
-	logger        zerolog.Logger
-	mux           *http.ServeMux
-	api           huma.API
-	authEnabled   bool
-	allowedTokens map[string]bool // Simple token allowlist for now
-	oidcVerifier  *OIDCVerifier
+	client         client.Client
+	cache          cache.Cache
+	logger         zerolog.Logger
+	mux            *http.ServeMux
+	api            huma.API
+	authEnabled    bool
+	allowedTokens  map[string]bool // Simple token allowlist for now
+	oidcVerifier   *OIDCVerifier
+	wrappedHandler http.Handler // Wrapped handler with UI serving
 }
 
 // NewServer creates a new HTTP API server
@@ -666,26 +667,28 @@ type serverRunnable struct {
 	addr   string
 }
 
-// registerStaticFiles serves the embedded UI files
+// registerStaticFiles creates a wrapper handler that serves UI files for non-API routes
 func (s *Server) registerStaticFiles() {
 	if UIFiles == nil {
 		s.logger.Warn().Msg("UI files not embedded, skipping static file server")
+		s.wrappedHandler = s.mux
 		return
 	}
 
-	// Create a custom handler that serves UI files
-	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Skip API paths - let them 404 naturally
-		if strings.HasPrefix(r.URL.Path, "/v0/") ||
-			strings.HasPrefix(r.URL.Path, "/admin/") ||
-			strings.HasPrefix(r.URL.Path, "/healthz") ||
-			strings.HasPrefix(r.URL.Path, "/readyz") {
-			http.NotFound(w, r)
+	// Create a wrapper that tries API routes first, then serves UI
+	s.wrappedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		// Let API and health endpoints go through the mux
+		if strings.HasPrefix(path, "/v0/") ||
+			strings.HasPrefix(path, "/admin/") ||
+			strings.HasPrefix(path, "/healthz") ||
+			strings.HasPrefix(path, "/readyz") {
+			s.mux.ServeHTTP(w, r)
 			return
 		}
 
-		// Try to serve the requested file
-		path := r.URL.Path
+		// Serve UI files for everything else
 		if path == "/" {
 			path = "/index.html"
 		}
@@ -703,15 +706,19 @@ func (s *Server) registerStaticFiles() {
 		} else {
 			// Set appropriate content type
 			if strings.HasSuffix(path, ".js") {
-				w.Header().Set("Content-Type", "application/javascript")
+				w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 			} else if strings.HasSuffix(path, ".css") {
-				w.Header().Set("Content-Type", "text/css")
+				w.Header().Set("Content-Type", "text/css; charset=utf-8")
 			} else if strings.HasSuffix(path, ".html") {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			} else if strings.HasSuffix(path, ".svg") {
 				w.Header().Set("Content-Type", "image/svg+xml")
 			} else if strings.HasSuffix(path, ".png") {
 				w.Header().Set("Content-Type", "image/png")
+			} else if strings.HasSuffix(path, ".woff2") {
+				w.Header().Set("Content-Type", "font/woff2")
+			} else if strings.HasSuffix(path, ".json") {
+				w.Header().Set("Content-Type", "application/json")
 			}
 		}
 
@@ -731,9 +738,15 @@ func (r *serverRunnable) Start(ctx context.Context) error {
 		AllowCredentials: true,
 	})
 
+	// Use wrapped handler if UI is embedded, otherwise use mux directly
+	handler := r.server.wrappedHandler
+	if handler == nil {
+		handler = r.server.mux
+	}
+
 	httpServer := &http.Server{
 		Addr:         r.addr,
-		Handler:      c.Handler(r.server.mux),
+		Handler:      c.Handler(handler),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}

@@ -1,0 +1,10 @@
+# ko build configuration
+defaultBaseImage: cgr.dev/chainguard/static:latest-glibc
+builds:
+- id: controller
+  main: ./cmd/controller
+  env:
+  - CGO_ENABLED=0
+  ldflags:
+  - -s -w
+  kodata: false

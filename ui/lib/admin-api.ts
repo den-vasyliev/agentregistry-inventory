@@ -2,8 +2,9 @@
 // This client communicates with the /admin/v0 API endpoints
 
 // Use the UI proxy for authenticated deployments unless we are doing a static export build.
+// In static export mode, we always have NEXT_PUBLIC_API_URL set and call the API directly
 const API_BASE_URL =
-  process.env.NEXT_BUILD_EXPORT === "true"
+  process.env.NEXT_PUBLIC_API_URL
     ? (process.env.NEXT_PUBLIC_API_URL || "")
     : "/api/registry"
 
