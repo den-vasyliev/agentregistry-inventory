@@ -51,7 +51,7 @@ helm install agentregistry ./charts/agentregistry -n agentregistry --create-name
 ## ✨ What You Get
 
 ```
-Discover → Inventory → Publish → Deploy → Monitor
+Discover → Inventory → Deploy → Monitor
      ↑_________________________________________↓
               (Auto-discovery loop)
 ```
@@ -60,11 +60,24 @@ Discover → Inventory → Publish → Deploy → Monitor
 |------------|---------------|
 | 🔍 **Auto-Discovery** | Scans your clusters for AI workloads — MCP servers, agents, skills, models — and catalogs them automatically. Zero manual work. |
 | 📦 **Unified Inventory** | Everything in one place across dev, staging, prod. Git as the single source of truth. |
-| ✍️ **Create & Publish** | Generate manifests via UI/API, submit for review, open PRs — or publish directly. |
+| ✍️ **Create & Publish** | Generate manifests via UI/API, submit for review, open PRs — or deploy directly. |
 | 🚀 **One-Click Deploy** | Deploy from catalog to any environment. Controller handles the lifecycle. |
-| 🔒 **GitOps Native** | `pending_review` → approve/reject workflows built-in. |
+| 🔒 **GitOps Native** | GitOps and Gitless Ops workflows built-in. |
 | 🌐 **Multi-Cluster** | Discover and deploy across clusters with workload identity. |
 
+
+
+---
+
+## 🌟 Why Agent Inventory?
+
+| Without Agent Inventory | With Agent Inventory |
+|------------------------|---------------------|
+| 😵 Sprawl of AI tools across clusters | 📦 Single source of truth |
+| 🔍 Manual discovery of MCP servers | 🤖 Auto-discovery & cataloging |
+| 😰 No version control for AI configs | 📝 GitOps-native workflows |
+| 🤷 "What agents are running in prod?" | 📊 Real-time inventory & status |
+| 😱 Direct K8s yaml edits | 🚀 One-click deploy from UI/API |
 
 ## 🏗️ Architecture
 
@@ -73,46 +86,46 @@ Discover → Inventory → Publish → Deploy → Monitor
 │                      WEB UI (Next.js)                       │
 │                    http://localhost:3000                    │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ REST / GraphQL
+                            │ REST
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    CONTROLLER (Go)                          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
-│  │  HTTP API   │ │ 9 Reconcilers│ │  Auto-Discovery     │   │
-│  │   :8080     │ │              │ │                     │   │
-│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
-│  │  Metrics    │ │   Health    │ │   Leader Election   │   │
-│  │   :8081     │ │   :8082     │ │                     │   │
-│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
+│                    CONTROLLER (Go Controller Runtime)       │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐    │
+│  │  HTTP API   │ │ 9 Reconcilers│ │  Auto-Discovery    │    │
+│  │   :8080     │ │              │ │                    │    │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘    │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐    │
+│  │  Metrics    │ │   Health    │ │   Leader Election   │    │
+│  │   :8081     │ │   :8082     │ │                     │    │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘    │
 └───────────────────────────┬─────────────────────────────────┘
                             │ K8s API
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     CRDs (etcd)                             │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌──────────────┐  │
-│  │ MCPServerCatalog│ │  AgentCatalog   │ │ SkillCatalog │  │
-│  └─────────────────┘ └─────────────────┘ └──────────────┘  │
-│  ┌─────────────────┐ ┌─────────────────┐                   │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌──────────────┐   │
+│  │ MCPServerCatalog│ │  AgentCatalog   │ │ SkillCatalog │   │
+│  └─────────────────┘ └─────────────────┘ └──────────────┘   │
+│  ┌─────────────────┐ ┌─────────────────┐                    │
 │  │RegistryDeployment│ │ DiscoveryConfig │                   │
-│  └─────────────────┘ └─────────────────┘                   │
+│  └─────────────────┘ └─────────────────┘                    │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              RUNTIME (Kagent + KMCP)                        │
-│         Agent ↔ MCP Server ↔ Model Config                   │
+│              RUNTIME (Kagent + KMCP +...)                   │
+│         Agent ↔ MCP Server ↔ Model ↔ Skills                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Built on:**
+## 📚 CRD Reference
 - [Kgateway](https://kgateway.dev) — Gateway API for AI traffic
 - [Kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime  
 - [KMCP](https://github.com/kagent-dev/kmcp) — MCP server operator
 
 ---
 
-## 📋 CRD Examples
+## 📋 Inventory CRD Examples
 
 ### 📦 Publish a Catalog Entry
 
@@ -278,9 +291,7 @@ helm install agentregistry ./charts/agentregistry \
 
 ```bash
 make dev          # Full stack: controller + UI + sample data
-make dev-ui       # UI only (Next.js hot reload)
 make test         # Run test suite with coverage
-make test-dev-env # Integration tests with envtest
 make lint         # gofmt + go vet + eslint
 make build        # Build controller binary
 make image        # Build container image (KO)
@@ -288,17 +299,6 @@ make image        # Build container image (KO)
 
 [→ Development Guide](DEVELOPMENT.md) | [→ Contributing](CONTRIBUTING.md)
 
----
-
-## 🌟 Why Agent Inventory?
-
-| Without Agent Inventory | With Agent Inventory |
-|------------------------|---------------------|
-| 😵 Sprawl of AI tools across clusters | 📦 Single source of truth |
-| 🔍 Manual discovery of MCP servers | 🤖 Auto-discovery & cataloging |
-| 😰 No version control for AI configs | 📝 GitOps-native workflows |
-| 🤷 "What agents are running in prod?" | 📊 Real-time inventory & status |
-| 😱 Direct K8s yaml edits | 🚀 One-click deploy from UI/API |
 
 ---
 
@@ -308,6 +308,7 @@ make image        # Build container image (KO)
 
 | Project | Description | Link |
 |---------|-------------|------|
+| **KGateway** | AI Gateway | [kgateway.dev](https://kgateway.dev/) |
 | **MCP** | Model Context Protocol specification | [modelcontextprotocol.io](https://modelcontextprotocol.io) |
 | **Kagent** | Kubernetes AI agent runtime | [github.com/kagent-dev/kagent](https://github.com/kagent-dev/kagent) |
 | **KMCP** | MCP server operator for Kubernetes | [github.com/kagent-dev/kmcp](https://github.com/kagent-dev/kmcp) |
