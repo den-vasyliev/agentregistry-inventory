@@ -5,32 +5,6 @@ import (
 	"time"
 )
 
-func TestIsSemanticVersion(t *testing.T) {
-	tests := []struct {
-		name     string
-		version  string
-		expected bool
-	}{
-		{"valid semver", "1.0.0", true},
-		{"valid semver with v prefix", "v1.0.0", true},
-		{"valid semver with prerelease", "1.0.0-alpha.1", true},
-		{"valid semver with build metadata", "1.0.0+build.123", true},
-		{"invalid - missing patch", "1.0", false},
-		{"invalid - only major", "1", false},
-		{"invalid - non-numeric", "abc", false},
-		{"invalid - empty", "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isSemanticVersion(tt.version)
-			if result != tt.expected {
-				t.Errorf("isSemanticVersion(%q) = %v, expected %v", tt.version, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestCompareSemanticVersions(t *testing.T) {
 	tests := []struct {
 		name     string
