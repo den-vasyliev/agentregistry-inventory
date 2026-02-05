@@ -10,6 +10,7 @@ import (
 )
 
 func TestNewTokenCache(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	assert.NotNil(t, tc)
 	assert.NotNil(t, tc.cache)
@@ -18,6 +19,7 @@ func TestNewTokenCache(t *testing.T) {
 }
 
 func TestTokenCache_SetAndGet(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	defer tc.Stop()
 
@@ -39,6 +41,7 @@ func TestTokenCache_SetAndGet(t *testing.T) {
 }
 
 func TestTokenCache_Get_NotFound(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	defer tc.Stop()
 
@@ -47,6 +50,7 @@ func TestTokenCache_Get_NotFound(t *testing.T) {
 }
 
 func TestTokenCache_Get_Expired(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	defer tc.Stop()
 
@@ -64,6 +68,7 @@ func TestTokenCache_Get_Expired(t *testing.T) {
 }
 
 func TestTokenCache_Set_AlreadyExpired(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	defer tc.Stop()
 
@@ -81,6 +86,7 @@ func TestTokenCache_Set_AlreadyExpired(t *testing.T) {
 }
 
 func TestTokenCache_Invalidate(t *testing.T) {
+	t.Parallel()
 	tc := NewTokenCache()
 	defer tc.Stop()
 
@@ -167,15 +173,15 @@ func TestTokenCache_Cleanup(t *testing.T) {
 	// Add a token that will expire soon
 	tokenHash := "soon-expired"
 	claims := map[string]interface{}{"sub": "user123"}
-	// Token expires in 2 seconds, safety margin 1 second
-	// So cache entry expires in 1 second
-	tokenExp := time.Now().Add(2 * time.Second)
-	tc.Set(tokenHash, claims, tokenExp, 1*time.Second)
+	// Token expires in 100ms, safety margin 50ms
+	// So cache entry expires in 50ms
+	tokenExp := time.Now().Add(100 * time.Millisecond)
+	tc.Set(tokenHash, claims, tokenExp, 50*time.Millisecond)
 
 	assert.Equal(t, 1, tc.Size())
 
-	// Wait for cleanup (cleanup runs every minute, but we trigger manually)
-	time.Sleep(3 * time.Second)
+	// Wait for expiration (150ms should be enough)
+	time.Sleep(150 * time.Millisecond)
 
 	// Manually trigger cleanup for testing
 	tc.cleanup()
@@ -185,6 +191,7 @@ func TestTokenCache_Cleanup(t *testing.T) {
 }
 
 func TestHashToken(t *testing.T) {
+	t.Parallel()
 	// Same token should produce same hash
 	token1 := "my-test-token"
 	hash1 := HashToken(token1)

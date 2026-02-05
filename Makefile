@@ -96,7 +96,7 @@ demo-stop: ## Stop demo environment
 test: envtest ## Run all tests with coverage
 	@echo "Running tests..."
 	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
-		go test -coverprofile=coverage.out -covermode=atomic \
+		go test -p 4 -parallel 8 -coverprofile=coverage.out -covermode=atomic \
 		-ldflags "$(LDFLAGS)" -tags=integration \
 		./internal/cluster \
 		./internal/config \
