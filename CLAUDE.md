@@ -14,13 +14,6 @@ If ANY of these fail, fix the issues before committing. NEVER commit or push cod
 
 **CRITICAL: NEVER push before user tests!** After committing, WAIT for the user to test and explicitly ask to push.
 
-**IMPORTANT: Always use this command to push changes (when user approves):**
-
-```bash
-git push origin HEAD:enterprise-controller
-```
-
-This repository uses `enterprise-controller` as the working branch, not `main`.
 
 **IMPORTANT: Commit Messages**
 
@@ -73,15 +66,25 @@ agentregistry/
 ├── cmd/
 │   └── controller/          # Controller entry point (ONLY binary)
 ├── internal/
-│   ├── controller/          # 9 K8s reconcilers (including DiscoveryConfig)
-│   ├── httpapi/            # HTTP API server (embedded in controller)
-│   ├── mcp/                # MCP server implementation
-│   ├── runtime/            # Runtime deployment logic
-│   ├── utils/              # Utilities
-│   └── version/            # Version info
-├── ui/                     # Next.js frontend
-├── api/                    # CRD definitions (v1alpha1)
-└── charts/                 # Helm charts
+│   ├── controller/          # 5 K8s reconcilers (catalog + deployment + discovery)
+│   ├── httpapi/             # HTTP API server (embedded in controller)
+│   │   ├── handlers/        # API endpoint handlers
+│   │   └── server.go        # Huma API setup + UI embedding
+│   ├── runtime/             # Runtime deployment logic (translation to K8s resources)
+│   ├── utils/               # Shared utilities
+│   └── version/             # Version info
+├── ui/                      # Next.js 16 frontend (static export)
+│   ├── app/                 # Next.js app router pages
+│   ├── components/          # React components
+│   ├── lib/                 # API clients and utilities
+│   └── out/                 # Static export output (embedded into controller)
+├── api/v1alpha1/            # CRD definitions (Go types)
+├── config/                  # Kubernetes manifests
+│   ├── crd/                 # Generated CRD YAML
+│   ├── rbac/                # RBAC manifests
+│   ├── manager/             # Controller deployment
+│   └── samples/             # Example resources
+└── charts/agentregistry/    # Helm chart
 ```
 
 ### What Was Removed
@@ -100,21 +103,18 @@ Everything is **Kubernetes-native** now.
 
 The controller is a **single binary** that runs:
 
-1. **9 Kubernetes Reconcilers:**
+1. **5 Kubernetes Reconcilers:**
    - `MCPServerCatalogReconciler` - Manages MCP server catalog entries
    - `AgentCatalogReconciler` - Manages agent catalog entries
    - `SkillCatalogReconciler` - Manages skill catalog entries
    - `RegistryDeploymentReconciler` - Deploys catalog items to K8s
-   - `MCPServerDiscoveryReconciler` - Auto-discovers deployed MCPServers
-   - `AgentDiscoveryReconciler` - Auto-discovers deployed Agents
-   - `SkillDiscoveryReconciler` - Auto-discovers skills from agents
-   - `ModelDiscoveryReconciler` - Auto-discovers ModelConfig resources
    - `DiscoveryConfigReconciler` - Multi-cluster discovery with workload identity (see [docs/AUTODISCOVERY.md](docs/AUTODISCOVERY.md))
 
 2. **HTTP API Server** (embedded, port 8080):
    - Public endpoints: `/v0/servers`, `/v0/agents`, `/v0/skills`, `/v0/models` (read-only)
    - Admin endpoints: `/admin/v0/*` for management (requires auth)
    - **Authentication enabled by default** - tokens read from Secret `agentregistry-api-tokens`
+   - UI assets embedded in binary and served at `/` (static files from `ui/out`)
 
 3. **Metrics & Health:**
    - Metrics: `:8081`
@@ -122,10 +122,11 @@ The controller is a **single binary** that runs:
 
 ### UI (`ui/`)
 
-- **Next.js 14** with TypeScript
+- **Next.js 16** with TypeScript (static export mode)
 - **Tailwind CSS** + **shadcn/ui** components
-- Connects to controller API at `localhost:8080`
+- Connects to controller API at `localhost:8080` in dev, or embedded/served by controller in production
 - **NextAuth.js** for authentication (optional, can be bypassed for dev)
+- Built as static export (`next export`) and embedded into controller binary
 
 ### Data Storage
 
@@ -150,33 +151,37 @@ kmcp.agentregistry.dev/v1alpha1:
 ## Build Commands
 
 ```bash
-# Build UI (static export)
+# Build UI (static export to ui/out/)
 make build-ui
 
-# Build controller binary only
+# Prepare UI for embedding (copies ui/out/ to internal/httpapi/ui_dist/)
+make prepare-ui-embed
+
+# Build controller binary (includes embedded UI)
 make build-controller
 
-# Build both UI and controller
+# Build everything (UI + prepare + controller)
 make build
 
 # Run in development mode
-make dev          # Controller only
-make dev-ui       # UI dev server only
+make dev              # Starts both controller and UI in parallel
+make dev-controller   # Controller only (without UI embedding)
+make dev-ui          # UI dev server only (:3000)
 
-# Run tests
-make test
+# Testing & Quality
+make test            # Run all tests
+make test-coverage   # Run tests with coverage report
+make lint            # Run golangci-lint
+make fmt             # Format Go code (gofmt)
 
-# Lint code
-make lint
+# Container images
+make ko-controller   # Build and push with ko (uses KO_DOCKER_REPO env)
+make image          # Build container image locally
+make push           # Prepare UI and push with ko
 
-# Format code
-make fmt
-
-# Build and push container image
-make ko-controller
-
-# Build container image locally
-make image
+# Code generation
+make generate       # Generate deepcopy methods and CRD manifests
+make manifests      # Generate CRD and RBAC manifests only
 ```
 
 ## Development Workflow
@@ -232,10 +237,12 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 - **kmcp**: `github.com/kagent-dev/kmcp` - MCP server operator
 
 ### UI
-- **Next.js 14**: React framework
-- **NextAuth.js**: Authentication (optional)
+- **Next.js 16**: React framework (static export)
+- **NextAuth.js**: Authentication (optional, can be bypassed)
 - **Tailwind CSS**: Styling
 - **shadcn/ui**: Component library
+- **Lucide React**: Icons
+- **Sonner**: Toast notifications
 
 ## Important Patterns
 
@@ -254,9 +261,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 
 ### UI Patterns
 
-- **Client-side rendering** - Next.js with `"use client"`
-- **API calls** - Direct to controller at `localhost:8080`
-- **Optional auth** - NextAuth can be bypassed for development
+- **Static export** - Next.js built as static HTML/CSS/JS (no Node.js runtime needed)
+- **Client-side rendering** - All components use `"use client"` directive
+- **API calls** -
+  - Dev: Direct to controller at `localhost:8080` (CORS enabled)
+  - Production: Proxied through controller serving the UI
+- **Optional auth** - NextAuth can be bypassed for development (set `AUTH_SECRET=dev-secret...`)
+- **Embedded in controller** - UI assets copied to `internal/httpapi/ui_dist/` and embedded via `//go:embed`
 
 ## Testing
 
@@ -275,8 +286,8 @@ Coverage breakdown:
 
 ### What Needs Tests
 - ❌ HTTP API handlers (0% coverage)
-- ❌ Most controller reconcilers
-- ❌ MCP server implementation
+- ❌ Most controller reconcilers (MCPServerCatalog, AgentCatalog, SkillCatalog, RegistryDeployment)
+- ❌ UI components and pages
 
 ### Testing Best Practices
 
@@ -367,11 +378,34 @@ The project supports **autodiscovery across multiple clusters** using workload i
 
 See [docs/AUTODISCOVERY.md](docs/AUTODISCOVERY.md) for complete documentation.
 
-## Notes
+## Important Notes
 
-- **No CLI** - All management via K8s CRs or HTTP API
-- **No database** - CRDs are the source of truth
-- **Controller-only** - Single binary for all functionality
-- **UI is separate** - Runs independently, connects via HTTP
+### Architecture Decisions
+
+- **No CLI** - All management via K8s CRs or HTTP API (removed `arctl` CLI)
+- **No database** - CRDs are the source of truth (removed SQLite/PostgreSQL)
+- **Single binary** - Controller includes HTTP API + embedded UI
+- **UI embedded** - Static Next.js export bundled into controller binary (no separate deployment needed)
+- **Kubernetes-native** - Everything runs in-cluster, no local runtime mode
+
+### UI Embedding Process
+
+1. `make build-ui` - Builds Next.js static export to `ui/out/`
+2. `make prepare-ui-embed` - Copies `ui/out/` to `internal/httpapi/ui_dist/`
+3. `make build-controller` - Embeds `ui_dist/` into controller binary using `//go:embed`
+4. Controller serves UI at `/` and API at `/v0/*` and `/admin/v0/*`
+
+### Service Accounts
+
+- **agentregistry-controller** - Main controller service account
+- **agentregistry-inventory** - Discovery service account (for multi-cluster workload identity)
+
+### Default Ports
+
+- `:8080` - HTTP API and UI
+- `:8081` - Metrics
+- `:8082` - Health probes
+
+---
 
 IMPORTANT: This context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
