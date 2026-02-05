@@ -43,6 +43,7 @@ spec:
             {{- end }}
             - --enable-http-api=true
             - --http-api-address=:{{ .Values.httpApi.port }}
+            - --log-level={{ .Values.controller.logLevel }}
           env:
             {{- if .Values.oidc.enabled }}
             - name: AGENTREGISTRY_OIDC_ISSUER

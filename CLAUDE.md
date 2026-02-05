@@ -79,13 +79,9 @@ agentregistry/
 │   ├── runtime/            # Runtime deployment logic
 │   ├── utils/              # Utilities
 │   └── version/            # Version info
-├── pkg/
-│   └── models/             # Shared data models
 ├── ui/                     # Next.js frontend
 ├── api/                    # CRD definitions (v1alpha1)
-├── charts/                 # Helm charts
-└── docker/
-    └── controller.Dockerfile
+└── charts/                 # Helm charts
 ```
 
 ### What Was Removed

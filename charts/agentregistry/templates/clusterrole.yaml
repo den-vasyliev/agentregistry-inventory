@@ -12,7 +12,9 @@ rules:
       - mcpservercatalogs
       - agentcatalogs
       - skillcatalogs
+      - modelcatalogs
       - registrydeployments
+      - discoveryconfigs
     verbs:
       - get
       - list
@@ -27,7 +29,9 @@ rules:
       - mcpservercatalogs/status
       - agentcatalogs/status
       - skillcatalogs/status
+      - modelcatalogs/status
       - registrydeployments/status
+      - discoveryconfigs/status
     verbs:
       - get
       - update
@@ -38,7 +42,9 @@ rules:
       - mcpservercatalogs/finalizers
       - agentcatalogs/finalizers
       - skillcatalogs/finalizers
+      - modelcatalogs/finalizers
       - registrydeployments/finalizers
+      - discoveryconfigs/finalizers
     verbs:
       - update
 

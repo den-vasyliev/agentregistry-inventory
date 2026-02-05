@@ -76,9 +76,6 @@ tolerations: []
 
 affinity: {}
 
-# Target namespace for KAgent/KMCP resources created by deployments
-kagentNamespace: kagent
-
 # OIDC Authentication Configuration
 oidc:
   # Enable OIDC authentication for the controller API
