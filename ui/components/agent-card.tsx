@@ -1,6 +1,7 @@
 "use client"
 
 import { AgentResponse } from "@/lib/admin-api"
+import { formatDate, getStatusBadgeStyles } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -59,31 +60,6 @@ export function AgentCard({ agent, onDeploy, onUndeploy, showDeploy = true, show
   }
 
   // Format date
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })
-    } catch {
-      return dateString
-    }
-  }
-
-  // Get status badge styles
-  const getStatusBadgeStyles = (status: string) => {
-    switch (status) {
-      case "Running":
-        return 'bg-green-500/10 text-green-600 border-green-500/20'
-      case "Failed":
-        return 'bg-red-500/10 text-red-600 border-red-500/20'
-      case "External":
-        return 'bg-teal-500/10 text-teal-600 border-teal-500/20'
-      default:
-        return 'bg-gray-500/10 text-gray-600 border-gray-500/20'
-    }
-  }
 
   return (
     <TooltipProvider>

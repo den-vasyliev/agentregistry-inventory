@@ -1,6 +1,7 @@
 "use client"
 
 import { ModelResponse } from "@/lib/admin-api"
+import { formatDate } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -22,19 +23,6 @@ export function ModelCard({ model, onClick }: ModelCardProps) {
   const handleClick = () => {
     if (onClick) {
       onClick()
-    }
-  }
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })
-    } catch {
-      return dateString
     }
   }
 

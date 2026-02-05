@@ -1,6 +1,7 @@
 "use client"
 
 import { SkillResponse } from "@/lib/admin-api"
+import { formatDate } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -72,19 +73,6 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
   const handleClick = () => {
     if (onClick) {
       onClick()
-    }
-  }
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })
-    } catch {
-      return dateString
     }
   }
 

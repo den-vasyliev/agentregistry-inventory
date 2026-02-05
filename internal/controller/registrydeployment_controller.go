@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/url"
+	"strconv"
 	"strings"
 
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
@@ -585,37 +587,40 @@ func generateInternalName(name string) string {
 }
 
 func parseURLComponents(rawURL string) (host string, port uint32, path string) {
-	// Simple URL parsing - in production would use net/url
 	if rawURL == "" {
 		return "", 0, "/"
 	}
 
-	// Strip protocol
+	// Ensure URL has a scheme so net/url.Parse works correctly
 	urlStr := rawURL
-	if idx := strings.Index(urlStr, "://"); idx >= 0 {
-		urlStr = urlStr[idx+3:]
+	if !strings.Contains(urlStr, "://") {
+		urlStr = "http://" + urlStr
 	}
 
-	// Split host and path
-	pathIdx := strings.Index(urlStr, "/")
-	if pathIdx >= 0 {
-		path = urlStr[pathIdx:]
-		urlStr = urlStr[:pathIdx]
-	} else {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", 0, "/"
+	}
+
+	host = u.Hostname()
+	path = u.Path
+	if path == "" {
 		path = "/"
 	}
 
-	// Split host and port
-	portIdx := strings.Index(urlStr, ":")
-	if portIdx >= 0 {
-		host = urlStr[:portIdx]
-		portStr := urlStr[portIdx+1:]
-		var portInt int
-		fmt.Sscanf(portStr, "%d", &portInt)
-		port = uint32(portInt)
+	if portStr := u.Port(); portStr != "" {
+		p, err := strconv.ParseUint(portStr, 10, 32)
+		if err == nil {
+			port = uint32(p)
+		}
 	} else {
-		host = urlStr
-		port = 80
+		// Default ports by scheme
+		switch u.Scheme {
+		case "https":
+			port = 443
+		default:
+			port = 80
+		}
 	}
 
 	return host, port, path

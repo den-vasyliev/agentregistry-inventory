@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ServerResponse, adminApiClient } from "@/lib/admin-api"
+import { formatDateTime as formatDate, getStatusColor } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -131,20 +132,6 @@ export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailPr
     }
   }
 
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return dateString
-    }
-  }
-
   // Get owner from metadata or extract from repository URL
   const getOwner = () => {
     // Try to get email from metadata first
@@ -163,18 +150,6 @@ export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailPr
 
   const ownerEmail = getOwner()
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-600'
-      case 'deprecated':
-        return 'bg-yellow-600'
-      case 'deleted':
-        return 'bg-red-600'
-      default:
-        return 'bg-gray-600'
-    }
-  }
 
   return (
     <TooltipProvider>

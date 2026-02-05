@@ -172,10 +172,10 @@ func TestParseURLComponents(t *testing.T) {
 			wantPath: "/",
 		},
 		{
-			name:     "https without port defaults to 80",
+			name:     "https without port defaults to 443",
 			url:      "https://api.example.com/secure",
 			wantHost: "api.example.com",
-			wantPort: 80,
+			wantPort: 443,
 			wantPath: "/secure",
 		},
 		{

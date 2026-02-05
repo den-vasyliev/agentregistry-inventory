@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -730,11 +731,15 @@ func (s *Server) registerStaticFiles() {
 }
 
 func (r *serverRunnable) Start(ctx context.Context) error {
-	// Set up CORS
+	// Set up CORS - allow configurable origins, default to same-origin only
+	allowedOrigins := []string{}
+	if origins := os.Getenv("AGENTREGISTRY_CORS_ORIGINS"); origins != "" {
+		allowedOrigins = strings.Split(origins, ",")
+	}
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "Accept"},
 		AllowCredentials: true,
 	})
 
@@ -745,10 +750,12 @@ func (r *serverRunnable) Start(ctx context.Context) error {
 	}
 
 	httpServer := &http.Server{
-		Addr:         r.addr,
-		Handler:      c.Handler(handler),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:              r.addr,
+		Handler:           c.Handler(handler),
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB max header size
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start listening

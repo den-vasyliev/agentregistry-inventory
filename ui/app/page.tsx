@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { ServerCard } from "@/components/server-card"
 import { SkillCard } from "@/components/skill-card"
 import { AgentCard } from "@/components/agent-card"
@@ -24,21 +24,9 @@ import { SkillDetail } from "@/components/skill-detail"
 import { AgentDetail } from "@/components/agent-detail"
 import { ModelDetail } from "@/components/model-detail"
 import { SubmitResourceDialog } from "@/components/submit-resource-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { DeployDialog, UndeployDialog } from "@/components/deploy-dialog"
+import { StatsCards } from "@/components/stats-cards"
+import { Pagination } from "@/components/pagination"
 import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
@@ -49,7 +37,6 @@ import {
   Bot,
   Brain,
   GitPullRequest,
-  Rocket,
   ShieldCheck,
   BadgeCheck,
 } from "lucide-react"
@@ -80,6 +67,7 @@ export default function AdminPage() {
   const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
@@ -95,6 +83,12 @@ export default function AdminPage() {
       router.push("/auth/signin")
     }
   }, [status, router, disableAuth])
+
+  // Debounce search query (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Deploy/Undeploy dialog state
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
@@ -121,7 +115,6 @@ export default function AdminPage() {
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
   // Helper function to get resource creation date (for sorting)
-  // All resource types expose CreationTimestamp via _meta.official.updatedAt
   const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
     const dateStr = item._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
     if (!dateStr) return null
@@ -132,7 +125,7 @@ export default function AdminPage() {
     }
   }
 
-  // Extract the canonical name from any resource type (used as stable tiebreaker)
+  // Extract the canonical name from any resource type
   const getResourceName = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): string => {
     if ('server' in item) return item.server.name
     if ('agent' in item) return item.agent.name
@@ -141,7 +134,7 @@ export default function AdminPage() {
     return ''
   }
 
-  // Sort newest first by creation date; fall back to name for stable order when dates are equal
+  // Sort newest first by creation date
   const sortByCreatedDesc = <T extends ServerResponse | AgentResponse | SkillResponse | ModelResponse>(list: T[]): T[] =>
     [...list].sort((a, b) => {
       const dateA = getResourceDate(a)
@@ -153,10 +146,6 @@ export default function AdminPage() {
       return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
     })
 
-  // Check whether a resource matches a given deployment status filter.
-  // "external" = discovered (regardless of runtime state).
-  // "running" / "failed" = has deployment info, matches ready state (managed or discovered).
-  // "not_deployed" = managed resource with no deployment.
   const matchesDeploymentFilter = (item: ServerResponse | AgentResponse, filter: DeploymentStatus): boolean => {
     if (filter === "all") return true
 
@@ -178,8 +167,7 @@ export default function AdminPage() {
   // Group servers by name, keeping the latest version as the representative
   const groupServersByName = (servers: ServerResponse[]): GroupedServer[] => {
     const grouped = new Map<string, ServerResponse[]>()
-    
-    // Group all versions by server name
+
     servers.forEach((server) => {
       const name = server.server.name
       if (!grouped.has(name)) {
@@ -187,20 +175,17 @@ export default function AdminPage() {
       }
       grouped.get(name)!.push(server)
     })
-    
-    // Convert to GroupedServer array, using the latest version as representative
+
     return Array.from(grouped.entries()).map(([name, versions]) => {
-      // Sort versions by date (newest first) or version string
       const sortedVersions = [...versions].sort((a, b) => {
         const dateA = getResourceDate(a)
         const dateB = getResourceDate(b)
         if (dateA && dateB) {
           return dateB.getTime() - dateA.getTime()
         }
-        // Fallback to version string comparison
         return b.server.version.localeCompare(a.server.version)
       })
-      
+
       const latestVersion = sortedVersions[0]
       return {
         ...latestVersion,
@@ -211,42 +196,39 @@ export default function AdminPage() {
   }
 
   // Fetch data from API
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      // Fetch all servers (with pagination if needed)
+
       const allServers: ServerResponse[] = []
       let serverCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listServers({ 
-          cursor: serverCursor, 
+        const response = await adminApiClient.listServers({
+          cursor: serverCursor,
           limit: 100,
         })
         allServers.push(...response.servers)
         serverCursor = response.metadata.nextCursor
       } while (serverCursor)
-      
+
       setServers(allServers)
 
-      // Fetch all skills (with pagination if needed)
       const allSkills: SkillResponse[] = []
       let skillCursor: string | undefined
-      
+
       do {
-        const response = await adminApiClient.listSkills({ 
-          cursor: skillCursor, 
+        const response = await adminApiClient.listSkills({
+          cursor: skillCursor,
           limit: 100,
         })
         allSkills.push(...response.skills)
         skillCursor = response.metadata.nextCursor
       } while (skillCursor)
-      
+
       setSkills(allSkills)
 
-      // Fetch all agents (with pagination if needed)
       const allAgents: AgentResponse[] = []
       let agentCursor: string | undefined
 
@@ -261,7 +243,6 @@ export default function AdminPage() {
 
       setAgents(allAgents)
 
-      // Fetch all models (with pagination if needed)
       const allModels: ModelResponse[] = []
       let modelCursor: string | undefined
 
@@ -276,11 +257,9 @@ export default function AdminPage() {
 
       setModels(allModels)
 
-      // Group servers by name
       const grouped = groupServersByName(allServers)
       setGroupedServers(grouped)
 
-      // Set stats
       setStats({
         total_servers: allServers.length,
         total_server_names: grouped.length,
@@ -293,16 +272,15 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   // Restore scroll position when returning from server detail
   useEffect(() => {
     if (!selectedServer && shouldRestoreScrollRef.current) {
-      // Use setTimeout to ensure DOM has updated
       setTimeout(() => {
         window.scrollTo({
           top: scrollPositionRef.current,
@@ -313,36 +291,31 @@ export default function AdminPage() {
     }
   }, [selectedServer])
 
-  // Handle server card click - save scroll position before navigating
-  const handleServerClick = (server: GroupedServer) => {
+  const handleServerClick = useCallback((server: GroupedServer) => {
     scrollPositionRef.current = window.scrollY
     shouldRestoreScrollRef.current = true
     setSelectedServer(server)
-  }
+  }, [])
 
-  // Handle closing server detail - flag for scroll restoration
-  const handleCloseServerDetail = () => {
+  const handleCloseServerDetail = useCallback(() => {
     setSelectedServer(null)
-  }
+  }, [])
 
-  // Handle deploy
-  const handleDeploy = (item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
+  const handleDeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
     const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
     setItemToDeploy({ name, version, type })
     setDeployDialogOpen(true)
     fetchEnvironments()
-  }
+  }, [])
 
-  // Handle undeploy
-  const handleUndeploy = (item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
+  const handleUndeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
     const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
     setItemToUndeploy({ name, version, type })
     setUndeployDialogOpen(true)
-  }
+  }, [])
 
-  // Fetch environments when deploy dialog opens
   const fetchEnvironments = async () => {
     setLoadingEnvironments(true)
     try {
@@ -377,7 +350,7 @@ export default function AdminPage() {
       setDeployDialogOpen(false)
       setItemToDeploy(null)
       toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
-      await fetchData() // Refresh data
+      await fetchData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to deploy resource')
     } finally {
@@ -400,7 +373,7 @@ export default function AdminPage() {
       setUndeployDialogOpen(false)
       setItemToUndeploy(null)
       toast.success(`Successfully undeployed ${itemToUndeploy.name}`)
-      await fetchData() // Refresh data
+      await fetchData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to undeploy resource')
     } finally {
@@ -414,15 +387,14 @@ export default function AdminPage() {
     setCurrentPageSkills(1)
     setCurrentPageAgents(1)
     setCurrentPageModels(1)
-  }, [searchQuery, deploymentStatusFilter])
+  }, [debouncedSearch, deploymentStatusFilter])
 
-  // Filter and sort servers based on search query, sort option, and deployment status
+  // Filter and sort servers
   useEffect(() => {
     let filtered = [...groupedServers]
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    if (debouncedSearch) {
+      const query = debouncedSearch.toLowerCase()
       filtered = filtered.filter(
         (s) =>
           s.server.name.toLowerCase().includes(query) ||
@@ -431,7 +403,6 @@ export default function AdminPage() {
       )
     }
 
-    // Filter by verified organization
     if (filterVerifiedOrg) {
       filtered = filtered.filter((s) => {
         const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
@@ -439,7 +410,6 @@ export default function AdminPage() {
       })
     }
 
-    // Filter by verified publisher
     if (filterVerifiedPublisher) {
       filtered = filtered.filter((s) => {
         const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
@@ -447,19 +417,17 @@ export default function AdminPage() {
       })
     }
 
-    // Filter by deployment status
     filtered = filtered.filter((s) => matchesDeploymentFilter(s, deploymentStatusFilter))
 
     setFilteredServers(sortByCreatedDesc(filtered))
-  }, [searchQuery, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
+  }, [debouncedSearch, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
-  // Filter skills, agents, and models based on search query and deployment status
+  // Filter skills, agents, and models
   useEffect(() => {
-    const query = searchQuery.toLowerCase()
+    const query = debouncedSearch.toLowerCase()
 
-    // Filter skills (skills don't have deployment status, they're always "active")
     let filteredSk = skills
-    if (searchQuery) {
+    if (debouncedSearch) {
       filteredSk = filteredSk.filter(
         (s) =>
           s.skill.name.toLowerCase().includes(query) ||
@@ -481,9 +449,8 @@ export default function AdminPage() {
     }
     setFilteredSkills(sortByCreatedDesc(filteredSk))
 
-    // Filter agents
     let filteredA = agents
-    if (searchQuery) {
+    if (debouncedSearch) {
       filteredA = filteredA.filter(
         ({agent}) =>
           agent.name?.toLowerCase().includes(query) ||
@@ -491,27 +458,23 @@ export default function AdminPage() {
           agent.description?.toLowerCase().includes(query)
       )
     }
-    // Filter by verified organization
     if (filterVerifiedOrg) {
       filteredA = filteredA.filter((a) => {
         const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.org_is_verified === true
       })
     }
-    // Filter by verified publisher
     if (filterVerifiedPublisher) {
       filteredA = filteredA.filter((a) => {
         const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
-    // Filter by deployment status
     filteredA = filteredA.filter((a) => matchesDeploymentFilter(a, deploymentStatusFilter))
     setFilteredAgents(sortByCreatedDesc(filteredA))
 
-    // Filter models (models don't have deployment status)
     let filteredM = models
-    if (searchQuery) {
+    if (debouncedSearch) {
       filteredM = filteredM.filter(
         ({ model }) =>
           model.name?.toLowerCase().includes(query) ||
@@ -521,7 +484,7 @@ export default function AdminPage() {
       )
     }
     setFilteredModels(sortByCreatedDesc(filteredM))
-  }, [searchQuery, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
+  }, [debouncedSearch, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
   if (loading) {
     return (
@@ -547,94 +510,31 @@ export default function AdminPage() {
     )
   }
 
-  // Show server detail view if a server is selected
   return (
     <>
-      {/* Deploy Dialog */}
-      <Dialog open={deployDialogOpen} onOpenChange={setDeployDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Deploy Resource</DialogTitle>
-            <DialogDescription>
-              Deploy <strong>{itemToDeploy?.name}</strong> (version {itemToDeploy?.version})?
-              <br />
-              <br />
-              This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Deployment destination</Label>
-              <p className="text-sm text-muted-foreground">Kubernetes</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
-              <Select value={deployNamespace} onValueChange={setDeployNamespace} disabled={loadingEnvironments}>
-                <SelectTrigger id="deploy-namespace">
-                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {environments.map((env) => (
-                    <SelectItem key={env.namespace} value={env.namespace}>
-                      {env.name}/{env.namespace}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Choose which namespace/environment to deploy to
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeployDialogOpen(false)}
-              disabled={deploying}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={confirmDeploy}
-              disabled={deploying}
-            >
-              {deploying ? 'Deploying...' : 'Deploy'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeployDialog
+        open={deployDialogOpen}
+        onOpenChange={setDeployDialogOpen}
+        itemName={itemToDeploy?.name}
+        itemVersion={itemToDeploy?.version}
+        itemType={itemToDeploy?.type}
+        deploying={deploying}
+        onConfirm={confirmDeploy}
+        environments={environments}
+        loadingEnvironments={loadingEnvironments}
+        deployNamespace={deployNamespace}
+        onNamespaceChange={setDeployNamespace}
+      />
 
-      {/* Undeploy Dialog */}
-      <Dialog open={undeployDialogOpen} onOpenChange={setUndeployDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Undeploy Resource</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to undeploy <strong>{itemToUndeploy?.name}</strong> (version {itemToUndeploy?.version})?
-              <br />
-              <br />
-              This will stop the {itemToUndeploy?.type === 'server' ? 'MCP server' : 'agent'} and remove it from your deployments.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUndeployDialogOpen(false)}
-              disabled={undeploying}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmUndeploy}
-              disabled={undeploying}
-            >
-              {undeploying ? 'Undeploying...' : 'Undeploy'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <UndeployDialog
+        open={undeployDialogOpen}
+        onOpenChange={setUndeployDialogOpen}
+        itemName={itemToUndeploy?.name}
+        itemVersion={itemToUndeploy?.version}
+        itemType={itemToUndeploy?.type}
+        undeploying={undeploying}
+        onConfirm={confirmUndeploy}
+      />
 
       {selectedServer && (
         <ServerDetail
@@ -667,63 +567,13 @@ export default function AdminPage() {
 
       {!selectedServer && !selectedSkill && !selectedAgent && !selectedModel && (
     <main className="min-h-screen bg-background">
-      {/* Stats Section */}
       {stats && (
-        <div className="bg-muted/30 border-b">
-          <div className="container mx-auto px-6 py-6">
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <span className="h-5 w-5 text-primary flex items-center justify-center">
-                      <MCPIcon />
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.total_server_names}</p>
-                    <p className="text-xs text-muted-foreground">MCP</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/20 rounded-lg flex items-center justify-center">
-                    <Zap className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{skills.length}</p>
-                    <p className="text-xs text-muted-foreground">Skills</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/30 rounded-lg flex items-center justify-center">
-                    <Bot className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{agents.length}</p>
-                    <p className="text-xs text-muted-foreground">Agents</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/40 rounded-lg flex items-center justify-center">
-                    <Brain className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{models.length}</p>
-                    <p className="text-xs text-muted-foreground">Models</p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </div>
+        <StatsCards
+          stats={stats}
+          skillCount={skills.length}
+          agentCount={agents.length}
+          modelCount={models.length}
+        />
       )}
 
       <div className="container mx-auto px-6 py-8">
@@ -776,7 +626,7 @@ export default function AdminPage() {
               </Tabs>
             )}
 
-            {/* Verified Filters - for Servers, Agents, and Skills */}
+            {/* Verified Filters */}
             {(activeTab === 'servers' || activeTab === 'agents' || activeTab === 'skills') && (
               <TooltipProvider>
                 <div className="flex items-center gap-3">
@@ -848,7 +698,6 @@ export default function AdminPage() {
 
           {/* MCP Tab */}
           <TabsContent value="servers">
-            {/* Server List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
                 MCP
@@ -901,29 +750,12 @@ export default function AdminPage() {
                         />
                       ))}
                   </div>
-                  {filteredServers.length > itemsPerPage && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageServers(p => Math.max(1, p - 1))}
-                        disabled={currentPageServers === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPageServers} of {Math.ceil(filteredServers.length / itemsPerPage)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageServers(p => Math.min(Math.ceil(filteredServers.length / itemsPerPage), p + 1))}
-                        disabled={currentPageServers >= Math.ceil(filteredServers.length / itemsPerPage)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={currentPageServers}
+                    totalItems={filteredServers.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPageServers}
+                  />
                 </>
               )}
             </div>
@@ -931,7 +763,6 @@ export default function AdminPage() {
 
           {/* Skills Tab */}
           <TabsContent value="skills">
-            {/* Skills List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
                 Skills
@@ -981,29 +812,12 @@ export default function AdminPage() {
                         />
                       ))}
                   </div>
-                  {filteredSkills.length > itemsPerPage && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageSkills(p => Math.max(1, p - 1))}
-                        disabled={currentPageSkills === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPageSkills} of {Math.ceil(filteredSkills.length / itemsPerPage)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageSkills(p => Math.min(Math.ceil(filteredSkills.length / itemsPerPage), p + 1))}
-                        disabled={currentPageSkills >= Math.ceil(filteredSkills.length / itemsPerPage)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={currentPageSkills}
+                    totalItems={filteredSkills.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPageSkills}
+                  />
                 </>
               )}
             </div>
@@ -1011,7 +825,6 @@ export default function AdminPage() {
 
           {/* Agents Tab */}
           <TabsContent value="agents">
-            {/* Agents List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
                 Agents
@@ -1063,29 +876,12 @@ export default function AdminPage() {
                         />
                       ))}
                   </div>
-                  {filteredAgents.length > itemsPerPage && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageAgents(p => Math.max(1, p - 1))}
-                        disabled={currentPageAgents === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPageAgents} of {Math.ceil(filteredAgents.length / itemsPerPage)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageAgents(p => Math.min(Math.ceil(filteredAgents.length / itemsPerPage), p + 1))}
-                        disabled={currentPageAgents >= Math.ceil(filteredAgents.length / itemsPerPage)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={currentPageAgents}
+                    totalItems={filteredAgents.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPageAgents}
+                  />
                 </>
               )}
             </div>
@@ -1093,7 +889,6 @@ export default function AdminPage() {
 
           {/* Models Tab */}
           <TabsContent value="models">
-            {/* Models List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
                 Models
@@ -1133,29 +928,12 @@ export default function AdminPage() {
                         />
                       ))}
                   </div>
-                  {filteredModels.length > itemsPerPage && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageModels(p => Math.max(1, p - 1))}
-                        disabled={currentPageModels === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {currentPageModels} of {Math.ceil(filteredModels.length / itemsPerPage)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPageModels(p => Math.min(Math.ceil(filteredModels.length / itemsPerPage), p + 1))}
-                        disabled={currentPageModels >= Math.ceil(filteredModels.length / itemsPerPage)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={currentPageModels}
+                    totalItems={filteredModels.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPageModels}
+                  />
                 </>
               )}
             </div>

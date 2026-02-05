@@ -509,7 +509,6 @@ class AdminApiClient {
 
   // Create a new server
   async createServer(server: ServerJSON): Promise<ServerResponse> {
-    console.log('Creating server:', server)
     const response = await this.fetchWithRetry(`${this.baseUrl}/admin/v0/servers`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -518,8 +517,6 @@ class AdminApiClient {
 
     // Get response text first so we can parse it or show it as error
     const responseText = await response.text()
-    console.log('Response status:', response.status)
-    console.log('Response text:', responseText.substring(0, 200))
 
     if (!response.ok) {
       let errorMessage = 'Failed to create server'
@@ -542,7 +539,6 @@ class AdminApiClient {
     try {
       return JSON.parse(responseText)
     } catch (e) {
-      console.error('Failed to parse response:', e)
       throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`)
     }
   }
@@ -930,7 +926,6 @@ class AdminApiClient {
       throw new Error('Failed to fetch environments')
     }
     const data = await response.json()
-    console.log('Environments API response:', data)
     // Huma might return data directly or wrapped in Body
     return data.environments || data.Body?.environments || []
   }

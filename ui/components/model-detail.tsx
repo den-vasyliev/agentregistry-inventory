@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ModelResponse } from "@/lib/admin-api"
+import { formatDateTime as formatDate } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,20 +49,6 @@ export function ModelDetail({ model, onClose }: ModelDetailProps) {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [onClose])
-
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return dateString
-    }
-  }
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
