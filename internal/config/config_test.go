@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestGetNamespace(t *testing.T) {
@@ -86,6 +87,83 @@ func TestGetEnv(t *testing.T) {
 				t.Errorf("GetEnv(%q, %q) = %v, want %v", tt.key, tt.defaultValue, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGetOIDCIssuer(t *testing.T) {
+	original := os.Getenv("AGENTREGISTRY_OIDC_ISSUER")
+	defer os.Setenv("AGENTREGISTRY_OIDC_ISSUER", original)
+
+	os.Setenv("AGENTREGISTRY_OIDC_ISSUER", "https://auth.example.com")
+	assert(t, "https://auth.example.com", GetOIDCIssuer())
+
+	os.Unsetenv("AGENTREGISTRY_OIDC_ISSUER")
+	assert(t, "", GetOIDCIssuer())
+}
+
+func TestGetOIDCAudience(t *testing.T) {
+	original := os.Getenv("AGENTREGISTRY_OIDC_AUDIENCE")
+	defer os.Setenv("AGENTREGISTRY_OIDC_AUDIENCE", original)
+
+	os.Setenv("AGENTREGISTRY_OIDC_AUDIENCE", "my-client-id")
+	assert(t, "my-client-id", GetOIDCAudience())
+
+	os.Unsetenv("AGENTREGISTRY_OIDC_AUDIENCE")
+	assert(t, "", GetOIDCAudience())
+}
+
+func TestGetOIDCAdminGroup(t *testing.T) {
+	original := os.Getenv("AGENTREGISTRY_OIDC_ADMIN_GROUP")
+	defer os.Setenv("AGENTREGISTRY_OIDC_ADMIN_GROUP", original)
+
+	os.Setenv("AGENTREGISTRY_OIDC_ADMIN_GROUP", "registry-admins")
+	assert(t, "registry-admins", GetOIDCAdminGroup())
+
+	os.Unsetenv("AGENTREGISTRY_OIDC_ADMIN_GROUP")
+	assert(t, "", GetOIDCAdminGroup())
+}
+
+func TestGetOIDCGroupClaim(t *testing.T) {
+	original := os.Getenv("AGENTREGISTRY_OIDC_GROUP_CLAIM")
+	defer os.Setenv("AGENTREGISTRY_OIDC_GROUP_CLAIM", original)
+
+	// default when unset
+	os.Unsetenv("AGENTREGISTRY_OIDC_GROUP_CLAIM")
+	assert(t, "groups", GetOIDCGroupClaim())
+
+	// custom value
+	os.Setenv("AGENTREGISTRY_OIDC_GROUP_CLAIM", "cognito:groups")
+	assert(t, "cognito:groups", GetOIDCGroupClaim())
+}
+
+func TestGetOIDCCacheSafetyMargin(t *testing.T) {
+	original := os.Getenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS")
+	defer os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", original)
+
+	// default when unset
+	os.Unsetenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS")
+	if got := GetOIDCCacheSafetyMargin(); got != 5*time.Minute {
+		t.Errorf("GetOIDCCacheSafetyMargin() default = %v, want 5m0s", got)
+	}
+
+	// explicit value
+	os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", "30")
+	if got := GetOIDCCacheSafetyMargin(); got != 30*time.Second {
+		t.Errorf("GetOIDCCacheSafetyMargin() = %v, want 30s", got)
+	}
+
+	// non-numeric falls back to default
+	os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", "not-a-number")
+	if got := GetOIDCCacheSafetyMargin(); got != 5*time.Minute {
+		t.Errorf("GetOIDCCacheSafetyMargin() non-numeric = %v, want 5m0s", got)
+	}
+}
+
+// assert is a tiny helper to avoid importing testify in this file.
+func assert(t *testing.T, want, got string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

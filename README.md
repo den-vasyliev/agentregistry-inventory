@@ -52,8 +52,8 @@ helm install agentregistry ./charts/agentregistry -n agentregistry --create-name
 
 ```
 Discover → Inventory → Deploy → Monitor
-     ↑_________________________________________↓
-              (Auto-discovery loop)
+↑__________________________________↓
+      (Auto-discovery loop)
 ```
 
 | Capability | What It Means |

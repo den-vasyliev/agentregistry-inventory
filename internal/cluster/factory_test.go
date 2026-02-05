@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 )
@@ -181,4 +182,90 @@ func TestNewFactory(t *testing.T) {
 	assert.NotNil(t, factory)
 	assert.NotNil(t, factory.cache)
 	assert.Equal(t, DefaultCacheTTL, factory.cacheTTL)
+}
+
+func TestWrapLocalClient_NotWithWatch(t *testing.T) {
+	// A nil localClient does not satisfy client.WithWatch → error expected
+	logger := zerolog.Nop()
+	factory := NewFactory(nil, logger)
+
+	_, err := factory.wrapLocalClient()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not implement client.WithWatch")
+}
+
+func TestCreateStaticConfig_EmptyEndpoint(t *testing.T) {
+	logger := zerolog.Nop()
+	factory := NewFactory(nil, logger)
+
+	env := &agentregistryv1alpha1.Environment{
+		Name: "no-endpoint",
+		Cluster: agentregistryv1alpha1.ClusterConfig{
+			Name:     "remote",
+			Endpoint: "",
+			CAData:   "dGVzdA==", // base64("test")
+		},
+	}
+
+	_, err := factory.createStaticConfig(env)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "endpoint is required")
+}
+
+func TestCreateStaticConfig_InvalidBase64CA(t *testing.T) {
+	logger := zerolog.Nop()
+	factory := NewFactory(nil, logger)
+
+	env := &agentregistryv1alpha1.Environment{
+		Name: "bad-ca",
+		Cluster: agentregistryv1alpha1.ClusterConfig{
+			Name:     "remote",
+			Endpoint: "https://10.0.0.1:6443",
+			CAData:   "!!!not-base64!!!",
+		},
+	}
+
+	_, err := factory.createStaticConfig(env)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode CA data")
+}
+
+func TestCreateStaticConfig_ValidConfig(t *testing.T) {
+	logger := zerolog.Nop()
+	factory := NewFactory(nil, logger)
+
+	env := &agentregistryv1alpha1.Environment{
+		Name: "valid-static",
+		Cluster: agentregistryv1alpha1.ClusterConfig{
+			Name:     "remote",
+			Endpoint: "10.0.0.1:6443", // no https prefix — should be prepended
+			CAData:   "dGVzdC1jYQ==",  // base64("test-ca")
+		},
+	}
+
+	cfg, err := factory.createStaticConfig(env)
+	require.NoError(t, err)
+	assert.Equal(t, "https://10.0.0.1:6443", cfg.Host)
+	assert.Equal(t, []byte("test-ca"), cfg.TLSClientConfig.CAData)
+	assert.Equal(t, float32(50), cfg.QPS)
+	assert.Equal(t, 100, cfg.Burst)
+}
+
+func TestCreateStaticConfig_ExistingHttpsPrefix(t *testing.T) {
+	logger := zerolog.Nop()
+	factory := NewFactory(nil, logger)
+
+	env := &agentregistryv1alpha1.Environment{
+		Name: "already-https",
+		Cluster: agentregistryv1alpha1.ClusterConfig{
+			Name:     "remote",
+			Endpoint: "https://api.example.com:6443",
+			CAData:   "dGVzdA==",
+		},
+	}
+
+	cfg, err := factory.createStaticConfig(env)
+	require.NoError(t, err)
+	// Should NOT double-prefix
+	assert.Equal(t, "https://api.example.com:6443", cfg.Host)
 }

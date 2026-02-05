@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/validation"
 )
 
 // CatalogVersionInfo represents version metadata for a catalog item
@@ -186,21 +187,7 @@ func findLatestVersion(versions []CatalogVersionInfo) string {
 
 // isSemanticVersion checks if a version string follows semantic versioning format
 func isSemanticVersion(version string) bool {
-	versionWithV := ensureVPrefix(version)
-	if !semver.IsValid(versionWithV) {
-		return false
-	}
-
-	versionCore := strings.TrimPrefix(versionWithV, "v")
-	if idx := strings.Index(versionCore, "-"); idx != -1 {
-		versionCore = versionCore[:idx]
-	}
-	if idx := strings.Index(versionCore, "+"); idx != -1 {
-		versionCore = versionCore[:idx]
-	}
-
-	parts := strings.Split(versionCore, ".")
-	return len(parts) == 3
+	return validation.IsSemanticVersion(version)
 }
 
 // ensureVPrefix adds a "v" prefix if not present
