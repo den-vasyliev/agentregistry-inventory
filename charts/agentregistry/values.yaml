@@ -4,7 +4,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/den-vasyliev/agentregistry-enterprise
+  repository: ghcr.io/den-vasyliev/agentregistry-inventory
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
