@@ -42,7 +42,7 @@ cd agentregistry-inventory && make dev
 **☸️ Have a cluster?**
 
 ```bash
-kubectl apply -k https://github.com/den-vasyliev/agentregistry-inventory/config/crd?ref=enterprise-controller
+kubectl apply -k https://github.com/den-vasyliev/agentregistry-inventory/config/crd
 helm install agentregistry-inventory ./charts/agentregistry -n agentregistry --create-namespace
 ```
 

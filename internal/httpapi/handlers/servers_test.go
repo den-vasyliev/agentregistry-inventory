@@ -268,3 +268,60 @@ func TestConvertToServerResponse(t *testing.T) {
 	assert.True(t, resp.Meta.Official.Published)
 	assert.True(t, resp.Meta.Official.IsLatest)
 }
+
+// ---------------------------------------------------------------------------
+// GET/LIST operations
+// ---------------------------------------------------------------------------
+
+func TestServerHandler_ConvertToServerResponse_Discovered(t *testing.T) {
+	c := setupTestClient(t)
+	handler := NewServerHandler(c, nil, zerolog.Nop())
+
+	server := &agentregistryv1alpha1.MCPServerCatalog{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "discovered-server-1-0-0",
+			Labels: map[string]string{
+				"agentregistry.dev/discovered": "true",
+			},
+		},
+		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+			Name:    "discovered-server",
+			Version: "1.0.0",
+			Title:   "Discovered",
+		},
+	}
+
+	resp := handler.convertToServerResponse(server, nil)
+	assert.True(t, resp.Meta.IsDiscovered)
+	assert.Equal(t, "discovery", resp.Meta.Source)
+}
+
+func TestServerHandler_ConvertToServerResponse_WithDeployment(t *testing.T) {
+	c := setupTestClient(t)
+	handler := NewServerHandler(c, nil, zerolog.Nop())
+
+	now := metav1.Now()
+	server := &agentregistryv1alpha1.MCPServerCatalog{
+		ObjectMeta: metav1.ObjectMeta{Name: "deployed-server-1-0-0"},
+		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+			Name:    "deployed-server",
+			Version: "1.0.0",
+		},
+		Status: agentregistryv1alpha1.MCPServerCatalogStatus{
+			Deployment: &agentregistryv1alpha1.DeploymentRef{
+				Namespace:   "production",
+				ServiceName: "deployed-server-svc",
+				Ready:       true,
+				Message:     "running",
+				LastChecked: &now,
+			},
+		},
+	}
+
+	resp := handler.convertToServerResponse(server, nil)
+	require.NotNil(t, resp.Meta.Deployment)
+	assert.Equal(t, "production", resp.Meta.Deployment.Namespace)
+	assert.Equal(t, "deployed-server-svc", resp.Meta.Deployment.ServiceName)
+	assert.True(t, resp.Meta.Deployment.Ready)
+	assert.Equal(t, "running", resp.Meta.Deployment.Message)
+}

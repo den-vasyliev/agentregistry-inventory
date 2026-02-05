@@ -258,3 +258,97 @@ func TestAgentHandler_ConvertToAgentResponse_RegistryDeploymentOverridesStatus(t
 	assert.Equal(t, "new-svc", resp.Meta.Deployment.ServiceName)
 	assert.True(t, resp.Meta.Deployment.Ready)
 }
+
+// ---------------------------------------------------------------------------
+// GET/LIST operations
+// ---------------------------------------------------------------------------
+
+func TestAgentHandler_ConvertToAgentResponse_WithPackages(t *testing.T) {
+	c := setupAgentTestClient(t)
+	handler := NewAgentHandler(c, nil, zerolog.Nop())
+
+	agent := &agentregistryv1alpha1.AgentCatalog{
+		ObjectMeta: metav1.ObjectMeta{Name: "pkg-agent-1-0-0"},
+		Spec: agentregistryv1alpha1.AgentCatalogSpec{
+			Name:    "pkg-agent",
+			Version: "1.0.0",
+			Packages: []agentregistryv1alpha1.AgentPackage{
+				{
+					RegistryType: "oci",
+					Identifier:   "registry.io/pkg",
+					Version:      "1.0.0",
+					Transport: &agentregistryv1alpha1.AgentPackageTransport{
+						Type: "stdio",
+					},
+				},
+			},
+		},
+	}
+
+	resp := handler.convertToAgentResponse(agent, nil)
+	require.Len(t, resp.Agent.Packages, 1)
+	assert.Equal(t, "oci", resp.Agent.Packages[0].RegistryType)
+	assert.Equal(t, "registry.io/pkg", resp.Agent.Packages[0].Identifier)
+	require.NotNil(t, resp.Agent.Packages[0].Transport)
+	assert.Equal(t, "stdio", resp.Agent.Packages[0].Transport.Type)
+}
+
+func TestAgentHandler_ConvertToAgentResponse_WithRemotes(t *testing.T) {
+	c := setupAgentTestClient(t)
+	handler := NewAgentHandler(c, nil, zerolog.Nop())
+
+	agent := &agentregistryv1alpha1.AgentCatalog{
+		ObjectMeta: metav1.ObjectMeta{Name: "remote-agent-1-0-0"},
+		Spec: agentregistryv1alpha1.AgentCatalogSpec{
+			Name:    "remote-agent",
+			Version: "1.0.0",
+			Remotes: []agentregistryv1alpha1.Transport{
+				{
+					Type: "streamable-http",
+					URL:  "https://api.example.com/mcp",
+					Headers: []agentregistryv1alpha1.KeyValueInput{
+						{Name: "Authorization", Value: "Bearer token", Required: true},
+					},
+				},
+			},
+		},
+	}
+
+	resp := handler.convertToAgentResponse(agent, nil)
+	require.Len(t, resp.Agent.Remotes, 1)
+	assert.Equal(t, "streamable-http", resp.Agent.Remotes[0].Type)
+	assert.Equal(t, "https://api.example.com/mcp", resp.Agent.Remotes[0].URL)
+	require.Len(t, resp.Agent.Remotes[0].Headers, 1)
+	assert.Equal(t, "Authorization", resp.Agent.Remotes[0].Headers[0].Name)
+	assert.True(t, resp.Agent.Remotes[0].Headers[0].Required)
+}
+
+func TestAgentHandler_ConvertToAgentResponse_WithMcpServers(t *testing.T) {
+	c := setupAgentTestClient(t)
+	handler := NewAgentHandler(c, nil, zerolog.Nop())
+
+	agent := &agentregistryv1alpha1.AgentCatalog{
+		ObjectMeta: metav1.ObjectMeta{Name: "mcp-agent-1-0-0"},
+		Spec: agentregistryv1alpha1.AgentCatalogSpec{
+			Name:    "mcp-agent",
+			Version: "1.0.0",
+			McpServers: []agentregistryv1alpha1.McpServerConfig{
+				{
+					Type:    "stdio",
+					Name:    "my-mcp",
+					Command: "node",
+					Args:    []string{"server.js"},
+					Env:     []string{"PORT=3000", "DEBUG=true"},
+				},
+			},
+		},
+	}
+
+	resp := handler.convertToAgentResponse(agent, nil)
+	require.Len(t, resp.Agent.McpServers, 1)
+	assert.Equal(t, "stdio", resp.Agent.McpServers[0].Type)
+	assert.Equal(t, "my-mcp", resp.Agent.McpServers[0].Name)
+	assert.Equal(t, "node", resp.Agent.McpServers[0].Command)
+	assert.Equal(t, []string{"server.js"}, resp.Agent.McpServers[0].Args)
+	assert.Equal(t, []string{"PORT=3000", "DEBUG=true"}, resp.Agent.McpServers[0].Env)
+}
