@@ -124,14 +124,11 @@ func main() {
 		watchNamespace = "agentregistry"
 	}
 
-	// Configure cache to only watch agentregistry namespace
-	// All AgentRegistry resources (Catalogs, RegistryDeployments, DiscoveryConfig) live here
-	// DiscoveryConfig creates separate informers for remote cluster discovery
-	cacheOpts := cache.Options{
-		DefaultNamespaces: map[string]cache.Config{
-			watchNamespace: {},
-		},
-	}
+	// Configure cache to watch all namespaces
+	// While AgentRegistry resources (Catalogs, RegistryDeployments, DiscoveryConfig) live in agentregistry namespace,
+	// the managed resources (MCPServer, Agent, etc.) can be deployed to any namespace via RegistryDeployment.spec.namespace
+	// We need to watch all namespaces so the reconciler can check and recreate deleted managed resources
+	cacheOpts := cache.Options{}
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme: scheme,
