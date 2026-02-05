@@ -585,6 +585,29 @@ func syncDeploymentStatus(catalog *agentregistryv1alpha1.MCPServerCatalog, mcpSe
 	}
 }
 
+// syncAgentDeploymentStatus syncs deployment status from kagent Agent to catalog
+func syncAgentDeploymentStatus(catalog *agentregistryv1alpha1.AgentCatalog, agent *kagentv1alpha2.Agent) {
+	ready := false
+	message := ""
+
+	for _, cond := range agent.Status.Conditions {
+		if cond.Type == "Ready" {
+			ready = cond.Status == metav1.ConditionTrue
+			message = cond.Message
+			break
+		}
+	}
+
+	now := metav1.Now()
+	catalog.Status.Deployment = &agentregistryv1alpha1.DeploymentRef{
+		Namespace:   agent.Namespace,
+		ServiceName: agent.Name,
+		Ready:       ready,
+		Message:     message,
+		LastChecked: &now,
+	}
+}
+
 // handleAgentAdd creates/updates catalog entry for discovered Agent
 func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	ctx context.Context,
@@ -643,10 +666,11 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 		if err := r.Create(ctx, &catalog); err != nil {
 			return err
 		}
-		// Set external management type and published status
+		// Set external management type, published status, and deployment info
 		catalog.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
 		catalog.Status.Published = true
 		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		syncAgentDeploymentStatus(&catalog, agent)
 		return r.Status().Update(ctx, &catalog)
 	} else if err != nil {
 		return err
@@ -657,11 +681,19 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	if err := r.Update(ctx, existing); err != nil {
 		return err
 	}
-	// Ensure status is set for external resources
+	// Ensure status is set for external resources and sync deployment
+	needsUpdate := false
 	if existing.Status.ManagementType == "" {
 		existing.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
 		existing.Status.Published = true
 		existing.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		needsUpdate = true
+	}
+	if existing.Status.ManagementType == agentregistryv1alpha1.ManagementTypeExternal {
+		syncAgentDeploymentStatus(existing, agent)
+		needsUpdate = true
+	}
+	if needsUpdate {
 		return r.Status().Update(ctx, existing)
 	}
 	return nil

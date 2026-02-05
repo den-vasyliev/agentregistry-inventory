@@ -15,7 +15,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -125,25 +124,12 @@ func main() {
 		watchNamespace = "agentregistry"
 	}
 
-	// Configure cache to watch controller namespace for AgentRegistry resources,
-	// but watch all namespaces for MCPServer and Agent to enable external resource discovery
+	// Configure cache to only watch agentregistry namespace
+	// All AgentRegistry resources (Catalogs, RegistryDeployments, DiscoveryConfig) live here
+	// DiscoveryConfig creates separate informers for remote cluster discovery
 	cacheOpts := cache.Options{
 		DefaultNamespaces: map[string]cache.Config{
 			watchNamespace: {},
-		},
-		ByObject: map[client.Object]cache.ByObject{
-			// Watch MCPServers in all namespaces for external resource discovery
-			&kmcpv1alpha1.MCPServer{}: {
-				Namespaces: map[string]cache.Config{
-					cache.AllNamespaces: {},
-				},
-			},
-			// Watch Agents in all namespaces for external resource discovery
-			&kagentv1alpha2.Agent{}: {
-				Namespaces: map[string]cache.Config{
-					cache.AllNamespaces: {},
-				},
-			},
 		},
 	}
 

@@ -263,7 +263,7 @@ func TestConvertToServerResponse(t *testing.T) {
 		},
 	}
 
-	resp := handler.convertToServerResponse(server)
+	resp := handler.convertToServerResponse(server, nil)
 
 	assert.Equal(t, "convert-test", resp.Server.Name)
 	assert.Equal(t, "1.0.0", resp.Server.Version)

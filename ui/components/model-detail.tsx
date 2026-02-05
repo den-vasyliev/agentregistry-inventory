@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   Brain,
   Server,
-  Upload,
   CheckCircle2,
   XCircle,
   Circle,
@@ -28,10 +27,9 @@ import {
 interface ModelDetailProps {
   model: ModelResponse
   onClose: () => void
-  onPublish?: (model: ModelResponse) => void
 }
 
-export function ModelDetail({ model, onClose, onPublish }: ModelDetailProps) {
+export function ModelDetail({ model, onClose }: ModelDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
 
   const { model: modelData, _meta } = model
@@ -116,23 +114,6 @@ export function ModelDetail({ model, onClose, onPublish }: ModelDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => onPublish && onPublish(model)}
-                    className="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Publish
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Publish this model to your registry</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>

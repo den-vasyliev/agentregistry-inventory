@@ -37,9 +37,6 @@ import {
   Star,
   TrendingUp,
   Copy,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
   ArrowLeft,
   History,
   Check,
@@ -57,14 +54,11 @@ interface ServerDetailProps {
   server: ServerResponse & { allVersions?: ServerResponse[] }
   onClose: () => void
   onServerCopied?: () => void
-  onPublish?: (server: ServerResponse) => void
 }
 
-export function ServerDetail({ server, onClose, onServerCopied, onPublish }: ServerDetailProps) {
+export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  const [copying, setCopying] = useState(false)
-  const [copySuccess, setCopySuccess] = useState(false)
-  const [copyError, setCopyError] = useState<string | null>(null)
+
   const [selectedVersion, setSelectedVersion] = useState<ServerResponse>(server)
   const [jsonCopied, setJsonCopied] = useState(false)
   
@@ -122,29 +116,7 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
     }
   }
 
-  const handlePublishServer = async () => {
-    if (onPublish) {
-      onPublish(selectedVersion)
-      return
-    }
 
-    setCopying(true)
-    setCopyError(null)
-    setCopySuccess(false)
-
-    try {
-      // Copy the server data to create a new entry
-      await adminApiClient.publishServerStatus(serverData.name, serverData.version)
-      toast.success(`Successfully published ${serverData.name}`)
-      setCopySuccess(true)
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to publish server"
-      toast.error(errorMsg)
-      setCopyError(errorMsg)
-    } finally {
-      setCopying(false)
-    }
-  }
 
   const handleCopyJson = async () => {
     try {
@@ -265,56 +237,11 @@ export function ServerDetail({ server, onClose, onServerCopied, onPublish }: Ser
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {onPublish && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={handlePublishServer}
-                    disabled={copying}
-                    className="gap-2"
-                  >
-                    {copying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                    Publish
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Publish this server to your registry</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
-
-        {/* Copy Status Messages */}
-        {copySuccess && (
-          <Card className="p-4 mb-4 bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-              <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                Server successfully publish to your registry!
-              </p>
-            </div>
-          </Card>
-        )}
-
-        {copyError && (
-          <Card className="p-4 mb-4 bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <p className="text-sm font-medium text-red-900 dark:text-red-100">
-                {copyError}
-              </p>
-            </div>
-          </Card>
-        )}
 
         {/* Version Selector and Quick Info */}
         {allVersions.length > 1 && (

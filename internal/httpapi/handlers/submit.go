@@ -175,11 +175,11 @@ func (h *SubmitHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(SubmitResponse{
 		Success: true,
-		Message: "Resource submitted for review",
+		Message: "Resource submitted successfully",
 		Name:    manifest.Name,
 		Kind:    manifest.Kind,
 		Version: manifest.Version,
-		Status:  "pending_review",
+		Status:  "active",
 	})
 }
 
@@ -351,13 +351,6 @@ func (h *SubmitHandler) createMCPServerCatalog(ctx context.Context, m *AgentRegi
 		return "", err
 	}
 
-	// Set status to pending review (not published)
-	catalog.Status.Published = false
-	catalog.Status.Status = "pending_review"
-	if err := h.client.Status().Update(ctx, catalog); err != nil {
-		return "", err
-	}
-
 	return crName, nil
 }
 
@@ -407,13 +400,6 @@ func (h *SubmitHandler) createAgentCatalog(ctx context.Context, m *AgentRegistry
 	}
 
 	if err := h.client.Create(ctx, catalog); err != nil {
-		return "", err
-	}
-
-	// Set status to pending review (not published)
-	catalog.Status.Published = false
-	catalog.Status.Status = "pending_review"
-	if err := h.client.Status().Update(ctx, catalog); err != nil {
 		return "", err
 	}
 
@@ -468,13 +454,6 @@ func (h *SubmitHandler) createSkillCatalog(ctx context.Context, m *AgentRegistry
 	}
 
 	if err := h.client.Create(ctx, catalog); err != nil {
-		return "", err
-	}
-
-	// Set status to pending review (not published)
-	catalog.Status.Published = false
-	catalog.Status.Status = "pending_review"
-	if err := h.client.Status().Update(ctx, catalog); err != nil {
 		return "", err
 	}
 

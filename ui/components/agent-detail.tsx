@@ -26,7 +26,6 @@ import {
   Languages,
   Box,
   Clock,
-  Upload,
   Github,
   ExternalLink,
   CheckCircle2,
@@ -38,10 +37,9 @@ import {
 interface AgentDetailProps {
   agent: AgentResponse
   onClose: () => void
-  onPublish?: (agent: AgentResponse) => void
 }
 
-export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
+export function AgentDetail({ agent, onClose }: AgentDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
 
   const { agent: agentData, _meta } = agent
@@ -133,25 +131,6 @@ export function AgentDetail({ agent, onClose, onPublish }: AgentDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {onPublish && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => onPublish(agent)}
-                      className="gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Publish
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Publish this agent to your registry</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>

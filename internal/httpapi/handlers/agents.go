@@ -25,6 +25,14 @@ type AgentHandler struct {
 	logger zerolog.Logger
 }
 
+// listFromCacheOrClient lists resources from cache if available, otherwise from client
+func (h *AgentHandler) listFromCacheOrClient(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if h.cache != nil {
+		return h.cache.List(ctx, list, opts...)
+	}
+	return h.client.List(ctx, list, opts...)
+}
+
 // NewAgentHandler creates a new agent handler
 func NewAgentHandler(c client.Client, cache cache.Cache, logger zerolog.Logger) *AgentHandler {
 	return &AgentHandler{
@@ -119,11 +127,6 @@ type CreateAgentInput struct {
 	Body AgentJSON
 }
 
-type PublishAgentInput struct {
-	AgentName string `path:"agentName" json:"agentName"`
-	Version   string `path:"version" json:"version"`
-}
-
 // RegisterRoutes registers agent endpoints
 func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin bool) {
 	tags := []string{"agents"}
@@ -199,28 +202,6 @@ func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			return h.listAgentVersions(ctx, input)
 		})
 
-		// Publish agent
-		huma.Register(api, huma.Operation{
-			OperationID: "publish-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/agents/{agentName}/versions/{version}/publish",
-			Summary:     "Publish agent version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-			return h.publishAgent(ctx, input)
-		})
-
-		// Unpublish agent
-		huma.Register(api, huma.Operation{
-			OperationID: "unpublish-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/agents/{agentName}/versions/{version}/unpublish",
-			Summary:     "Unpublish agent version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-			return h.unpublishAgent(ctx, input)
-		})
-
 		// Delete agent version
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-agent-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -239,20 +220,21 @@ func (h *AgentHandler) listAgents(ctx context.Context, input *ListAgentsInput, i
 
 	listOpts := []client.ListOption{}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexAgentPublished: "true",
-		})
-	}
-
 	if input.Version == "latest" {
 		listOpts = append(listOpts, client.MatchingFields{
 			controller.IndexAgentIsLatest: "true",
 		})
 	}
 
-	if err := h.cache.List(ctx, &agentList, listOpts...); err != nil {
+	if err := h.listFromCacheOrClient(ctx, &agentList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list agents", err)
+	}
+
+	// Fetch all RegistryDeployments to build a lookup map
+	deploymentMap, err := h.buildDeploymentMap(ctx)
+	if err != nil {
+		h.logger.Warn().Err(err).Msg("Failed to list RegistryDeployments, continuing without deployment status")
+		deploymentMap = make(map[string]*agentregistryv1alpha1.RegistryDeployment)
 	}
 
 	agents := make([]AgentResponse, 0, len(agentList.Items))
@@ -265,7 +247,10 @@ func (h *AgentHandler) listAgents(ctx context.Context, input *ListAgentsInput, i
 			continue
 		}
 
-		agents = append(agents, h.convertToAgentResponse(&a))
+		// Get deployment status for this agent
+		key := a.Spec.Name + "/" + a.Spec.Version
+		deployment := deploymentMap[key]
+		agents = append(agents, h.convertToAgentResponse(&a, deployment))
 	}
 
 	limit := input.Limit
@@ -286,6 +271,44 @@ func (h *AgentHandler) listAgents(ctx context.Context, input *ListAgentsInput, i
 	}, nil
 }
 
+// buildDeploymentMap creates a map of resourceName/version to RegistryDeployment
+func (h *AgentHandler) buildDeploymentMap(ctx context.Context) (map[string]*agentregistryv1alpha1.RegistryDeployment, error) {
+	var deploymentList agentregistryv1alpha1.RegistryDeploymentList
+	if err := h.listFromCacheOrClient(ctx, &deploymentList); err != nil {
+		return nil, err
+	}
+
+	deploymentMap := make(map[string]*agentregistryv1alpha1.RegistryDeployment)
+	for i := range deploymentList.Items {
+		deployment := &deploymentList.Items[i]
+		// Only include agent resource type deployments
+		if deployment.Spec.ResourceType == agentregistryv1alpha1.ResourceTypeAgent {
+			key := deployment.Spec.ResourceName + "/" + deployment.Spec.Version
+			deploymentMap[key] = deployment
+		}
+	}
+	return deploymentMap, nil
+}
+
+// getDeploymentForAgent looks up a RegistryDeployment for a specific agent by name and version
+func (h *AgentHandler) getDeploymentForAgent(ctx context.Context, resourceName, version string) (*agentregistryv1alpha1.RegistryDeployment, error) {
+	var deploymentList agentregistryv1alpha1.RegistryDeploymentList
+	if err := h.listFromCacheOrClient(ctx, &deploymentList); err != nil {
+		return nil, err
+	}
+
+	for i := range deploymentList.Items {
+		deployment := &deploymentList.Items[i]
+		if deployment.Spec.ResourceType == agentregistryv1alpha1.ResourceTypeAgent &&
+			deployment.Spec.ResourceName == resourceName &&
+			deployment.Spec.Version == version {
+			return deployment, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (h *AgentHandler) getAgent(ctx context.Context, input *AgentDetailInput, isAdmin bool) (*Response[AgentResponse], error) {
 	agentName, err := url.PathUnescape(input.AgentName)
 	if err != nil {
@@ -300,13 +323,7 @@ func (h *AgentHandler) getAgent(ctx context.Context, input *AgentDetailInput, is
 		},
 	}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexAgentPublished: "true",
-		})
-	}
-
-	if err := h.cache.List(ctx, &agentList, listOpts...); err != nil {
+	if err := h.listFromCacheOrClient(ctx, &agentList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get agent", err)
 	}
 
@@ -314,8 +331,16 @@ func (h *AgentHandler) getAgent(ctx context.Context, input *AgentDetailInput, is
 		return nil, huma.Error404NotFound("Agent not found")
 	}
 
+	agent := &agentList.Items[0]
+
+	// Fetch deployment for this agent
+	deployment, err := h.getDeploymentForAgent(ctx, agent.Spec.Name, agent.Spec.Version)
+	if err != nil {
+		h.logger.Warn().Err(err).Str("agent", agent.Spec.Name).Str("version", agent.Spec.Version).Msg("Failed to get deployment for agent")
+	}
+
 	return &Response[AgentResponse]{
-		Body: h.convertToAgentResponse(&agentList.Items[0]),
+		Body: h.convertToAgentResponse(agent, deployment),
 	}, nil
 }
 
@@ -330,19 +355,22 @@ func (h *AgentHandler) getAgentVersion(ctx context.Context, input *AgentVersionD
 	}
 
 	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &agentList, client.MatchingFields{
 		controller.IndexAgentName: agentName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get agent", err)
 	}
 
-	for _, a := range agentList.Items {
-		if a.Spec.Version == version {
-			if !isAdmin && !a.Status.Published {
-				return nil, huma.Error404NotFound("Agent not found")
+	for i := range agentList.Items {
+		if agentList.Items[i].Spec.Version == version {
+			agent := &agentList.Items[i]
+			// Fetch deployment for this agent version
+			deployment, err := h.getDeploymentForAgent(ctx, agent.Spec.Name, agent.Spec.Version)
+			if err != nil {
+				h.logger.Warn().Err(err).Str("agent", agent.Spec.Name).Str("version", agent.Spec.Version).Msg("Failed to get deployment for agent")
 			}
 			return &Response[AgentResponse]{
-				Body: h.convertToAgentResponse(&a),
+				Body: h.convertToAgentResponse(agent, deployment),
 			}, nil
 		}
 	}
@@ -439,7 +467,7 @@ func (h *AgentHandler) createAgent(ctx context.Context, input *CreateAgentInput)
 	}
 
 	return &Response[AgentResponse]{
-		Body: h.convertToAgentResponse(agent),
+		Body: h.convertToAgentResponse(agent, nil),
 	}, nil
 }
 
@@ -450,15 +478,25 @@ func (h *AgentHandler) listAgentVersions(ctx context.Context, input *AgentDetail
 	}
 
 	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
+	if err := h.listFromCacheOrClient(ctx, &agentList, client.MatchingFields{
 		controller.IndexAgentName: agentName,
 	}); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list agent versions", err)
 	}
 
+	// Fetch all RegistryDeployments to build a lookup map
+	deploymentMap, err := h.buildDeploymentMap(ctx)
+	if err != nil {
+		h.logger.Warn().Err(err).Msg("Failed to list RegistryDeployments, continuing without deployment status")
+		deploymentMap = make(map[string]*agentregistryv1alpha1.RegistryDeployment)
+	}
+
 	agents := make([]AgentResponse, 0, len(agentList.Items))
-	for _, a := range agentList.Items {
-		agents = append(agents, h.convertToAgentResponse(&a))
+	for i := range agentList.Items {
+		// Get deployment status for this agent version
+		key := agentList.Items[i].Spec.Name + "/" + agentList.Items[i].Spec.Version
+		deployment := deploymentMap[key]
+		agents = append(agents, h.convertToAgentResponse(&agentList.Items[i], deployment))
 	}
 
 	return &Response[AgentListResponse]{
@@ -469,86 +507,6 @@ func (h *AgentHandler) listAgentVersions(ctx context.Context, input *AgentDetail
 			},
 		},
 	}, nil
-}
-
-func (h *AgentHandler) publishAgent(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-	agentName, err := url.PathUnescape(input.AgentName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid agent name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
-		controller.IndexAgentName: agentName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find agent", err)
-	}
-
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		if a.Spec.Version == version {
-			now := metav1.Now()
-			a.Status.Published = true
-			a.Status.PublishedAt = &now
-			a.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-			a.Status.Conditions = SetCatalogCondition(a.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionTrue, "Published", "Agent version published")
-
-			if err := h.client.Status().Update(ctx, a); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to publish agent", err)
-			}
-
-			return &Response[AgentResponse]{
-				Body: h.convertToAgentResponse(a),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Agent version not found")
-}
-
-func (h *AgentHandler) unpublishAgent(ctx context.Context, input *PublishAgentInput) (*Response[AgentResponse], error) {
-	agentName, err := url.PathUnescape(input.AgentName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid agent name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := h.cache.List(ctx, &agentList, client.MatchingFields{
-		controller.IndexAgentName: agentName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find agent", err)
-	}
-
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		if a.Spec.Version == version {
-			a.Status.Published = false
-			a.Status.Status = agentregistryv1alpha1.CatalogStatusDeprecated
-			a.Status.Conditions = SetCatalogCondition(a.Status.Conditions,
-				agentregistryv1alpha1.CatalogConditionPublished,
-				metav1.ConditionFalse, "Unpublished", "Agent version unpublished")
-
-			if err := h.client.Status().Update(ctx, a); err != nil {
-				return nil, huma.Error500InternalServerError("Failed to unpublish agent", err)
-			}
-
-			return &Response[AgentResponse]{
-				Body: h.convertToAgentResponse(a),
-			}, nil
-		}
-	}
-
-	return nil, huma.Error404NotFound("Agent version not found")
 }
 
 func (h *AgentHandler) deleteAgentVersion(ctx context.Context, input *AgentVersionDetailInput) (*Response[EmptyResponse], error) {
@@ -577,7 +535,7 @@ func (h *AgentHandler) deleteAgentVersion(ctx context.Context, input *AgentVersi
 	}, nil
 }
 
-func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCatalog) AgentResponse {
+func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCatalog, deployment *agentregistryv1alpha1.RegistryDeployment) AgentResponse {
 	agent := AgentJSON{
 		Name:              a.Spec.Name,
 		Version:           a.Spec.Version,
@@ -663,7 +621,7 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 				PublishedAt: publishedAt,
 				UpdatedAt:   a.CreationTimestamp.Time,
 				IsLatest:    a.Status.IsLatest,
-				Published:   a.Status.Published,
+				Published:   true,
 			},
 		},
 	}
@@ -688,22 +646,64 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 		}
 	}
 
-	// Include deployment info if available from source resource
-	if a.Status.Deployment != nil {
-		var lastChecked *time.Time
-		if a.Status.Deployment.LastChecked != nil {
-			t := a.Status.Deployment.LastChecked.Time
-			lastChecked = &t
-		}
+	// Include deployment status from RegistryDeployment if available, otherwise from catalog status
+	if deployment != nil {
+		resp.Meta.Deployment = h.convertRegistryDeploymentToDeploymentInfo(deployment)
+	} else if a.Status.Deployment != nil {
 		resp.Meta.Deployment = &DeploymentInfo{
 			Namespace:   a.Status.Deployment.Namespace,
 			ServiceName: a.Status.Deployment.ServiceName,
 			URL:         a.Status.Deployment.URL,
 			Ready:       a.Status.Deployment.Ready,
 			Message:     a.Status.Deployment.Message,
-			LastChecked: lastChecked,
+		}
+		if a.Status.Deployment.LastChecked != nil {
+			t := a.Status.Deployment.LastChecked.Time
+			resp.Meta.Deployment.LastChecked = &t
 		}
 	}
 
 	return resp
+}
+
+// convertRegistryDeploymentToDeploymentInfo converts a RegistryDeployment to DeploymentInfo
+func (h *AgentHandler) convertRegistryDeploymentToDeploymentInfo(d *agentregistryv1alpha1.RegistryDeployment) *DeploymentInfo {
+	info := &DeploymentInfo{
+		Namespace: d.Spec.Namespace,
+	}
+
+	// Determine ready status based on phase
+	switch d.Status.Phase {
+	case agentregistryv1alpha1.DeploymentPhaseRunning:
+		info.Ready = true
+		info.Message = ""
+	case agentregistryv1alpha1.DeploymentPhaseFailed:
+		info.Ready = false
+		info.Message = d.Status.Message
+	case agentregistryv1alpha1.DeploymentPhasePending:
+		info.Ready = false
+		info.Message = "Pending"
+	default:
+		info.Ready = false
+		if d.Status.Message != "" {
+			info.Message = d.Status.Message
+		}
+	}
+
+	// Extract service name from managed resources
+	for _, r := range d.Status.ManagedResources {
+		if r.Kind == "Service" {
+			info.ServiceName = r.Name
+			if r.Namespace != "" {
+				info.Namespace = r.Namespace
+			}
+		}
+	}
+
+	if d.Status.UpdatedAt != nil {
+		t := d.Status.UpdatedAt.Time
+		info.LastChecked = &t
+	}
+
+	return info
 }

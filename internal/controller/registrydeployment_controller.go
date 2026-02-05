@@ -51,6 +51,12 @@ const (
 func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Logger.With().Str("name", req.Name).Str("namespace", req.Namespace).Logger()
 
+	// Skip resources with empty namespace (invalid legacy cluster-scoped resources)
+	if req.Namespace == "" {
+		logger.Warn().Msg("skipping RegistryDeployment with empty namespace (invalid resource)")
+		return ctrl.Result{}, nil
+	}
+
 	// Fetch the RegistryDeployment
 	var deployment agentregistryv1alpha1.RegistryDeployment
 	if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil {

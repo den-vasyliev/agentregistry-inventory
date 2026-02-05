@@ -81,10 +81,6 @@ type CreateModelInput struct {
 	Body ModelJSON
 }
 
-type PublishModelInput struct {
-	ModelName string `path:"modelName" json:"modelName"`
-}
-
 // RegisterRoutes registers model endpoints
 func (h *ModelHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin bool) {
 	tags := []string{"models"}
@@ -127,28 +123,6 @@ func (h *ModelHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			return h.createModel(ctx, input)
 		})
 
-		// Publish model
-		huma.Register(api, huma.Operation{
-			OperationID: "publish-model" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/models/{modelName}/publish",
-			Summary:     "Publish model",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishModelInput) (*Response[ModelResponse], error) {
-			return h.publishModel(ctx, input)
-		})
-
-		// Unpublish model
-		huma.Register(api, huma.Operation{
-			OperationID: "unpublish-model" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodPost,
-			Path:        pathPrefix + "/models/{modelName}/unpublish",
-			Summary:     "Unpublish model",
-			Tags:        tags,
-		}, func(ctx context.Context, input *PublishModelInput) (*Response[ModelResponse], error) {
-			return h.unpublishModel(ctx, input)
-		})
-
 		// Delete model
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-model" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -166,12 +140,6 @@ func (h *ModelHandler) listModels(ctx context.Context, input *ListModelsInput, i
 	var modelList agentregistryv1alpha1.ModelCatalogList
 
 	listOpts := []client.ListOption{}
-
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexModelPublished: "true",
-		})
-	}
 
 	if err := h.cache.List(ctx, &modelList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list models", err)
@@ -221,12 +189,6 @@ func (h *ModelHandler) getModel(ctx context.Context, input *ModelDetailInput, is
 		},
 	}
 
-	if !isAdmin {
-		listOpts = append(listOpts, client.MatchingFields{
-			controller.IndexModelPublished: "true",
-		})
-	}
-
 	if err := h.cache.List(ctx, &modelList, listOpts...); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to get model", err)
 	}
@@ -265,68 +227,6 @@ func (h *ModelHandler) createModel(ctx context.Context, input *CreateModelInput)
 
 	return &Response[ModelResponse]{
 		Body: h.convertToModelResponse(model),
-	}, nil
-}
-
-func (h *ModelHandler) publishModel(ctx context.Context, input *PublishModelInput) (*Response[ModelResponse], error) {
-	modelName, err := url.PathUnescape(input.ModelName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid model name encoding", err)
-	}
-
-	var modelList agentregistryv1alpha1.ModelCatalogList
-	if err := h.cache.List(ctx, &modelList, client.MatchingFields{
-		controller.IndexModelName: modelName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find model", err)
-	}
-
-	if len(modelList.Items) == 0 {
-		return nil, huma.Error404NotFound("Model not found")
-	}
-
-	m := &modelList.Items[0]
-	now := metav1.Now()
-	m.Status.Published = true
-	m.Status.PublishedAt = &now
-	m.Status.Status = agentregistryv1alpha1.CatalogStatusActive
-
-	if err := h.client.Status().Update(ctx, m); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to publish model", err)
-	}
-
-	return &Response[ModelResponse]{
-		Body: h.convertToModelResponse(m),
-	}, nil
-}
-
-func (h *ModelHandler) unpublishModel(ctx context.Context, input *PublishModelInput) (*Response[ModelResponse], error) {
-	modelName, err := url.PathUnescape(input.ModelName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid model name encoding", err)
-	}
-
-	var modelList agentregistryv1alpha1.ModelCatalogList
-	if err := h.cache.List(ctx, &modelList, client.MatchingFields{
-		controller.IndexModelName: modelName,
-	}); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to find model", err)
-	}
-
-	if len(modelList.Items) == 0 {
-		return nil, huma.Error404NotFound("Model not found")
-	}
-
-	m := &modelList.Items[0]
-	m.Status.Published = false
-	m.Status.Status = agentregistryv1alpha1.CatalogStatusDeprecated
-
-	if err := h.client.Status().Update(ctx, m); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to unpublish model", err)
-	}
-
-	return &Response[ModelResponse]{
-		Body: h.convertToModelResponse(m),
 	}, nil
 }
 
@@ -385,7 +285,7 @@ func (h *ModelHandler) convertToModelResponse(m *agentregistryv1alpha1.ModelCata
 				PublishedAt: publishedAt,
 				UpdatedAt:   m.CreationTimestamp.Time,
 				IsLatest:    true, // Models don't have versions currently
-				Published:   m.Status.Published,
+				Published:   true,
 			},
 			UsedBy:  usedBy,
 			Ready:   m.Status.Ready,

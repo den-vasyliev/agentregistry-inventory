@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	"github.com/rs/zerolog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -64,58 +63,7 @@ func (r *AgentCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // updateLatestVersion determines and updates the latest version flag for all versions of an agent
 func (r *AgentCatalogReconciler) updateLatestVersion(ctx context.Context, agent *agentregistryv1alpha1.AgentCatalog) error {
-	// Get all versions of this agent
-	var agentList agentregistryv1alpha1.AgentCatalogList
-	if err := r.List(ctx, &agentList, client.MatchingFields{
-		IndexAgentName: agent.Spec.Name,
-	}); err != nil {
-		return err
-	}
-
-	// Find the latest version among published agents
-	var latestAgent *agentregistryv1alpha1.AgentCatalog
-	var latestTimestamp time.Time
-
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		if !a.Status.Published {
-			continue
-		}
-
-		if latestAgent == nil {
-			latestAgent = a
-			if a.Status.PublishedAt != nil {
-				latestTimestamp = a.Status.PublishedAt.Time
-			}
-			continue
-		}
-
-		var aTimestamp time.Time
-		if a.Status.PublishedAt != nil {
-			aTimestamp = a.Status.PublishedAt.Time
-		}
-
-		cmp := compareVersions(a.Spec.Version, latestAgent.Spec.Version, aTimestamp, latestTimestamp)
-		if cmp > 0 {
-			latestAgent = a
-			latestTimestamp = aTimestamp
-		}
-	}
-
-	// Update isLatest flag for all versions
-	for i := range agentList.Items {
-		a := &agentList.Items[i]
-		shouldBeLatest := latestAgent != nil && a.Name == latestAgent.Name && a.Status.Published
-
-		if a.Status.IsLatest != shouldBeLatest {
-			a.Status.IsLatest = shouldBeLatest
-			if err := r.Status().Update(ctx, a); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return updateLatestVersionForAgents(ctx, r.Client, agent.Spec.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.

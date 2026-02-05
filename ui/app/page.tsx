@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Select,
@@ -33,7 +31,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { adminApiClient, createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
+import { Label } from "@/components/ui/label"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -42,9 +47,11 @@ import {
   Zap,
   Bot,
   Brain,
-  ArrowUpDown,
-  Filter,
   GitPullRequest,
+  Rocket,
+  Trash2,
+  ShieldCheck,
+  BadgeCheck,
 } from "lucide-react"
 
 // Grouped server type
@@ -53,9 +60,13 @@ interface GroupedServer extends ServerResponse {
   allVersions: ServerResponse[]
 }
 
+// Deployment status filter type
+type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
+
 export default function AdminPage() {
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("servers")
+  const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<DeploymentStatus>("all")
   const [servers, setServers] = useState<ServerResponse[]>([])
   const [groupedServers, setGroupedServers] = useState<GroupedServer[]>([])
   const [skills, setSkills] = useState<SkillResponse[]>([])
@@ -67,20 +78,33 @@ export default function AdminPage() {
   const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "stars" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
-  const [filterSkillVerifiedOrg, setFilterSkillVerifiedOrg] = useState(false)
-  const [filterSkillVerifiedPublisher, setFilterSkillVerifiedPublisher] = useState(false)
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
-  const [publishing, setPublishing] = useState(false)
-  const [itemToPublish, setItemToPublish] = useState<{ name: string, version: string, type: 'server' | 'skill' | 'agent' | 'model' } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<ServerResponse | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<SkillResponse | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
+
+  // Deploy/Undeploy dialog state
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false)
+  const [undeployDialogOpen, setUndeployDialogOpen] = useState(false)
+  const [itemToDeploy, setItemToDeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [itemToUndeploy, setItemToUndeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
+  const [deploying, setDeploying] = useState(false)
+  const [undeploying, setUndeploying] = useState(false)
+  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
+  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
+    { name: "agentregistry", namespace: "agentregistry" }
+  ])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ item: ServerResponse | AgentResponse | SkillResponse | ModelResponse, type: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Pagination state
   const [currentPageServers, setCurrentPageServers] = useState(1)
@@ -93,20 +117,58 @@ export default function AdminPage() {
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
-  // Helper function to extract GitHub stars from server metadata
-  const getStars = (server: ServerResponse): number => {
-    const publisherMetadata = server.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
-    return publisherMetadata?.stars ?? 0
-  }
-
-  // Helper function to get published date
-  const getPublishedDate = (server: ServerResponse): Date | null => {
-    const publishedAt = server._meta?.['io.modelcontextprotocol.registry/official']?.publishedAt
-    if (!publishedAt) return null
+  // Helper function to get resource creation date (for sorting)
+  // All resource types expose CreationTimestamp via _meta.official.updatedAt
+  const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
+    const dateStr = item._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
+    if (!dateStr) return null
     try {
-      return new Date(publishedAt)
+      return new Date(dateStr)
     } catch {
       return null
+    }
+  }
+
+  // Extract the canonical name from any resource type (used as stable tiebreaker)
+  const getResourceName = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): string => {
+    if ('server' in item) return item.server.name
+    if ('agent' in item) return item.agent.name
+    if ('skill' in item) return item.skill.name
+    if ('model' in item) return item.model.name
+    return ''
+  }
+
+  // Sort newest first by creation date; fall back to name for stable order when dates are equal
+  const sortByCreatedDesc = <T extends ServerResponse | AgentResponse | SkillResponse | ModelResponse>(list: T[]): T[] =>
+    [...list].sort((a, b) => {
+      const dateA = getResourceDate(a)
+      const dateB = getResourceDate(b)
+      if (!dateA && !dateB) return getResourceName(a).localeCompare(getResourceName(b))
+      if (!dateA) return 1
+      if (!dateB) return -1
+      const diff = dateB.getTime() - dateA.getTime()
+      return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
+    })
+
+  // Check whether a resource matches a given deployment status filter.
+  // "external" = discovered (regardless of runtime state).
+  // "running" / "failed" = has deployment info, matches ready state (managed or discovered).
+  // "not_deployed" = managed resource with no deployment.
+  const matchesDeploymentFilter = (item: ServerResponse | AgentResponse, filter: DeploymentStatus): boolean => {
+    if (filter === "all") return true
+
+    const isExternal = item._meta?.isDiscovered || item._meta?.source === 'discovery'
+    const deployment = item._meta?.deployment
+
+    switch (filter) {
+      case "external":
+        return isExternal
+      case "running":
+        return deployment?.ready === true
+      case "failed":
+        return !!deployment && deployment.ready === false
+      case "not_deployed":
+        return !isExternal && !deployment
     }
   }
 
@@ -127,8 +189,8 @@ export default function AdminPage() {
     return Array.from(grouped.entries()).map(([name, versions]) => {
       // Sort versions by date (newest first) or version string
       const sortedVersions = [...versions].sort((a, b) => {
-        const dateA = getPublishedDate(a)
-        const dateB = getPublishedDate(b)
+        const dateA = getResourceDate(a)
+        const dateB = getResourceDate(b)
         if (dateA && dateB) {
           return dateB.getTime() - dateA.getTime()
         }
@@ -211,8 +273,6 @@ export default function AdminPage() {
 
       setModels(allModels)
 
-      setServers(allServers)
-
       // Group servers by name
       const grouped = groupServersByName(allServers)
       setGroupedServers(grouped)
@@ -262,110 +322,123 @@ export default function AdminPage() {
     setSelectedServer(null)
   }
 
-  // Handle server publishing
-  const handlePublish = async (server: ServerResponse) => {
-    setItemToPublish({ name: server.server.name, version: server.server.version, type: 'server' })
+  // Handle deploy
+  const handleDeploy = (item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
+    const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
+    const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
+    setItemToDeploy({ name, version, type })
+    setDeployDialogOpen(true)
+    fetchEnvironments()
   }
 
-  const handlePublishSkill = async (skill: SkillResponse) => {
-    setItemToPublish({ name: skill.skill.name, version: skill.skill.version, type: 'skill' })
+  // Handle undeploy
+  const handleUndeploy = (item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
+    const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
+    const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
+    setItemToUndeploy({ name, version, type })
+    setUndeployDialogOpen(true)
   }
 
-  const handlePublishAgent = async (agentResponse: AgentResponse) => {
-    const {agent } = agentResponse;
-    setItemToPublish({ name: agent.name, version: agent.version, type: 'agent' })
+  // Fetch environments when deploy dialog opens
+  const fetchEnvironments = async () => {
+    setLoadingEnvironments(true)
+    try {
+      const envs = await adminApiClient.listEnvironments()
+      if (envs && envs.length > 0) {
+        setEnvironments(envs)
+        setDeployNamespace(envs[0].namespace)
+      }
+    } catch (err) {
+      console.error("Failed to fetch environments:", err)
+    } finally {
+      setLoadingEnvironments(false)
+    }
   }
 
-  const handlePublishModel = async (modelResponse: ModelResponse) => {
-    const { model } = modelResponse
-    setItemToPublish({ name: model.name, version: '', type: 'model' })
-  }
-
-  const confirmPublish = async () => {
-    if (!itemToPublish) return
+  const confirmDeploy = async () => {
+    if (!itemToDeploy) return
 
     try {
-      setPublishing(true)
-      const client = adminApiClient
+      setDeploying(true)
 
-      if (itemToPublish.type === 'server') {
-        await client.publishServerStatus(itemToPublish.name, itemToPublish.version)
-      } else if (itemToPublish.type === 'skill') {
-        await client.publishSkillStatus(itemToPublish.name, itemToPublish.version)
-      } else if (itemToPublish.type === 'agent') {
-        await client.publishAgentStatus(itemToPublish.name, itemToPublish.version)
-      } else if (itemToPublish.type === 'model') {
-        await client.publishModelStatus(itemToPublish.name)
-      }
+      await adminApiClient.deployServer({
+        serverName: itemToDeploy.name,
+        version: itemToDeploy.version,
+        config: {},
+        preferRemote: false,
+        resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
+        namespace: deployNamespace,
+      })
 
-      setItemToPublish(null)
-      toast.success(`Successfully published ${itemToPublish.name}`)
+      setDeployDialogOpen(false)
+      setItemToDeploy(null)
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
       await fetchData() // Refresh data
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to publish resource')
+      toast.error(err instanceof Error ? err.message : 'Failed to deploy resource')
     } finally {
-      setPublishing(false)
+      setDeploying(false)
     }
   }
 
-  // Approval handlers for GitOps workflow (Option C)
-  const handleApproveServer = async (server: ServerResponse) => {
+  const confirmUndeploy = async () => {
+    if (!itemToUndeploy) return
+
     try {
-      await adminApiClient.approveServer(server.server.name, server.server.version)
-      await fetchData()
-      toast.success(`Approved and published ${server.server.name}`)
+      setUndeploying(true)
+
+      await adminApiClient.removeDeployment(
+        itemToUndeploy.name,
+        itemToUndeploy.version,
+        itemToUndeploy.type === 'agent' ? 'agent' : 'mcp'
+      )
+
+      setUndeployDialogOpen(false)
+      setItemToUndeploy(null)
+      toast.success(`Successfully undeployed ${itemToUndeploy.name}`)
+      await fetchData() // Refresh data
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve server")
+      toast.error(err instanceof Error ? err.message : 'Failed to undeploy resource')
+    } finally {
+      setUndeploying(false)
     }
   }
 
-  const handleRejectServer = async (server: ServerResponse) => {
-    try {
-      await adminApiClient.rejectServer(server.server.name, server.server.version)
-      await fetchData()
-      toast.success(`Rejected ${server.server.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject server")
-    }
+  // Handle delete
+  const handleDelete = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse, type: string) => {
+    setItemToDelete({ item, type })
+    setDeleteDialogOpen(true)
   }
 
-  const handleApproveAgent = async (agentResponse: AgentResponse) => {
-    try {
-      await adminApiClient.approveAgent(agentResponse.agent.name, agentResponse.agent.version)
-      await fetchData()
-      toast.success(`Approved and published ${agentResponse.agent.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve agent")
-    }
-  }
+  const confirmDelete = async () => {
+    if (!itemToDelete) return
 
-  const handleRejectAgent = async (agentResponse: AgentResponse) => {
     try {
-      await adminApiClient.rejectAgent(agentResponse.agent.name, agentResponse.agent.version)
-      await fetchData()
-      toast.success(`Rejected ${agentResponse.agent.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject agent")
-    }
-  }
+      setDeleting(true)
+      const { item, type } = itemToDelete
 
-  const handleApproveSkill = async (skill: SkillResponse) => {
-    try {
-      await adminApiClient.approveSkill(skill.skill.name, skill.skill.version)
-      await fetchData()
-      toast.success(`Approved and published ${skill.skill.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve skill")
-    }
-  }
+      if (type === 'server') {
+        const server = item as ServerResponse
+        await adminApiClient.deleteServer(server.server.name, server.server.version)
+      } else if (type === 'agent') {
+        const agent = item as AgentResponse
+        await adminApiClient.deleteAgent(agent.agent.name, agent.agent.version)
+      } else if (type === 'skill') {
+        const skill = item as SkillResponse
+        await adminApiClient.deleteSkill(skill.skill.name, skill.skill.version)
+      } else if (type === 'model') {
+        const model = item as ModelResponse
+        await adminApiClient.deleteModel(model.model.name)
+      }
 
-  const handleRejectSkill = async (skill: SkillResponse) => {
-    try {
-      await adminApiClient.rejectSkill(skill.skill.name, skill.skill.version)
-      await fetchData()
-      toast.success(`Rejected ${skill.skill.name}`)
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
+      toast.success(`Successfully deleted resource`)
+      await fetchData() // Refresh data
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject skill")
+      toast.error(err instanceof Error ? err.message : 'Failed to delete resource')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -375,9 +448,9 @@ export default function AdminPage() {
     setCurrentPageSkills(1)
     setCurrentPageAgents(1)
     setCurrentPageModels(1)
-  }, [searchQuery])
+  }, [searchQuery, deploymentStatusFilter])
 
-  // Filter and sort servers based on search query and sort option
+  // Filter and sort servers based on search query, sort option, and deployment status
   useEffect(() => {
     let filtered = [...groupedServers]
 
@@ -395,7 +468,7 @@ export default function AdminPage() {
     // Filter by verified organization
     if (filterVerifiedOrg) {
       filtered = filtered.filter((s) => {
-        const identityData = s.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.org_is_verified === true
       })
     }
@@ -403,38 +476,22 @@ export default function AdminPage() {
     // Filter by verified publisher
     if (filterVerifiedPublisher) {
       filtered = filtered.filter((s) => {
-        const identityData = s.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
 
-    // Sort servers
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "stars":
-          return getStars(b) - getStars(a)
-        case "date": {
-          const dateA = getPublishedDate(a)
-          const dateB = getPublishedDate(b)
-          if (!dateA && !dateB) return 0
-          if (!dateA) return 1
-          if (!dateB) return -1
-          return dateB.getTime() - dateA.getTime()
-        }
-        case "name":
-        default:
-          return a.server.name.localeCompare(b.server.name)
-      }
-    })
+    // Filter by deployment status
+    filtered = filtered.filter((s) => matchesDeploymentFilter(s, deploymentStatusFilter))
 
-    setFilteredServers(filtered)
-  }, [searchQuery, groupedServers, sortBy, filterVerifiedOrg, filterVerifiedPublisher])
+    setFilteredServers(sortByCreatedDesc(filtered))
+  }, [searchQuery, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
-  // Filter skills, agents, and models based on search query and running status
+  // Filter skills, agents, and models based on search query and deployment status
   useEffect(() => {
     const query = searchQuery.toLowerCase()
 
-    // Filter skills
+    // Filter skills (skills don't have deployment status, they're always "active")
     let filteredSk = skills
     if (searchQuery) {
       filteredSk = filteredSk.filter(
@@ -444,23 +501,19 @@ export default function AdminPage() {
           s.skill.description?.toLowerCase().includes(query)
       )
     }
-    if (filterSkillVerifiedOrg) {
+    if (filterVerifiedOrg) {
       filteredSk = filteredSk.filter((s) => {
-        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
-        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
-        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
-        return identity?.["org_is_verified"] === true
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.org_is_verified === true
       })
     }
-    if (filterSkillVerifiedPublisher) {
+    if (filterVerifiedPublisher) {
       filteredSk = filteredSk.filter((s) => {
-        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
-        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
-        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
-        return identity?.["publisher_identity_verified_by_jwt"] === true
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
-    setFilteredSkills(filteredSk)
+    setFilteredSkills(sortByCreatedDesc(filteredSk))
 
     // Filter agents
     let filteredA = agents
@@ -472,9 +525,25 @@ export default function AdminPage() {
           agent.description?.toLowerCase().includes(query)
       )
     }
-    setFilteredAgents(filteredA)
+    // Filter by verified organization
+    if (filterVerifiedOrg) {
+      filteredA = filteredA.filter((a) => {
+        const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.org_is_verified === true
+      })
+    }
+    // Filter by verified publisher
+    if (filterVerifiedPublisher) {
+      filteredA = filteredA.filter((a) => {
+        const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.publisher_identity_verified_by_jwt === true
+      })
+    }
+    // Filter by deployment status
+    filteredA = filteredA.filter((a) => matchesDeploymentFilter(a, deploymentStatusFilter))
+    setFilteredAgents(sortByCreatedDesc(filteredA))
 
-    // Filter models
+    // Filter models (models don't have deployment status)
     let filteredM = models
     if (searchQuery) {
       filteredM = filteredM.filter(
@@ -485,8 +554,8 @@ export default function AdminPage() {
           model.description?.toLowerCase().includes(query)
       )
     }
-    setFilteredModels(filteredM)
-  }, [searchQuery, skills, agents, models, filterSkillVerifiedOrg, filterSkillVerifiedPublisher])
+    setFilteredModels(sortByCreatedDesc(filteredM))
+  }, [searchQuery, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
   if (loading) {
     return (
@@ -515,32 +584,123 @@ export default function AdminPage() {
   // Show server detail view if a server is selected
   return (
     <>
-      {/* Publish Confirmation Dialog */}
-      <Dialog open={!!itemToPublish} onOpenChange={(open) => !open && setItemToPublish(null)}>
+      {/* Deploy Dialog */}
+      <Dialog open={deployDialogOpen} onOpenChange={setDeployDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Publish Resource</DialogTitle>
+            <DialogTitle>Deploy Resource</DialogTitle>
             <DialogDescription>
-              Are you sure you want to publish <strong>{itemToPublish?.name}</strong>{itemToPublish?.version && ` (version ${itemToPublish.version})`}?
+              Deploy <strong>{itemToDeploy?.name}</strong> (version {itemToDeploy?.version})?
               <br />
               <br />
-              This will make the resource visible to public users in the catalog.
+              This will start the {itemToDeploy?.type === 'server' ? 'MCP server' : 'agent'} on your system.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Deployment destination</Label>
+              <p className="text-sm text-muted-foreground">Kubernetes</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
+              <Select value={deployNamespace} onValueChange={setDeployNamespace} disabled={loadingEnvironments}>
+                <SelectTrigger id="deploy-namespace">
+                  <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env.namespace} value={env.namespace}>
+                      {env.name}/{env.namespace}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which namespace/environment to deploy to
+              </p>
+            </div>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setItemToPublish(null)}
-              disabled={publishing}
+              onClick={() => setDeployDialogOpen(false)}
+              disabled={deploying}
             >
               Cancel
             </Button>
             <Button
               variant="default"
-              onClick={confirmPublish}
-              disabled={publishing}
+              onClick={confirmDeploy}
+              disabled={deploying}
             >
-              {publishing ? 'Publishing...' : 'Publish'}
+              {deploying ? 'Deploying...' : 'Deploy'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Undeploy Dialog */}
+      <Dialog open={undeployDialogOpen} onOpenChange={setUndeployDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Undeploy Resource</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to undeploy <strong>{itemToUndeploy?.name}</strong> (version {itemToUndeploy?.version})?
+              <br />
+              <br />
+              This will stop the {itemToUndeploy?.type === 'server' ? 'MCP server' : 'agent'} and remove it from your deployments.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUndeployDialogOpen(false)}
+              disabled={undeploying}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmUndeploy}
+              disabled={undeploying}
+            >
+              {undeploying ? 'Undeploying...' : 'Undeploy'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Resource</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>
+                {itemToDelete?.type === 'server' ? (itemToDelete.item as ServerResponse).server.name :
+                 itemToDelete?.type === 'agent' ? (itemToDelete.item as AgentResponse).agent.name :
+                 itemToDelete?.type === 'skill' ? (itemToDelete.item as SkillResponse).skill.name :
+                 itemToDelete?.type === 'model' ? (itemToDelete.item as ModelResponse).model.name : ''}
+              </strong>?
+              <br />
+              <br />
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -551,7 +711,6 @@ export default function AdminPage() {
           server={selectedServer as ServerResponse & { allVersions?: ServerResponse[] }}
           onClose={handleCloseServerDetail}
           onServerCopied={fetchData}
-          onPublish={handlePublish}
         />
       )}
 
@@ -559,7 +718,6 @@ export default function AdminPage() {
         <SkillDetail
           skill={selectedSkill}
           onClose={() => setSelectedSkill(null)}
-          onPublish={handlePublishSkill}
         />
       )}
 
@@ -567,7 +725,6 @@ export default function AdminPage() {
         <AgentDetail
           agent={selectedAgent}
           onClose={() => setSelectedAgent(null)}
-          onPublish={handlePublishAgent}
         />
       )}
 
@@ -575,7 +732,6 @@ export default function AdminPage() {
         <ModelDetail
           model={selectedModel}
           onClose={() => setSelectedModel(null)}
-          onPublish={handlePublishModel}
         />
       )}
 
@@ -677,6 +833,67 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Deployment Status Filter - only for Servers and Agents */}
+            {(activeTab === 'servers' || activeTab === 'agents') && (
+              <Tabs value={deploymentStatusFilter} onValueChange={(v) => setDeploymentStatusFilter(v as DeploymentStatus)}>
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="external">External</TabsTrigger>
+                  <TabsTrigger value="running">Running</TabsTrigger>
+                  <TabsTrigger value="not_deployed">Not Deployed</TabsTrigger>
+                  <TabsTrigger value="failed">Failed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
+            {/* Verified Filters - for Servers, Agents, and Skills */}
+            {(activeTab === 'servers' || activeTab === 'agents' || activeTab === 'skills') && (
+              <TooltipProvider>
+                <div className="flex items-center gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="filter-verified-org"
+                          checked={filterVerifiedOrg}
+                          onCheckedChange={(checked: boolean) => setFilterVerifiedOrg(checked)}
+                        />
+                        <Label
+                          htmlFor="filter-verified-org"
+                          className="cursor-pointer"
+                        >
+                          <ShieldCheck className={`h-5 w-5 ${filterVerifiedOrg ? 'text-blue-600' : 'text-gray-400'}`} />
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Verified Organization</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="filter-verified-publisher"
+                          checked={filterVerifiedPublisher}
+                          onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
+                        />
+                        <Label
+                          htmlFor="filter-verified-publisher"
+                          className="cursor-pointer"
+                        >
+                          <BadgeCheck className={`h-5 w-5 ${filterVerifiedPublisher ? 'text-green-600' : 'text-gray-400'}`} />
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Verified Publisher</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+            )}
+
             {/* Action Buttons */}
             <div className="flex items-center gap-3 ml-auto">
               <Button
@@ -701,53 +918,6 @@ export default function AdminPage() {
 
           {/* MCP Tab */}
           <TabsContent value="servers">
-            {/* Sort and Filter controls */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <Select value={sortBy} onValueChange={(value: "name" | "stars" | "date") => setSortBy(value)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Name (A-Z)</SelectItem>
-                    <SelectItem value="stars">GitHub Stars</SelectItem>
-                    <SelectItem value="date">Date Published</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-verified-org" 
-                    checked={filterVerifiedOrg}
-                    onCheckedChange={(checked: boolean) => setFilterVerifiedOrg(checked)}
-                  />
-                  <Label 
-                    htmlFor="filter-verified-org" 
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Organization
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="filter-verified-publisher"
-                    checked={filterVerifiedPublisher}
-                    onCheckedChange={(checked: boolean) => setFilterVerifiedPublisher(checked)}
-                  />
-                  <Label
-                    htmlFor="filter-verified-publisher"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Publisher
-                  </Label>
-                </div>
-              </div>
-            </div>
-
             {/* Server List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
@@ -796,11 +966,9 @@ export default function AdminPage() {
                           server={server}
                           versionCount={server.versionCount}
                           onClick={() => handleServerClick(server)}
-                          showPublish={true}
-                          onPublish={handlePublish}
-                          showApproval={true}
-                          onApprove={handleApproveServer}
-                          onReject={handleRejectServer}
+                          onDeploy={(s) => handleDeploy(s, 'server')}
+                          onUndeploy={(s) => handleUndeploy(s, 'server')}
+                          onDelete={(s) => handleDelete(s, 'server')}
                         />
                       ))}
                   </div>
@@ -834,39 +1002,6 @@ export default function AdminPage() {
 
           {/* Skills Tab */}
           <TabsContent value="skills">
-            {/* Filter controls */}
-            <div className="flex items-center justify-end mb-6">
-              <div className="flex items-center gap-4">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="filter-skill-verified-org"
-                    checked={filterSkillVerifiedOrg}
-                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedOrg(checked)}
-                  />
-                  <Label
-                    htmlFor="filter-skill-verified-org"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Organization
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="filter-skill-verified-publisher"
-                    checked={filterSkillVerifiedPublisher}
-                    onCheckedChange={(checked: boolean) => setFilterSkillVerifiedPublisher(checked)}
-                  />
-                  <Label
-                    htmlFor="filter-skill-verified-publisher"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Publisher
-                  </Label>
-                </div>
-              </div>
-            </div>
-
             {/* Skills List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
@@ -914,11 +1049,7 @@ export default function AdminPage() {
                           key={`${skill.skill.name}-${skill.skill.version}-${index}`}
                           skill={skill}
                           onClick={() => setSelectedSkill(skill)}
-                          showPublish={true}
-                          onPublish={handlePublishSkill}
-                          showApproval={true}
-                          onApprove={handleApproveSkill}
-                          onReject={handleRejectSkill}
+                          onDelete={(s) => handleDelete(s, 'skill')}
                         />
                       ))}
                   </div>
@@ -999,11 +1130,9 @@ export default function AdminPage() {
                           key={`${agent.agent.name}-${agent.agent.version}-${index}`}
                           agent={agent}
                           onClick={() => setSelectedAgent(agent)}
-                          showPublish={true}
-                          onPublish={handlePublishAgent}
-                          showApproval={true}
-                          onApprove={handleApproveAgent}
-                          onReject={handleRejectAgent}
+                          onDeploy={(a) => handleDeploy(a, 'agent')}
+                          onUndeploy={(a) => handleUndeploy(a, 'agent')}
+                          onDelete={(a) => handleDelete(a, 'agent')}
                         />
                       ))}
                   </div>
@@ -1062,16 +1191,6 @@ export default function AdminPage() {
                         ? "Add models to the inventory to get started"
                         : "Try adjusting your search or filter criteria"}
                     </p>
-                    {models.length === 0 && (
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => setSubmitResourceDialogOpen(true)}
-                      >
-                        <GitPullRequest className="h-4 w-4" />
-                        Submit Model
-                      </Button>
-                    )}
                   </div>
                 </Card>
               ) : (
@@ -1084,8 +1203,7 @@ export default function AdminPage() {
                           key={`${model.model.name}-${index}`}
                           model={model}
                           onClick={() => setSelectedModel(model)}
-                          showPublish={true}
-                          onPublish={handlePublishModel}
+                          onDelete={(m) => handleDelete(m, 'model')}
                         />
                       ))}
                   </div>
@@ -1118,11 +1236,12 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
-        {/* Submit Resource Dialog (GitOps Workflow) */}
-        <SubmitResourceDialog
-          open={submitResourceDialogOpen}
-          onOpenChange={setSubmitResourceDialogOpen}
-        />
+
+      {/* Submit Resource Dialog */}
+      <SubmitResourceDialog
+        open={submitResourceDialogOpen}
+        onOpenChange={setSubmitResourceDialogOpen}
+      />
       </main>
       )}
     </>

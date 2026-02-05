@@ -2,11 +2,9 @@ package controller
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
-	"golang.org/x/mod/semver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -160,58 +158,7 @@ func deploymentRefEqual(a, b *agentregistryv1alpha1.DeploymentRef) bool {
 
 // updateLatestVersion determines and updates the latest version flag for all versions of a server
 func (r *MCPServerCatalogReconciler) updateLatestVersion(ctx context.Context, server *agentregistryv1alpha1.MCPServerCatalog) error {
-	// Get all versions of this server
-	var serverList agentregistryv1alpha1.MCPServerCatalogList
-	if err := r.List(ctx, &serverList, client.MatchingFields{
-		IndexMCPServerName: server.Spec.Name,
-	}); err != nil {
-		return err
-	}
-
-	// Find the latest version among published servers
-	var latestServer *agentregistryv1alpha1.MCPServerCatalog
-	var latestTimestamp time.Time
-
-	for i := range serverList.Items {
-		s := &serverList.Items[i]
-		if !s.Status.Published {
-			continue
-		}
-
-		if latestServer == nil {
-			latestServer = s
-			if s.Status.PublishedAt != nil {
-				latestTimestamp = s.Status.PublishedAt.Time
-			}
-			continue
-		}
-
-		var sTimestamp time.Time
-		if s.Status.PublishedAt != nil {
-			sTimestamp = s.Status.PublishedAt.Time
-		}
-
-		cmp := compareVersions(s.Spec.Version, latestServer.Spec.Version, sTimestamp, latestTimestamp)
-		if cmp > 0 {
-			latestServer = s
-			latestTimestamp = sTimestamp
-		}
-	}
-
-	// Update isLatest flag for all versions
-	for i := range serverList.Items {
-		s := &serverList.Items[i]
-		shouldBeLatest := latestServer != nil && s.Name == latestServer.Name && s.Status.Published
-
-		if s.Status.IsLatest != shouldBeLatest {
-			s.Status.IsLatest = shouldBeLatest
-			if err := r.Status().Update(ctx, s); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return updateLatestVersionForMCPServers(ctx, r.Client, server.Spec.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -219,67 +166,4 @@ func (r *MCPServerCatalogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&agentregistryv1alpha1.MCPServerCatalog{}).
 		Complete(r)
-}
-
-// Version comparison utilities (copied from internal/registry/service/versioning.go)
-
-// isSemanticVersion checks if a version string follows semantic versioning format
-func isSemanticVersion(version string) bool {
-	versionWithV := ensureVPrefix(version)
-	if !semver.IsValid(versionWithV) {
-		return false
-	}
-
-	versionCore := strings.TrimPrefix(versionWithV, "v")
-	if idx := strings.Index(versionCore, "-"); idx != -1 {
-		versionCore = versionCore[:idx]
-	}
-	if idx := strings.Index(versionCore, "+"); idx != -1 {
-		versionCore = versionCore[:idx]
-	}
-
-	parts := strings.Split(versionCore, ".")
-	return len(parts) == 3
-}
-
-// ensureVPrefix adds a "v" prefix if not present
-func ensureVPrefix(version string) string {
-	if !strings.HasPrefix(version, "v") {
-		return "v" + version
-	}
-	return version
-}
-
-// compareSemanticVersions compares two semantic version strings
-func compareSemanticVersions(version1 string, version2 string) int {
-	v1 := ensureVPrefix(version1)
-	v2 := ensureVPrefix(version2)
-	return semver.Compare(v1, v2)
-}
-
-// compareVersions implements the versioning strategy:
-// 1. If both versions are valid semver, use semantic version comparison
-// 2. If neither are valid semver, use publication timestamp
-// 3. If one is semver and one is not, the semver version is always considered higher
-func compareVersions(version1 string, version2 string, timestamp1 time.Time, timestamp2 time.Time) int {
-	isSemver1 := isSemanticVersion(version1)
-	isSemver2 := isSemanticVersion(version2)
-
-	if isSemver1 && isSemver2 {
-		return compareSemanticVersions(version1, version2)
-	}
-
-	if !isSemver1 && !isSemver2 {
-		if timestamp1.Before(timestamp2) {
-			return -1
-		} else if timestamp1.After(timestamp2) {
-			return 1
-		}
-		return 0
-	}
-
-	if isSemver1 && !isSemver2 {
-		return 1
-	}
-	return -1
 }

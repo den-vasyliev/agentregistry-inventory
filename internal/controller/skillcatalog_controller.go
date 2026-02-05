@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	"github.com/rs/zerolog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -64,58 +63,7 @@ func (r *SkillCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // updateLatestVersion determines and updates the latest version flag for all versions of a skill
 func (r *SkillCatalogReconciler) updateLatestVersion(ctx context.Context, skill *agentregistryv1alpha1.SkillCatalog) error {
-	// Get all versions of this skill
-	var skillList agentregistryv1alpha1.SkillCatalogList
-	if err := r.List(ctx, &skillList, client.MatchingFields{
-		IndexSkillName: skill.Spec.Name,
-	}); err != nil {
-		return err
-	}
-
-	// Find the latest version among published skills
-	var latestSkill *agentregistryv1alpha1.SkillCatalog
-	var latestTimestamp time.Time
-
-	for i := range skillList.Items {
-		s := &skillList.Items[i]
-		if !s.Status.Published {
-			continue
-		}
-
-		if latestSkill == nil {
-			latestSkill = s
-			if s.Status.PublishedAt != nil {
-				latestTimestamp = s.Status.PublishedAt.Time
-			}
-			continue
-		}
-
-		var sTimestamp time.Time
-		if s.Status.PublishedAt != nil {
-			sTimestamp = s.Status.PublishedAt.Time
-		}
-
-		cmp := compareVersions(s.Spec.Version, latestSkill.Spec.Version, sTimestamp, latestTimestamp)
-		if cmp > 0 {
-			latestSkill = s
-			latestTimestamp = sTimestamp
-		}
-	}
-
-	// Update isLatest flag for all versions
-	for i := range skillList.Items {
-		s := &skillList.Items[i]
-		shouldBeLatest := latestSkill != nil && s.Name == latestSkill.Name && s.Status.Published
-
-		if s.Status.IsLatest != shouldBeLatest {
-			s.Status.IsLatest = shouldBeLatest
-			if err := r.Status().Update(ctx, s); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return updateLatestVersionForSkills(ctx, r.Client, skill.Spec.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.

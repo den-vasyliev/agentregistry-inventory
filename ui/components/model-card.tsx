@@ -10,20 +10,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Upload, Brain, CheckCircle2, XCircle, Server } from "lucide-react"
+import { Calendar, Tag, Trash2, Brain, CheckCircle2, XCircle, Server } from "lucide-react"
 
 interface ModelCardProps {
   model: ModelResponse
   onDelete?: (model: ModelResponse) => void
-  onPublish?: (model: ModelResponse) => void
   showDelete?: boolean
-  showPublish?: boolean
   onClick?: () => void
 }
 
-export function ModelCard({ model, onDelete, onPublish, showDelete = false, showPublish = false, onClick }: ModelCardProps) {
+export function ModelCard({ model, onDelete, showDelete = true, onClick }: ModelCardProps) {
   const { model: modelData, _meta } = model
-  const official = _meta?.['io.modelcontextprotocol.registry/official']
 
   const handleClick = () => {
     if (onClick) {
@@ -120,25 +117,19 @@ export function ModelCard({ model, onDelete, onPublish, showDelete = false, show
           </div>
         </div>
         <div className="flex items-center gap-1 ml-2">
-          {showPublish && onPublish && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onPublish(model)
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Publish this model to your registry</p>
-              </TooltipContent>
-            </Tooltip>
+          {showDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(model)
+              }}
+              title="Remove from registry"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </div>
@@ -150,13 +141,6 @@ export function ModelCard({ model, onDelete, onPublish, showDelete = false, show
       )}
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        {official?.publishedAt && (
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>{formatDate(official.publishedAt)}</span>
-          </div>
-        )}
-
         {modelData.baseUrl && (
           <div className="flex items-center gap-1">
             <Server className="h-3 w-3" />
