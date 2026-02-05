@@ -308,7 +308,7 @@ make image        # Build container image (KO)
 
 | Project | Description | Link |
 |---------|-------------|------|
-| **KGATEWAY** | AI Gateway | [kgateway.dev](https://kgateway.dev/) |
+| **KGateway** | AI Gateway | [kgateway.dev](https://kgateway.dev/) |
 | **MCP** | Model Context Protocol specification | [modelcontextprotocol.io](https://modelcontextprotocol.io) |
 | **Kagent** | Kubernetes AI agent runtime | [github.com/kagent-dev/kagent](https://github.com/kagent-dev/kagent) |
 | **KMCP** | MCP server operator for Kubernetes | [github.com/kagent-dev/kmcp](https://github.com/kagent-dev/kmcp) |
