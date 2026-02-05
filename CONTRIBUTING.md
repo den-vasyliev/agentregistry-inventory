@@ -5,8 +5,8 @@ Thank you for your interest in contributing to Agent Registry! This document pro
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/agentregistry.git`
-3. Add upstream remote: `git remote add upstream https://github.com/agentregistry-dev/agentregistry.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/agentregistry-inventory.git`
+3. Add upstream remote: `git remote add upstream https://github.com/den-vasyliev/agentregistry-inventory.git`
 4. Create a branch: `git checkout -b feature/my-feature`
 
 ## Development Setup
@@ -23,8 +23,8 @@ Thank you for your interest in contributing to Agent Registry! This document pro
 
 ```bash
 # Clone and setup
-git clone https://github.com/agentregistry-dev/agentregistry.git
-cd agentregistry
+git clone https://github.com/den-vasyliev/agentregistry-inventory.git
+cd agentregistry-inventory
 
 # Download Go dependencies
 go mod download
@@ -368,8 +368,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 
 ## Getting Help
 
-- 🐛 **Report bugs**: [GitHub Issues](https://github.com/agentregistry-dev/agentregistry/issues)
-- 💬 **Ask questions**: [GitHub Discussions](https://github.com/agentregistry-dev/agentregistry/discussions)
+- 🐛 **Report bugs**: [GitHub Issues](https://github.com/den-vasyliev/agentregistry-inventory/issues)
+- 💬 **Ask questions**: [GitHub Discussions](https://github.com/den-vasyliev/agentregistry-inventory/discussions)
 - 💬 **Chat**: [Discord Server](https://discord.gg/HTYNjF2y2t)
 
 ## Code of Conduct

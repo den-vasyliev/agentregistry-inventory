@@ -32,7 +32,7 @@
 
 ```bash
 git clone https://github.com/den-vasyliev/agentregistry-inventory.git
-cd agentregistry && make dev
+cd agentregistry-inventory && make dev
 ```
 
 > 🎯 **That's it.** UI opens at http://localhost:3000 with sample data pre-loaded.
