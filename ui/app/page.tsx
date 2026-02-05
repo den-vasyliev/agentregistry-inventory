@@ -150,22 +150,26 @@ export default function AdminPage() {
       return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
     })
 
-  // Get deployment status for filtering
-  const getDeploymentStatus = (item: ServerResponse | AgentResponse): "external" | "not_deployed" | "running" | "failed" => {
+  // Check whether a resource matches a given deployment status filter.
+  // "external" = discovered (regardless of runtime state).
+  // "running" / "failed" = has deployment info, matches ready state (managed or discovered).
+  // "not_deployed" = managed resource with no deployment.
+  const matchesDeploymentFilter = (item: ServerResponse | AgentResponse, filter: DeploymentStatus): boolean => {
+    if (filter === "all") return true
+
     const isExternal = item._meta?.isDiscovered || item._meta?.source === 'discovery'
-
-    // External/discovered resources are always classified as "external" for filtering.
-    // Their runtime state (Running/Failed) is shown on the card badge separately.
-    if (isExternal) return "external"
-
-    // For managed resources, check deployment status
     const deployment = item._meta?.deployment
-    if (deployment) {
-      if (deployment.ready === true) return "running"
-      return "failed"
-    }
 
-    return "not_deployed"
+    switch (filter) {
+      case "external":
+        return isExternal
+      case "running":
+        return deployment?.ready === true
+      case "failed":
+        return !!deployment && deployment.ready === false
+      case "not_deployed":
+        return !isExternal && !deployment
+    }
   }
 
   // Group servers by name, keeping the latest version as the representative
@@ -478,9 +482,7 @@ export default function AdminPage() {
     }
 
     // Filter by deployment status
-    if (deploymentStatusFilter !== "all") {
-      filtered = filtered.filter((s) => getDeploymentStatus(s) === deploymentStatusFilter)
-    }
+    filtered = filtered.filter((s) => matchesDeploymentFilter(s, deploymentStatusFilter))
 
     setFilteredServers(sortByCreatedDesc(filtered))
   }, [searchQuery, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
@@ -538,9 +540,7 @@ export default function AdminPage() {
       })
     }
     // Filter by deployment status
-    if (deploymentStatusFilter !== "all") {
-      filteredA = filteredA.filter((a) => getDeploymentStatus(a) === deploymentStatusFilter)
-    }
+    filteredA = filteredA.filter((a) => matchesDeploymentFilter(a, deploymentStatusFilter))
     setFilteredAgents(sortByCreatedDesc(filteredA))
 
     // Filter models (models don't have deployment status)
