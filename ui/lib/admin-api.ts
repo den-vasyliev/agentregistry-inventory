@@ -135,7 +135,14 @@ export interface ServerResponse {
   server: ServerJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: RegistryExtensions
-    'io.modelcontextprotocol.registry/publisher-provided'?: Record<string, unknown>
+    'io.modelcontextprotocol.registry/publisher-provided'?: {
+      'aregistry.ai/metadata'?: {
+        identity?: {
+          org_is_verified?: boolean
+          publisher_identity_verified_by_jwt?: boolean
+        }
+      }
+    }
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
@@ -275,7 +282,14 @@ export interface AgentResponse {
   agent: AgentJSON
   _meta: {
     'io.modelcontextprotocol.registry/official'?: AgentRegistryExtensions
-    'io.modelcontextprotocol.registry/publisher-provided'?: Record<string, unknown>
+    'io.modelcontextprotocol.registry/publisher-provided'?: {
+      'aregistry.ai/metadata'?: {
+        identity?: {
+          org_is_verified?: boolean
+          publisher_identity_verified_by_jwt?: boolean
+        }
+      }
+    }
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
