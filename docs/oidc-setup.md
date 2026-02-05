@@ -115,9 +115,9 @@ Pick one of the following:
 </details>
 
 <details>
-<summary><b>Google OAuth (Legacy)</b></summary>
+<summary><b>Google OAuth</b></summary>
 
-See the [Azure AD Setup Guide](./azure-ad-setup.md) for similar steps, or use Generic OIDC instead.
+Note: You can also use Google via Generic OIDC (see below).
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
 2. Create OAuth 2.0 credentials
@@ -131,9 +131,9 @@ See the [Azure AD Setup Guide](./azure-ad-setup.md) for similar steps, or use Ge
 </details>
 
 <details>
-<summary><b>Azure AD (Legacy)</b></summary>
+<summary><b>Azure AD</b></summary>
 
-See the [Azure AD Setup Guide](./azure-ad-setup.md) for complete instructions, or use Generic OIDC instead.
+Note: You can also use Azure AD via Generic OIDC (see Migration section below). For detailed Azure-specific setup, see the [Azure AD Setup Guide](./azure-ad-setup.md).
 
 1. Register app in Azure Portal
 2. Use environment variables:
