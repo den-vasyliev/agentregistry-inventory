@@ -31,6 +31,8 @@ import (
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 )
 
+// UI files are embedded at build time via Makefile copying ui/out to cmd/controller/ui/out
+//
 //go:embed all:ui/out
 var embeddedUI embed.FS
 
