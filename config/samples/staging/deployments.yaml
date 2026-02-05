@@ -8,7 +8,7 @@ metadata:
 spec:
   resourceName: filesystem-server-staging
   version: "1.0.0"
-  resourceType: mcp-server
+  resourceType: mcp
   runtime: kubernetes
   namespace: staging
 ---

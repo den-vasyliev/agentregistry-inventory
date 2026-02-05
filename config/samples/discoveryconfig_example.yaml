@@ -53,26 +53,26 @@ spec:
         environment: staging
         managed-by: agentregistry
 
-    # Remote GKE cluster - Production environment
-    - name: prod
-      cluster:
-        name: owl
-        namespace: kagent
-        projectId: gfk-eco-dev-green
-        zone: europe-west3
-        useWorkloadIdentity: true
-      provider: gcp
-      registry:
-        url: europe-docker.pkg.dev/gfk-eco-shared-blue
-        prefix: newron-prod
-        useWorkloadIdentity: true
-      discoveryEnabled: true
-      namespaces:
-        - kagent
-      resourceTypes:
-        - MCPServer
-        - Agent
-        - ModelConfig
-      labels:
-        environment: prod
-        managed-by: agentregistry
+    # # Remote GKE cluster - Production environment
+    # - name: prod
+    #   cluster:
+    #     name: owl
+    #     namespace: kagent
+    #     projectId: gfk-eco-dev-green
+    #     zone: europe-west3
+    #     useWorkloadIdentity: true
+    #   provider: gcp
+    #   registry:
+    #     url: europe-docker.pkg.dev/gfk-eco-shared-blue
+    #     prefix: newron-prod
+    #     useWorkloadIdentity: true
+    #   discoveryEnabled: true
+    #   namespaces:
+    #     - kagent
+    #   resourceTypes:
+    #     - MCPServer
+    #     - Agent
+    #     - ModelConfig
+    #   labels:
+    #     environment: prod
+    #     managed-by: agentregistry
