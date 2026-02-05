@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="Agent Registry Enterprise" src="./img/arlogo.png" height="90"/>
+    <img alt="Agent Inventory" src="./img/arlogo.png" height="90"/>
   </picture>
 
   <h3>The Control Plane for AI Infrastructure</h3>
@@ -31,7 +31,7 @@
 ### One command to rule them all
 
 ```bash
-git clone https://github.com/agentregistry-dev/agentregistry.git
+git clone https://github.com/den-vasyliev/agentregistry-inventory.git
 cd agentregistry && make dev
 ```
 
@@ -65,25 +65,6 @@ Discover → Inventory → Publish → Deploy → Monitor
 | 🔒 **GitOps Native** | `pending_review` → approve/reject workflows built-in. |
 | 🌐 **Multi-Cluster** | Discover and deploy across clusters with workload identity. |
 
----
-
-## 🎬 See It In Action
-
-### 👨‍💻 Operator View
-*Manage AI infrastructure across environments*
-
-<div align="center">
-  <img src="./img/operator-scenario.png" alt="Operator managing deployments" width="800"/>
-</div>
-
-### 👩‍💻 Developer View  
-*Discover and deploy AI tools*
-
-<div align="center">
-  <img src="./img/dev-scenario.png" alt="Developer workflow" width="800"/>
-</div>
-
----
 
 ## 🏗️ Architecture
 
@@ -256,6 +237,43 @@ helm install agentregistry ./charts/agentregistry \
 
 ---
 
+## 🔐 Authentication (OIDC)
+
+Agent Inventory supports OIDC-based authentication with group-based authorization.
+
+### Quick Setup
+
+```bash
+# Install with OIDC enabled
+helm install agentregistry ./charts/agentregistry \
+  --namespace agentregistry \
+  --create-namespace \
+  --set oidc.enabled=true \
+  --set oidc.issuer=https://your-oidc-provider.com \
+  --set oidc.audience=agentregistry \
+  --set oidc.adminGroup=agentregistry-admins
+```
+
+### Configuration
+
+| Setting | Description | Required |
+|---------|-------------|----------|
+| `oidc.enabled` | Enable OIDC authentication | Yes |
+| `oidc.issuer` | OIDC provider URL (e.g., `https://keycloak.example.com/realms/myrealm`) | Yes |
+| `oidc.audience` | Expected JWT audience (client ID) | Yes |
+| `oidc.adminGroup` | Group required for deployment operations | No |
+| `oidc.groupClaim` | Claim name containing user groups (default: `groups`) | No |
+
+### Supported Providers
+
+- **Generic OIDC** (Keycloak, Auth0, Okta)
+- **Google OAuth** (backward compatible)
+- **Azure AD** (backward compatible)
+
+[→ Full OIDC Setup Guide](docs/oidc-setup.md)
+
+---
+
 ## 🧪 Development
 
 ```bash
@@ -272,9 +290,9 @@ make image        # Build container image (KO)
 
 ---
 
-## 🌟 Why Agent Registry?
+## 🌟 Why Agent Inventory?
 
-| Without Agent Registry | With Agent Registry |
+| Without Agent Inventory | With Agent Inventory |
 |------------------------|---------------------|
 | 😵 Sprawl of AI tools across clusters | 📦 Single source of truth |
 | 🔍 Manual discovery of MCP servers | 🤖 Auto-discovery & cataloging |
@@ -311,7 +329,7 @@ make image        # Build container image (KO)
 
 **[⬆ Back to Top](#-the-control-plane-for-ai-infrastructure)**
 
-Made with ❤️ by the Agent Registry team
+Made with ❤️ by the Agent Inventory team
 
 [MIT License](LICENSE)
 
