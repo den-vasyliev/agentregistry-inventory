@@ -102,6 +102,60 @@ func TestServerHandler_CreateServer_InvalidName(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid server name")
 }
 
+func TestSetCatalogCondition(t *testing.T) {
+	condType := agentregistryv1alpha1.CatalogConditionType("Ready")
+
+	t.Run("append when condition does not exist", func(t *testing.T) {
+		conditions := SetCatalogCondition(nil, condType, metav1.ConditionTrue, "Available", "all good")
+		require.Len(t, conditions, 1)
+		assert.Equal(t, condType, conditions[0].Type)
+		assert.Equal(t, metav1.ConditionTrue, conditions[0].Status)
+		assert.Equal(t, "Available", conditions[0].Reason)
+		assert.Equal(t, "all good", conditions[0].Message)
+		assert.False(t, conditions[0].LastTransitionTime.IsZero())
+	})
+
+	t.Run("update status and bump transition time", func(t *testing.T) {
+		existing := []agentregistryv1alpha1.CatalogCondition{
+			{
+				Type:               condType,
+				Status:             metav1.ConditionFalse,
+				Reason:             "Pending",
+				Message:            "waiting",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+		original := existing[0].LastTransitionTime
+
+		updated := SetCatalogCondition(existing, condType, metav1.ConditionTrue, "Available", "ready now")
+		require.Len(t, updated, 1)
+		assert.Equal(t, metav1.ConditionTrue, updated[0].Status)
+		assert.Equal(t, "Available", updated[0].Reason)
+		assert.Equal(t, "ready now", updated[0].Message)
+		// Status changed → LastTransitionTime must be updated
+		assert.False(t, updated[0].LastTransitionTime.Equal(&original))
+	})
+
+	t.Run("same status does not bump transition time", func(t *testing.T) {
+		existing := []agentregistryv1alpha1.CatalogCondition{
+			{
+				Type:               condType,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Available",
+				Message:            "old message",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+		original := existing[0].LastTransitionTime
+
+		updated := SetCatalogCondition(existing, condType, metav1.ConditionTrue, "Available", "new message")
+		require.Len(t, updated, 1)
+		assert.Equal(t, "new message", updated[0].Message)
+		// Status unchanged → LastTransitionTime must NOT change
+		assert.True(t, updated[0].LastTransitionTime.Equal(&original))
+	})
+}
+
 func TestGenerateCRName(t *testing.T) {
 	tests := []struct {
 		name    string

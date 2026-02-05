@@ -50,6 +50,7 @@ func TestCompareVersions(t *testing.T) {
 		{"neither semver - earlier timestamp", "latest", "main", earlier, later, -1},
 		{"semver beats non-semver", "1.0.0", "latest", earlier, later, 1},
 		{"non-semver loses to semver", "main", "1.0.0", later, earlier, -1},
+		{"neither semver - equal timestamps", "latest", "main", now, now, 0},
 	}
 
 	for _, tt := range tests {

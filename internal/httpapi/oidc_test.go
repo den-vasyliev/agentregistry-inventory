@@ -1,10 +1,74 @@
 package httpapi
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func newTestContext(t *testing.T, headers map[string]string) huma.Context {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	w := httptest.NewRecorder()
+	return humatest.NewContext(nil, req, w)
+}
+
+func TestExtractBearerToken(t *testing.T) {
+	tests := []struct {
+		name      string
+		headers   map[string]string
+		wantToken string
+		wantErr   string
+	}{
+		{
+			name:      "valid bearer token",
+			headers:   map[string]string{"Authorization": "Bearer abc123.def456.ghi789"},
+			wantToken: "abc123.def456.ghi789",
+		},
+		{
+			name:    "missing authorization header",
+			headers: map[string]string{},
+			wantErr: "missing authorization header",
+		},
+		{
+			name:    "Basic scheme rejected",
+			headers: map[string]string{"Authorization": "Basic dXNlcjpwYXNz"},
+			wantErr: "invalid authorization header format",
+		},
+		{
+			name:    "no space in header value",
+			headers: map[string]string{"Authorization": "Bearertoken"},
+			wantErr: "invalid authorization header format",
+		},
+		{
+			name:      "token with spaces preserved after first split",
+			headers:   map[string]string{"Authorization": "Bearer token with spaces"},
+			wantToken: "token with spaces",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := newTestContext(t, tt.headers)
+			token, err := extractBearerToken(ctx)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantToken, token)
+			}
+		})
+	}
+}
 
 func TestReadStringArrayClaim(t *testing.T) {
 	tests := []struct {

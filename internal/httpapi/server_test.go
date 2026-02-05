@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -318,4 +320,210 @@ func TestServer_AuthEnabled_ByDefault(t *testing.T) {
 
 	// Auth should be enabled by default (unless DISABLE_AUTH is set)
 	assert.True(t, server.authEnabled)
+}
+
+func TestIsDeployWriteRequest(t *testing.T) {
+	server, _ := setupTestServer(t)
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		want   bool
+	}{
+		{"POST deployments", http.MethodPost, "/admin/v0/deployments", true},
+		{"PATCH deployments", http.MethodPatch, "/admin/v0/deployments", true},
+		{"DELETE deployments", http.MethodDelete, "/admin/v0/deployments", true},
+		{"DELETE specific deployment", http.MethodDelete, "/admin/v0/deployments/my-deploy", true},
+		{"GET deployments is not write", http.MethodGet, "/admin/v0/deployments", false},
+		{"POST servers is not deployments", http.MethodPost, "/admin/v0/servers", false},
+		{"POST public deployments path", http.MethodPost, "/v0/deployments", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			ctx := humatest.NewContext(nil, req, httptest.NewRecorder())
+			got := server.isDeployWriteRequest(ctx)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestAuthMiddleware_Disabled(t *testing.T) {
+	server, _ := setupTestServerWithAuthDisabled(t)
+	// Force authEnabled off (setupTestServerWithAuthDisabled sets env before NewServer, but
+	// NewServer reads it at construction; re-confirm it stuck)
+	server.authEnabled = false
+
+	called := false
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	ctx := humatest.NewContext(nil, req, httptest.NewRecorder())
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.True(t, called)
+}
+
+func TestAuthMiddleware_MissingHeader(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.authEnabled = true
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	rec := httptest.NewRecorder()
+	ctx := humatest.NewContext(nil, req, rec)
+
+	called := false
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.False(t, called)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthMiddleware_InvalidToken(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.authEnabled = true
+	// allowedTokens is empty — any token is invalid
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	req.Header.Set("Authorization", "Bearer bad-token-xyz")
+	rec := httptest.NewRecorder()
+	ctx := humatest.NewContext(nil, req, rec)
+
+	called := false
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.False(t, called)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthMiddleware_ValidToken(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.authEnabled = true
+	server.allowedTokens["super-secret-token"] = true
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	req.Header.Set("Authorization", "Bearer super-secret-token")
+	rec := httptest.NewRecorder()
+	ctx := humatest.NewContext(nil, req, rec)
+
+	called := false
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.True(t, called)
+}
+
+func TestAuthMiddleware_MalformedHeader(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.authEnabled = true
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
+	rec := httptest.NewRecorder()
+	ctx := humatest.NewContext(nil, req, rec)
+
+	called := false
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.False(t, called)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestConvertExternalToSpec_FullPayload(t *testing.T) {
+	server, _ := setupTestServer(t)
+
+	ext := ExternalServerJSON{
+		Name:        "full-server",
+		Version:     "2.0.0",
+		Title:       "Full Server",
+		Description: "All fields populated",
+		WebsiteURL:  "https://example.com",
+		Repository: &ExternalRepositoryJSON{
+			URL:       "https://github.com/org/repo",
+			Source:    "github",
+			ID:        "repo-123",
+			Subfolder: "packages/server",
+		},
+		Packages: []ExternalPackageJSON{
+			{
+				RegistryType:    "npm",
+				RegistryBaseURL: "https://registry.npmjs.org",
+				Identifier:      "@org/server",
+				Version:         "2.0.0",
+				FileSHA256:      "abc123",
+				RuntimeHint:     "node",
+				Transport: ExternalTransportJSON{
+					Type: "stdio",
+					Headers: []ExternalKeyValueJSON{
+						{Name: "X-Token", Value: "tok", Required: true},
+					},
+				},
+				RuntimeArguments: []ExternalArgumentJSON{
+					{Name: "port", Type: "integer", Required: true},
+				},
+				PackageArguments: []ExternalArgumentJSON{
+					{Name: "config", Type: "string", Value: "default.json"},
+				},
+				EnvironmentVariables: []ExternalKeyValueJSON{
+					{Name: "NODE_ENV", Value: "production"},
+				},
+			},
+		},
+		Remotes: []ExternalTransportJSON{
+			{
+				Type: "streamable-http",
+				URL:  "https://api.example.com/mcp",
+				Headers: []ExternalKeyValueJSON{
+					{Name: "Authorization", Value: "Bearer x"},
+				},
+			},
+		},
+	}
+
+	spec := server.convertExternalToSpec(ext)
+
+	// Top-level
+	assert.Equal(t, "full-server", spec.Name)
+	assert.Equal(t, "2.0.0", spec.Version)
+	assert.Equal(t, "https://example.com", spec.WebsiteURL)
+
+	// Repository
+	require.NotNil(t, spec.Repository)
+	assert.Equal(t, "github", spec.Repository.Source)
+	assert.Equal(t, "packages/server", spec.Repository.Subfolder)
+
+	// Package
+	require.Len(t, spec.Packages, 1)
+	pkg := spec.Packages[0]
+	assert.Equal(t, "npm", pkg.RegistryType)
+	assert.Equal(t, "https://registry.npmjs.org", pkg.RegistryBaseURL)
+	assert.Equal(t, "abc123", pkg.FileSHA256)
+	assert.Equal(t, "node", pkg.RuntimeHint)
+	assert.Equal(t, "stdio", pkg.Transport.Type)
+	require.Len(t, pkg.Transport.Headers, 1)
+	assert.Equal(t, "X-Token", pkg.Transport.Headers[0].Name)
+	assert.True(t, pkg.Transport.Headers[0].Required)
+	require.Len(t, pkg.RuntimeArguments, 1)
+	assert.Equal(t, "port", pkg.RuntimeArguments[0].Name)
+	assert.True(t, pkg.RuntimeArguments[0].Required)
+	require.Len(t, pkg.PackageArguments, 1)
+	assert.Equal(t, "default.json", pkg.PackageArguments[0].Value)
+	require.Len(t, pkg.EnvironmentVariables, 1)
+	assert.Equal(t, "NODE_ENV", pkg.EnvironmentVariables[0].Name)
+
+	// Remotes
+	require.Len(t, spec.Remotes, 1)
+	assert.Equal(t, "streamable-http", spec.Remotes[0].Type)
+	assert.Equal(t, "https://api.example.com/mcp", spec.Remotes[0].URL)
+	require.Len(t, spec.Remotes[0].Headers, 1)
+	assert.Equal(t, "Authorization", spec.Remotes[0].Headers[0].Name)
+}
+
+func TestConvertExternalToSpec_EmptyOptionalFields(t *testing.T) {
+	server, _ := setupTestServer(t)
+
+	ext := ExternalServerJSON{
+		Name:    "minimal",
+		Version: "1.0.0",
+	}
+
+	spec := server.convertExternalToSpec(ext)
+	assert.Equal(t, "minimal", spec.Name)
+	assert.Nil(t, spec.Repository)
+	assert.Empty(t, spec.Packages)
+	assert.Empty(t, spec.Remotes)
 }

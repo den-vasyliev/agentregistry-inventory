@@ -153,6 +153,115 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
+func TestValidateServerName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"simple valid name", "filesystem", false},
+		{"two-part namespaced", "github/filesystem", false},
+		{"three-part namespaced", "github/modelcontextprotocol/filesystem", false},
+		{"empty name", "", true},
+		{"empty part between slashes", "github//filesystem", true},
+		{"leading slash", "/filesystem", true},
+		{"trailing slash", "filesystem/", true},
+		{"uppercase part", "GitHub/filesystem", true},
+		{"underscore in part", "my_server/tool", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateServerName(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateServerName(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateName_LengthLimit(t *testing.T) {
+	long := make([]byte, 254)
+	for i := range long {
+		long[i] = 'a'
+	}
+	err := ValidateName(string(long))
+	if err == nil {
+		t.Error("ValidateName() expected error for 254-char name, got nil")
+	}
+
+	// 253 chars is the limit — should pass
+	ok := string(long[:253])
+	if err := ValidateName(ok); err != nil {
+		t.Errorf("ValidateName() unexpected error for 253-char name: %v", err)
+	}
+}
+
+func TestValidateURL_AllSchemes(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{"file scheme", "file:///tmp/data", false},
+		{"docker scheme with tag", "docker://registry.io/myimage:latest", false},
+		{"docker scheme unparseable port", "docker://myimage:latest", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateURL(%q) error = %v, wantErr %v", tt.url, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRepositoryURL_SchemeRestrictions(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{"ssh scheme valid for repo", "ssh://git@github.com/user/repo", false},
+		{"oci scheme rejected for repo", "oci://registry.io/image", true},
+		{"file scheme rejected for repo", "file:///tmp/repo", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateRepositoryURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRepositoryURL(%q) error = %v, wantErr %v", tt.url, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestSanitizeVersion_SpecialChars(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"asterisk and question mark", "1.0.0*?", "1.0.0-"},
+		{"angle brackets", "1.0.0<rc>", "1.0.0-rc-"},
+		{"pipe and quotes", `1.0.0|"build"`, "1.0.0-build-"},
+		{"leading dots and spaces trimmed", "..  1.0.0", "1.0.0"},
+		{"special chars mid-string only", "1*0.0", "1-0.0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SanitizeVersion(tt.input)
+			if got != tt.want {
+				t.Errorf("SanitizeVersion(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSanitizeVersion(t *testing.T) {
 	tests := []struct {
 		name  string

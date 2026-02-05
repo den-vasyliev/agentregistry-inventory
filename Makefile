@@ -99,9 +99,13 @@ test: envtest ## Run all tests with coverage
 		go test -coverprofile=coverage.out -covermode=atomic \
 		-ldflags "$(LDFLAGS)" -tags=integration \
 		./internal/cluster \
+		./internal/config \
 		./internal/controller \
+		./internal/httpapi \
+		./internal/httpapi/handlers \
 		./internal/runtime \
-		./internal/runtime/translation/kagent
+		./internal/runtime/translation/kagent \
+		./internal/validation
 	@go tool cover -func=coverage.out | grep total:
 
 dev: envtest ## Start interactive dev environment with envtest and sample data
