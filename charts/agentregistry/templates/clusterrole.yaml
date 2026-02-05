@@ -63,9 +63,9 @@ rules:
       - patch
       - delete
 
-  # KMCP CRDs (for MCP server deployments)
+  # MCPServer CRDs (kagent.dev - for MCP server deployments and discovery)
   - apiGroups:
-      - kmcp.io
+      - kagent.dev
     resources:
       - mcpservers
     verbs:
@@ -90,6 +90,16 @@ rules:
       - update
       - patch
       - delete
+
+  # Secrets (for API tokens)
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
 
   # Leader election
   - apiGroups:

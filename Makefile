@@ -62,8 +62,12 @@ build-ui: ## Build UI static export
 	@cd ui && npm install && npm run build:export
 	@echo "✓ UI build complete: ui/out/"
 
-build-controller: ## Build controller binary only
+build-controller: build-ui ## Build controller binary with embedded UI
 	@echo "Building controller binary..."
+	@echo "Copying UI files for embedding..."
+	@rm -rf cmd/controller/ui
+	@mkdir -p cmd/controller/ui
+	@cp -r ui/out cmd/controller/ui/
 	@CGO_ENABLED=0 GOOS=$(LOCALOS) GOARCH=$(LOCALARCH) go build \
 		-ldflags "$(LDFLAGS)" \
 		-o bin/controller \

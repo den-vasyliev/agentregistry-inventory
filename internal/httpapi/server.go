@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"strings"
@@ -25,6 +26,9 @@ import (
 	"github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers"
 )
+
+// UIFiles is the embedded filesystem for UI files, set by main package
+var UIFiles fs.FS
 
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
@@ -246,6 +250,9 @@ func (s *Server) registerRoutes() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	// Serve static UI files (if embedded)
+	s.registerStaticFiles()
 }
 
 // Stats response types
@@ -657,6 +664,62 @@ func (s *Server) Runnable(addr string) manager.Runnable {
 type serverRunnable struct {
 	server *Server
 	addr   string
+}
+
+// registerStaticFiles serves the embedded UI files
+func (s *Server) registerStaticFiles() {
+	if UIFiles == nil {
+		s.logger.Warn().Msg("UI files not embedded, skipping static file server")
+		return
+	}
+
+	// Create a custom handler that serves UI files
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Skip API paths - let them 404 naturally
+		if strings.HasPrefix(r.URL.Path, "/v0/") ||
+			strings.HasPrefix(r.URL.Path, "/admin/") ||
+			strings.HasPrefix(r.URL.Path, "/healthz") ||
+			strings.HasPrefix(r.URL.Path, "/readyz") {
+			http.NotFound(w, r)
+			return
+		}
+
+		// Try to serve the requested file
+		path := r.URL.Path
+		if path == "/" {
+			path = "/index.html"
+		}
+
+		// Read file from embedded FS
+		content, err := fs.ReadFile(UIFiles, strings.TrimPrefix(path, "/"))
+		if err != nil {
+			// If file not found, serve index.html for SPA routing
+			content, err = fs.ReadFile(UIFiles, "index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		} else {
+			// Set appropriate content type
+			if strings.HasSuffix(path, ".js") {
+				w.Header().Set("Content-Type", "application/javascript")
+			} else if strings.HasSuffix(path, ".css") {
+				w.Header().Set("Content-Type", "text/css")
+			} else if strings.HasSuffix(path, ".html") {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			} else if strings.HasSuffix(path, ".svg") {
+				w.Header().Set("Content-Type", "image/svg+xml")
+			} else if strings.HasSuffix(path, ".png") {
+				w.Header().Set("Content-Type", "image/png")
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+	})
+
+	s.logger.Info().Msg("serving embedded UI files")
 }
 
 func (r *serverRunnable) Start(ctx context.Context) error {
