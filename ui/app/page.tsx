@@ -47,8 +47,6 @@ import {
   Zap,
   Bot,
   Brain,
-  ArrowUpDown,
-  Filter,
   GitPullRequest,
   Rocket,
   Trash2,
@@ -80,11 +78,8 @@ export default function AdminPage() {
   const [filteredModels, setFilteredModels] = useState<ModelResponse[]>([])
   const [stats, setStats] = useState<ServerStats | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "date">("name")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
-  const [filterSkillVerifiedOrg, setFilterSkillVerifiedOrg] = useState(false)
-  const [filterSkillVerifiedPublisher, setFilterSkillVerifiedPublisher] = useState(false)
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -123,9 +118,9 @@ export default function AdminPage() {
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
   // Helper function to get resource creation date (for sorting)
-  const getResourceDate = (server: ServerResponse): Date | null => {
-    // Backend sets updatedAt to CreationTimestamp (catalog creation time)
-    const dateStr = server._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
+  // All resource types expose CreationTimestamp via _meta.official.updatedAt
+  const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
+    const dateStr = item._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
     if (!dateStr) return null
     try {
       return new Date(dateStr)
@@ -134,21 +129,42 @@ export default function AdminPage() {
     }
   }
 
+  // Extract the canonical name from any resource type (used as stable tiebreaker)
+  const getResourceName = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): string => {
+    if ('server' in item) return item.server.name
+    if ('agent' in item) return item.agent.name
+    if ('skill' in item) return item.skill.name
+    if ('model' in item) return item.model.name
+    return ''
+  }
+
+  // Sort newest first by creation date; fall back to name for stable order when dates are equal
+  const sortByCreatedDesc = <T extends ServerResponse | AgentResponse | SkillResponse | ModelResponse>(list: T[]): T[] =>
+    [...list].sort((a, b) => {
+      const dateA = getResourceDate(a)
+      const dateB = getResourceDate(b)
+      if (!dateA && !dateB) return getResourceName(a).localeCompare(getResourceName(b))
+      if (!dateA) return 1
+      if (!dateB) return -1
+      const diff = dateB.getTime() - dateA.getTime()
+      return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
+    })
+
   // Get deployment status for filtering
   const getDeploymentStatus = (item: ServerResponse | AgentResponse): "external" | "not_deployed" | "running" | "failed" => {
     const isExternal = item._meta?.isDiscovered || item._meta?.source === 'discovery'
-    const deployment = item._meta?.deployment
 
-    // Check deployment status first (applies to both managed and discovered)
-    // If deployment info exists, check ready status
+    // External/discovered resources are always classified as "external" for filtering.
+    // Their runtime state (Running/Failed) is shown on the card badge separately.
+    if (isExternal) return "external"
+
+    // For managed resources, check deployment status
+    const deployment = item._meta?.deployment
     if (deployment) {
-      // Ready field is now always present (not omitempty), so we can check boolean directly
       if (deployment.ready === true) return "running"
-      if (deployment.ready === false) return "failed"
+      return "failed"
     }
 
-    // No deployment info - distinguish between external and managed
-    if (isExternal) return "external"
     return "not_deployed"
   }
 
@@ -448,7 +464,7 @@ export default function AdminPage() {
     // Filter by verified organization
     if (filterVerifiedOrg) {
       filtered = filtered.filter((s) => {
-        const identityData = s.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.org_is_verified === true
       })
     }
@@ -456,7 +472,7 @@ export default function AdminPage() {
     // Filter by verified publisher
     if (filterVerifiedPublisher) {
       filtered = filtered.filter((s) => {
-        const identityData = s.server._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
         return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
@@ -466,25 +482,8 @@ export default function AdminPage() {
       filtered = filtered.filter((s) => getDeploymentStatus(s) === deploymentStatusFilter)
     }
 
-    // Sort servers
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "date": {
-          const dateA = getResourceDate(a)
-          const dateB = getResourceDate(b)
-          if (!dateA && !dateB) return 0
-          if (!dateA) return 1
-          if (!dateB) return -1
-          return dateB.getTime() - dateA.getTime()
-        }
-        case "name":
-        default:
-          return a.server.name.localeCompare(b.server.name)
-      }
-    })
-
-    setFilteredServers(filtered)
-  }, [searchQuery, groupedServers, sortBy, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
+    setFilteredServers(sortByCreatedDesc(filtered))
+  }, [searchQuery, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
   // Filter skills, agents, and models based on search query and deployment status
   useEffect(() => {
@@ -500,23 +499,19 @@ export default function AdminPage() {
           s.skill.description?.toLowerCase().includes(query)
       )
     }
-    if (filterSkillVerifiedOrg) {
+    if (filterVerifiedOrg) {
       filteredSk = filteredSk.filter((s) => {
-        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
-        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
-        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
-        return identity?.["org_is_verified"] === true
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.org_is_verified === true
       })
     }
-    if (filterSkillVerifiedPublisher) {
+    if (filterVerifiedPublisher) {
       filteredSk = filteredSk.filter((s) => {
-        const publisherProvided = s._meta?.["io.modelcontextprotocol.registry/publisher-provided"] as Record<string, unknown> | undefined
-        const aregistryMetadata = publisherProvided?.["aregistry.ai/metadata"] as Record<string, unknown> | undefined
-        const identity = aregistryMetadata?.["identity"] as Record<string, unknown> | undefined
-        return identity?.["publisher_identity_verified_by_jwt"] === true
+        const identityData = s._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
-    setFilteredSkills(filteredSk)
+    setFilteredSkills(sortByCreatedDesc(filteredSk))
 
     // Filter agents
     let filteredA = agents
@@ -528,11 +523,25 @@ export default function AdminPage() {
           agent.description?.toLowerCase().includes(query)
       )
     }
+    // Filter by verified organization
+    if (filterVerifiedOrg) {
+      filteredA = filteredA.filter((a) => {
+        const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.org_is_verified === true
+      })
+    }
+    // Filter by verified publisher
+    if (filterVerifiedPublisher) {
+      filteredA = filteredA.filter((a) => {
+        const identityData = a._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']?.identity
+        return identityData?.publisher_identity_verified_by_jwt === true
+      })
+    }
     // Filter by deployment status
     if (deploymentStatusFilter !== "all") {
       filteredA = filteredA.filter((a) => getDeploymentStatus(a) === deploymentStatusFilter)
     }
-    setFilteredAgents(filteredA)
+    setFilteredAgents(sortByCreatedDesc(filteredA))
 
     // Filter models (models don't have deployment status)
     let filteredM = models
@@ -545,8 +554,8 @@ export default function AdminPage() {
           model.description?.toLowerCase().includes(query)
       )
     }
-    setFilteredModels(filteredM)
-  }, [searchQuery, skills, agents, models, filterSkillVerifiedOrg, filterSkillVerifiedPublisher, deploymentStatusFilter])
+    setFilteredModels(sortByCreatedDesc(filteredM))
+  }, [searchQuery, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
 
   if (loading) {
     return (
@@ -837,23 +846,8 @@ export default function AdminPage() {
               </Tabs>
             )}
 
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-              <Select value={sortBy} onValueChange={(value: "name" | "date") => setSortBy(value)}>
-                <SelectTrigger className="w-[150px] h-9">
-                  <SelectValue placeholder="Sort by..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  
-                  <SelectItem value="date">Date</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Verified Filters - for Servers and Agents */}
-            {(activeTab === 'servers' || activeTab === 'agents') && (
+            {/* Verified Filters - for Servers, Agents, and Skills */}
+            {(activeTab === 'servers' || activeTab === 'agents' || activeTab === 'skills') && (
               <TooltipProvider>
                 <div className="flex items-center gap-3">
                   <Tooltip>
@@ -1008,43 +1002,6 @@ export default function AdminPage() {
 
           {/* Skills Tab */}
           <TabsContent value="skills">
-            {/* Filter controls */}
-            <div className="flex items-center justify-end mb-6">
-              <div className="flex items-center gap-4">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="filter-skill-verified-org"
-                    checked={filterSkillVerifiedOrg}
-                    onChange={(e) => setFilterSkillVerifiedOrg(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label
-                    htmlFor="filter-skill-verified-org"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Organization
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="filter-skill-verified-publisher"
-                    checked={filterSkillVerifiedPublisher}
-                    onChange={(e) => setFilterSkillVerifiedPublisher(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label
-                    htmlFor="filter-skill-verified-publisher"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Verified Publisher
-                  </label>
-                </div>
-              </div>
-            </div>
-
             {/* Skills List */}
             <div>
               <h2 className="text-lg font-semibold mb-4">
