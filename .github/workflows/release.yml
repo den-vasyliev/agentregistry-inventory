@@ -80,7 +80,7 @@ jobs:
         else
           export VERSION=$(echo "$GITHUB_REF" | cut -c12-)
         fi
-        make build
+        make build-controller
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
