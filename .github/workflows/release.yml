@@ -41,7 +41,7 @@ jobs:
 
     - name: Build and Push Controller Image
       env:
-        KO_DOCKER_REPO: ghcr.io/${{ github.repository_owner }}/agentregistry
+        REGISTRY: ghcr.io/${{ github.repository_owner }}/agentregistry-enterprise
       run: |
         # if workflow_dispatch is used, use the version input
         if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -49,7 +49,7 @@ jobs:
         else
           export VERSION=$(echo "$GITHUB_REF" | cut -c12-)
         fi
-        make ko-controller
+        make push
 
   release:
     needs:

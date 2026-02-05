@@ -27,13 +27,8 @@ controller
 demo
 
 # UI build artifacts
-internal/registry/api/ui/dist/
-
-# Database file
-*.db
-
-# arctl specific
-.arctl/
+ui/out/
+ui/.next/
 
 # IDE
 .vscode/

@@ -6,8 +6,8 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 # Auto-increment version based on git tags
 LAST_TAG ?= $(shell git describe --tags --abbrev=0 2>/dev/null)
 COMMITS_SINCE_TAG ?= $(shell git rev-list $(LAST_TAG)..HEAD --count 2>/dev/null || echo "0")
-# Use VERSION file as fallback if no tags exist
-BASE_VERSION ?= $(shell if [ -n "$(LAST_TAG)" ]; then echo $(LAST_TAG) | sed 's/^v//'; else cat VERSION 2>/dev/null || echo "0.2.1"; fi)
+# Fall back to 0.0.0 if no tags exist yet
+BASE_VERSION ?= $(shell if [ -n "$(LAST_TAG)" ]; then echo $(LAST_TAG) | sed 's/^v//'; else echo "0.0.0"; fi)
 
 # If on a tag, use that tag; otherwise auto-increment patch version
 ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)

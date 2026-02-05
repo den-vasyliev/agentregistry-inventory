@@ -1,0 +1,7 @@
+resources:
+- agentregistry.dev_agentcatalogs.yaml
+- agentregistry.dev_discoveryconfigs.yaml
+- agentregistry.dev_mcpservercatalogs.yaml
+- agentregistry.dev_modelcatalogs.yaml
+- agentregistry.dev_registrydeployments.yaml
+- agentregistry.dev_skillcatalogs.yaml

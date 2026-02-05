@@ -188,14 +188,10 @@ The `make dev` target:
 
 ```bash
 # Controller only (fast iteration)
-make dev-controller
-# or
 go build -o bin/controller cmd/controller/main.go
 ./bin/controller --enable-http-api=true
 
 # UI only (hot reload)
-make dev-ui
-# or
 cd ui && npm run dev
 
 # Full build (UI + controller)
@@ -211,11 +207,11 @@ make build-controller
 # Build UI static files
 make build-ui
 
-# Build container image with ko
-make ko-controller
+# Build container image locally
+make image
 
-# Full build (all targets)
-make all
+# Full build (UI + controller)
+make build
 ```
 
 ### Container Images
@@ -223,64 +219,14 @@ make all
 Uses [ko](https://ko.build/) for building container images:
 
 ```bash
-# Build controller image
-make ko-controller
-# Builds: localhost:5001/agentregistry-controller:latest
+# Build controller image locally
+make image
 
-# Push to registry
-KO_DOCKER_REPO=ghcr.io/myorg make ko-controller
+# Build and push to registry
+REGISTRY=ghcr.io/myorg make push
 ```
 
 ## Extension Points
-
-### Adding a New Reconciler
-
-1. Create `internal/controller/myresource_controller.go`:
-
-```go
-package controller
-
-import (
-    "context"
-    ctrl "sigs.k8s.io/controller-runtime"
-    "sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-type MyResourceReconciler struct {
-    client.Client
-    Scheme *runtime.Scheme
-    Logger zerolog.Logger
-}
-
-func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-    // 1. Fetch the resource
-    // 2. Implement reconciliation logic
-    // 3. Update status
-    // 4. Return result
-    return ctrl.Result{}, nil
-}
-
-func (r *MyResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-    return ctrl.NewControllerManagedBy(mgr).
-        For(&MyResourceCRD{}).
-        Complete(r)
-}
-```
-
-2. Register in `cmd/controller/main.go`:
-
-```go
-if err = (&controller.MyResourceReconciler{
-    Client: mgr.GetClient(),
-    Scheme: mgr.GetScheme(),
-    Logger: logger.With().Str("controller", "myresource").Logger(),
-}).SetupWithManager(mgr); err != nil {
-    setupLog.Error(err, "unable to create controller", "controller", "MyResource")
-    os.Exit(1)
-}
-```
-
-3. Add tests in `internal/controller/myresource_controller_test.go`
 
 ### Adding a New CRD
 
@@ -373,35 +319,6 @@ myHandler.RegisterRoutes(api, "/v0", false)
 
 3. Add tests
 
-### Adding a New UI Page
-
-1. Create page in `ui/app/mypage/page.tsx`:
-
-```tsx
-import { Card } from "@/components/ui/card"
-
-export default function MyPage() {
-  const [data, setData] = useState([])
-
-  useEffect(() => {
-    fetch('/v0/my-resources')
-      .then(res => res.json())
-      .then(setData)
-  }, [])
-
-  return (
-    <div>
-      <h1>My Resources</h1>
-      {data.map(item => (
-        <Card key={item.id}>{item.name}</Card>
-      ))}
-    </div>
-  )
-}
-```
-
-2. Test with `make dev-ui`
-
 ## Testing
 
 ### Running Tests
@@ -410,61 +327,59 @@ export default function MyPage() {
 # All tests with coverage
 make test
 
-# Controller tests only
-make test-controller
-
 # View coverage report
 go tool cover -html=coverage.out
 ```
 
 ### Test Structure
 
-- **Unit tests:** `internal/controller/*_test.go`
-- **Framework:** [envtest](https://book.kubebuilder.io/reference/envtest.html) - Provides fake Kubernetes API
-- **Current coverage:** 22% (controller 17%, runtime 4.4%, translation 81.7%)
+- **Unit tests:** `internal/controller/*_test.go`, `internal/httpapi/*_test.go`, etc.
+- **Framework:** [envtest](https://book.kubebuilder.io/reference/envtest.html) — real etcd + kube-apiserver
+- **Assertions:** `testify` (`assert` / `require`)
 
 ### Writing Controller Tests
 
+Use the `SetupTestEnv` helper from `testhelper_test.go` — do **not** use fake clients:
+
 ```go
-package controller_test
+package controller
 
 import (
-    "testing"
     "context"
-    . "github.com/onsi/ginkgo/v2"
-    . "github.com/onsi/gomega"
-    "sigs.k8s.io/controller-runtime/pkg/client"
+    "testing"
+    "time"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("MyResource Controller", func() {
-    var (
-        ctx context.Context
-        resource *v1alpha1.MyResource
-    )
+func TestMyReconciler(t *testing.T) {
+    if testing.Short() {
+        t.Skip("Skipping integration test in short mode")
+    }
 
-    BeforeEach(func() {
-        ctx = context.Background()
-        resource = &v1alpha1.MyResource{
-            ObjectMeta: metav1.ObjectMeta{
-                Name:      "test-resource",
-                Namespace: "default",
-            },
-            Spec: v1alpha1.MyResourceSpec{
-                Name: "test",
-            },
-        }
-    })
+    helper := SetupTestEnv(t, 60*time.Second, false)
+    defer helper.Cleanup(t)
 
-    It("should reconcile the resource", func() {
-        Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+    ctx := context.Background()
 
-        // Wait for reconciliation
-        Eventually(func() bool {
-            err := k8sClient.Get(ctx, client.ObjectKeyFromObject(resource), resource)
-            return err == nil && len(resource.Status.Conditions) > 0
-        }).Should(BeTrue())
-    })
-})
+    obj := &v1alpha1.MyResource{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      "test-resource",
+            Namespace: "default",
+        },
+        Spec: v1alpha1.MyResourceSpec{Name: "test"},
+    }
+    require.NoError(t, helper.Client.Create(ctx, obj))
+
+    reconciler := &MyReconciler{
+        Client: helper.Client,
+        Scheme: helper.Scheme,
+    }
+    // exercise reconciler and assert expected state ...
+    _ = reconciler
+}
 ```
 
 ## Configuration
@@ -577,14 +492,24 @@ The controller requires these permissions:
 
 See `charts/agentregistry/templates/rbac.yaml` for full RBAC configuration.
 
-### API Authentication
+### API Authentication (OIDC)
 
-**Current state:** Authentication is disabled by default (`authEnabled: false`)
+Agent Registry uses OIDC-based authentication with group-based authorization for admin operations.
 
-To enable authentication:
-1. Set `AUTH_ENABLED=true` environment variable
-2. Configure allowed tokens via `AUTH_TOKENS` (comma-separated)
-3. Clients must send `Authorization: Bearer <token>` header
+**Environment variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AGENTREGISTRY_OIDC_ISSUER` | OIDC provider URL | — (required when enabled) |
+| `AGENTREGISTRY_OIDC_AUDIENCE` | Expected JWT audience (client ID) | — (required when enabled) |
+| `AGENTREGISTRY_OIDC_ADMIN_GROUP` | Group required for deploy operations | — (optional) |
+| `AGENTREGISTRY_OIDC_GROUP_CLAIM` | Claim name containing user groups | `groups` |
+| `AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS` | Safety margin before token expiry | `300` (5 min) |
+| `AGENTREGISTRY_DISABLE_AUTH` | Set to `true` to disable auth entirely | — |
+
+**Supported providers:** Generic OIDC (Keycloak, Auth0, Okta), Google OAuth, Azure AD.
+
+Clients must send `Authorization: Bearer <token>` with a valid JWT issued by the configured provider.
 
 ### Network Policies
 

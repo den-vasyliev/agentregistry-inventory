@@ -3,16 +3,16 @@ name: agentregistry
 description: Kubernetes-native agent and MCP server registry
 type: application
 version: 0.1.0
-appVersion: "1.0.0"
+appVersion: "latest"
 keywords:
   - agent
   - mcp
   - registry
   - kubernetes
   - controller
-home: https://github.com/agentregistry-dev/agentregistry
+home: https://github.com/den-vasyliev/agentregistry-inventory
 sources:
-  - https://github.com/agentregistry-dev/agentregistry
+  - https://github.com/den-vasyliev/agentregistry-inventory
 maintainers:
   - name: Agent Registry Team
     email: maintainers@agentregistry.dev

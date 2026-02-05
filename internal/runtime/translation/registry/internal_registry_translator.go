@@ -8,15 +8,69 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
 	registryutils "github.com/agentregistry-dev/agentregistry/internal/runtime/translation/registry/utils"
 	"github.com/agentregistry-dev/agentregistry/internal/utils"
-	"github.com/agentregistry-dev/agentregistry/pkg/models"
 	"github.com/modelcontextprotocol/registry/pkg/model"
 
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
 )
+
+// AgentManifest represents the agent project configuration and metadata.
+type AgentManifest struct {
+	Name              string          `yaml:"agentName" json:"name"`
+	Image             string          `yaml:"image" json:"image"`
+	Language          string          `yaml:"language" json:"language"`
+	Framework         string          `yaml:"framework" json:"framework"`
+	ModelProvider     string          `yaml:"modelProvider" json:"modelProvider"`
+	ModelName         string          `yaml:"modelName" json:"modelName"`
+	Description       string          `yaml:"description" json:"description"`
+	Version           string          `yaml:"version,omitempty" json:"version,omitempty"`
+	TelemetryEndpoint string          `yaml:"telemetryEndpoint,omitempty" json:"telemetryEndpoint,omitempty"`
+	McpServers        []McpServerType `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	UpdatedAt         time.Time       `yaml:"updatedAt,omitempty" json:"updatedAt,omitempty"`
+}
+
+// McpServerType represents a single MCP server configuration within an agent manifest.
+type McpServerType struct {
+	Type                       string            `yaml:"type" json:"type"`
+	Name                       string            `yaml:"name" json:"name"`
+	Image                      string            `yaml:"image,omitempty" json:"image,omitempty"`
+	Build                      string            `yaml:"build,omitempty" json:"build,omitempty"`
+	Command                    string            `yaml:"command,omitempty" json:"command,omitempty"`
+	Args                       []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	Env                        []string          `yaml:"env,omitempty" json:"env,omitempty"`
+	URL                        string            `yaml:"url,omitempty" json:"url,omitempty"`
+	Headers                    map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	RegistryURL                string            `yaml:"registryURL,omitempty" json:"registryURL,omitempty"`
+	RegistryServerName         string            `yaml:"registryServerName,omitempty" json:"registryServerName,omitempty"`
+	RegistryServerVersion      string            `yaml:"registryServerVersion,omitempty" json:"registryServerVersion,omitempty"`
+	RegistryServerPreferRemote bool              `yaml:"registryServerPreferRemote,omitempty" json:"registryServerPreferRemote,omitempty"`
+}
+
+// AgentJSON is the API shape for an agent catalog entry.
+type AgentJSON struct {
+	AgentManifest `json:",inline"`
+	Title         string             `json:"title,omitempty"`
+	Version       string             `json:"version"`
+	Status        string             `json:"status,omitempty"`
+	WebsiteURL    string             `json:"websiteUrl,omitempty"`
+	Repository    *model.Repository  `json:"repository,omitempty"`
+	Packages      []AgentPackageInfo `json:"packages,omitempty"`
+	Remotes       []model.Transport  `json:"remotes,omitempty"`
+}
+
+// AgentPackageInfo describes a single package within an agent.
+type AgentPackageInfo struct {
+	RegistryType string `json:"registryType"`
+	Identifier   string `json:"identifier"`
+	Version      string `json:"version"`
+	Transport    struct {
+		Type string `json:"type"`
+	} `json:"transport"`
+}
 
 type MCPServerRunRequest struct {
 	RegistryServer *apiv0.ServerJSON
@@ -27,7 +81,7 @@ type MCPServerRunRequest struct {
 }
 
 type AgentRunRequest struct {
-	RegistryAgent *models.AgentJSON
+	RegistryAgent *AgentJSON
 	EnvValues     map[string]string
 	// Registry-type MCP servers resolved from agent manifest at deploy time to inject into the agent
 	ResolvedMCPServers []*MCPServerRunRequest

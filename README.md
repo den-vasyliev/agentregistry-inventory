@@ -42,8 +42,8 @@ cd agentregistry-inventory && make dev
 **☸️ Have a cluster?**
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/den-vasyliev/agentregistry-inventory/main/config/crd/
-helm install agentregistry ./charts/agentregistry -n agentregistry --create-namespace
+kubectl apply -k https://github.com/den-vasyliev/agentregistry-inventory/config/crd?ref=enterprise-controller
+helm install agentregistry-inventory ./charts/agentregistry -n agentregistry --create-namespace
 ```
 
 ---
@@ -232,7 +232,7 @@ curl -X POST http://localhost:8080/admin/v0/deploy \
 ## ☸️ Production Deployment
 
 ```bash
-helm install agentregistry ./charts/agentregistry \
+helm install agentregistry-inventory ./charts/agentregistry \
   --namespace agentregistry \
   --create-namespace \
   --set replicaCount=2 \
@@ -258,7 +258,7 @@ Agent Inventory supports OIDC-based authentication with group-based authorizatio
 
 ```bash
 # Install with OIDC enabled
-helm install agentregistry ./charts/agentregistry \
+helm install agentregistry-inventory ./charts/agentregistry \
   --namespace agentregistry \
   --create-namespace \
   --set oidc.enabled=true \

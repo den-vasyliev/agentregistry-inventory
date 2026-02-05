@@ -9,8 +9,6 @@ RUN go mod download && go mod verify
 COPY api api
 COPY cmd cmd
 COPY internal internal
-COPY pkg pkg
-
 # Build the controller binary
 ARG TARGETARCH
 ARG LDFLAGS
@@ -25,7 +23,7 @@ COPY --from=builder /app/bin/controller /controller
 
 USER 65532:65532
 
-LABEL org.opencontainers.image.source=https://github.com/agentregistry-dev/agentregistry
+LABEL org.opencontainers.image.source=https://github.com/den-vasyliev/agentregistry-inventory
 LABEL org.opencontainers.image.description="Agent Registry Controller"
 LABEL org.opencontainers.image.authors="Agent Registry Creators"
 
