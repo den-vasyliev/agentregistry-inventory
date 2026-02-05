@@ -28,7 +28,7 @@ LDFLAGS := \
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 LOCALOS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev dev-ui ko-controller demo demo-stop
+.PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev demo-stop
 
 ##@ General
 
@@ -72,7 +72,7 @@ build-controller: ## Build controller binary only
 
 build: build-ui build-controller ## Build both UI and controller
 
-run: build ## Build and run controller and ui locally
+run: build ## Build and run controller and ui with your kubeconfig
 	@echo "Running controller..."
 	@cd ui && npm install && NEXT_PUBLIC_DISABLE_AUTH=true npm run dev&
 	@echo "Starting Next.js dev server..."
@@ -81,7 +81,7 @@ run: build ## Build and run controller and ui locally
 
 demo-stop: ## Stop demo environment
 	@echo "Stopping demo environment..."
-	@pkill -f "cmd/demo/main.go" 2>/dev/null || true
+	@pkill -f "TestDevEnv" 2>/dev/null || true
 	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 	@pkill -f "next dev" 2>/dev/null || true
 	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
@@ -90,20 +90,6 @@ demo-stop: ## Stop demo environment
 	@rm -f demo-kubeconfig.yaml /tmp/demo-kubeconfig-*.yaml 2>/dev/null || true
 	@echo "Demo stopped"
 
-dev-ui: ## Run Next.js UI dev server (for UI development)
-	@echo "Starting Next.js dev server..."
-	@cd ui && npm install && npm run dev
-
-dev-down: ## Stop all running controller and UI processes
-	@echo "Stopping controller and UI processes..."
-	@pkill -f "go run.*cmd/controller/main.go" || true
-	@pkill -f "bin/controller" || true
-	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-	@lsof -ti:8081 | xargs kill -9 2>/dev/null || true
-	@lsof -ti:8082 | xargs kill -9 2>/dev/null || true
-	@pkill -f "next dev" || true
-	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-	@echo "✓ All dev processes stopped"
 
 ##@ Testing & Quality
 
@@ -118,7 +104,7 @@ test: envtest ## Run all tests with coverage
 		./internal/runtime/translation/kagent
 	@go tool cover -func=coverage.out | grep total:
 
-dev: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
+dev: envtest ## Start interactive dev environment with envtest and sample data
 	@echo "═══════════════════════════════════════════════════════════════════"
 	@echo "  Starting dev environment..."
 	@echo "═══════════════════════════════════════════════════════════════════"
@@ -135,6 +121,7 @@ dev: envtest ## Start interactive dev environment (envtest + real controller + H
 	@echo "  Press Ctrl+C to stop"
 	@echo "═══════════════════════════════════════════════════════════════════"
 	@echo ""
+	@cd ui && npm install && NEXT_PUBLIC_DISABLE_AUTH=true npm run dev&
 	@DEVENV=1 KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
 		go test -run TestDevEnv -timeout 30m -v ./test/devenv/
 
@@ -159,7 +146,7 @@ fmt: ## Format Go code
 
 ##@ Container Images
 
-ko-controller: build-ui ## Build and push controller image using ko
+push: build-ui ## Build and push controller image
 	@echo "Building and pushing controller image..."
 	@echo "Version: $(VERSION)"
 	@echo "Base Version: $(BASE_VERSION)"
@@ -180,8 +167,6 @@ image: build ## Build container image locally
 	@mkdir -p bin/images
 	@KO_DOCKER_REPO=ko.local ko build --oci-layout-path=bin/images/controller cmd/controller/main.go
 	@echo "✓ Image built: bin/images/controller"
-
-push: ko-controller ## Alias for ko-controller (build and push to registry)
 
 ##@ Release
 
