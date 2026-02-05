@@ -185,17 +185,6 @@ func (h *SkillHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 		}, func(ctx context.Context, input *SkillDetailInput) (*Response[SkillListResponse], error) {
 			return h.listSkillVersions(ctx, input)
 		})
-
-		// Delete skill version
-		huma.Register(api, huma.Operation{
-			OperationID: "delete-skill-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodDelete,
-			Path:        pathPrefix + "/skills/{skillName}/versions/{version}",
-			Summary:     "Delete skill version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *SkillVersionDetailInput) (*Response[EmptyResponse], error) {
-			return h.deleteSkillVersion(ctx, input)
-		})
 	}
 }
 
@@ -386,32 +375,6 @@ func (h *SkillHandler) listSkillVersions(ctx context.Context, input *SkillDetail
 				Count: len(skills),
 			},
 		},
-	}, nil
-}
-
-func (h *SkillHandler) deleteSkillVersion(ctx context.Context, input *SkillVersionDetailInput) (*Response[EmptyResponse], error) {
-	skillName, err := url.PathUnescape(input.SkillName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid skill name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	crName := GenerateCRName(skillName, version)
-	skill := &agentregistryv1alpha1.SkillCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-		},
-	}
-
-	if err := h.client.Delete(ctx, skill); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to delete skill", err)
-	}
-
-	return &Response[EmptyResponse]{
-		Body: EmptyResponse{Message: "Skill deleted successfully"},
 	}, nil
 }
 

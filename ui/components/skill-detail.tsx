@@ -61,6 +61,29 @@ export function SkillDetail({ skill, onClose }: SkillDetailProps) {
 
   const owner = getOwner()
 
+  const isRedundantWebsite = () => {
+    if (!skillData.websiteUrl || !skillData.repository?.url) return false
+    const normalize = (input: string) => input.replace(/\/+$/, "")
+    const repoUrl = normalize(skillData.repository.url)
+    const websiteUrl = normalize(skillData.websiteUrl)
+
+    if (repoUrl === websiteUrl) return true
+
+    try {
+      const repo = new URL(repoUrl)
+      const website = new URL(websiteUrl)
+      if (website.host !== repo.host) return false
+      if (website.host === "github.com") {
+        return website.pathname.startsWith(repo.pathname)
+      }
+    } catch {
+      return false
+    }
+    return false
+  }
+
+  const showWebsiteLink = skillData.websiteUrl && !isRedundantWebsite()
+
   // Handle ESC key to close
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -154,7 +177,7 @@ export function SkillDetail({ skill, onClose }: SkillDetailProps) {
             </div>
           )}
 
-          {skillData.websiteUrl && (
+          {showWebsiteLink && (
             <a
               href={skillData.websiteUrl}
               target="_blank"
@@ -306,4 +329,3 @@ export function SkillDetail({ skill, onClose }: SkillDetailProps) {
     </div>
   )
 }
-

@@ -122,17 +122,6 @@ func (h *ModelHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 		}, func(ctx context.Context, input *CreateModelInput) (*Response[ModelResponse], error) {
 			return h.createModel(ctx, input)
 		})
-
-		// Delete model
-		huma.Register(api, huma.Operation{
-			OperationID: "delete-model" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodDelete,
-			Path:        pathPrefix + "/models/{modelName}",
-			Summary:     "Delete model",
-			Tags:        tags,
-		}, func(ctx context.Context, input *ModelDetailInput) (*Response[EmptyResponse], error) {
-			return h.deleteModel(ctx, input)
-		})
 	}
 }
 
@@ -227,28 +216,6 @@ func (h *ModelHandler) createModel(ctx context.Context, input *CreateModelInput)
 
 	return &Response[ModelResponse]{
 		Body: h.convertToModelResponse(model),
-	}, nil
-}
-
-func (h *ModelHandler) deleteModel(ctx context.Context, input *ModelDetailInput) (*Response[EmptyResponse], error) {
-	modelName, err := url.PathUnescape(input.ModelName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid model name encoding", err)
-	}
-
-	crName := SanitizeK8sName(modelName)
-	model := &agentregistryv1alpha1.ModelCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-		},
-	}
-
-	if err := h.client.Delete(ctx, model); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to delete model", err)
-	}
-
-	return &Response[EmptyResponse]{
-		Body: EmptyResponse{Message: "Model deleted successfully"},
 	}, nil
 }
 

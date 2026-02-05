@@ -3,6 +3,7 @@ module github.com/agentregistry-dev/agentregistry
 go 1.25.1
 
 require (
+	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/go-logr/zerologr v1.2.3
 	github.com/kagent-dev/kagent/go v0.0.0-20251107200645-686008ea62ac
@@ -37,6 +38,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect

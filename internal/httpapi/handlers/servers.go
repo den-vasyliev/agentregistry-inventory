@@ -219,17 +219,6 @@ func (h *ServerHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin 
 		}, func(ctx context.Context, input *ServerDetailInput) (*Response[ServerListResponse], error) {
 			return h.listServerVersions(ctx, input)
 		})
-
-		// Delete server version
-		huma.Register(api, huma.Operation{
-			OperationID: "delete-server-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodDelete,
-			Path:        pathPrefix + "/servers/{serverName}/versions/{version}",
-			Summary:     "Delete MCP server version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *ServerVersionDetailInput) (*Response[EmptyResponse], error) {
-			return h.deleteServerVersion(ctx, input)
-		})
 	}
 }
 
@@ -563,32 +552,6 @@ func (h *ServerHandler) listServerVersions(ctx context.Context, input *ServerDet
 				Count: len(servers),
 			},
 		},
-	}, nil
-}
-
-func (h *ServerHandler) deleteServerVersion(ctx context.Context, input *ServerVersionDetailInput) (*Response[EmptyResponse], error) {
-	serverName, err := url.PathUnescape(input.ServerName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid server name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	crName := GenerateCRName(serverName, version)
-	server := &agentregistryv1alpha1.MCPServerCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-		},
-	}
-
-	if err := h.client.Delete(ctx, server); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to delete server", err)
-	}
-
-	return &Response[EmptyResponse]{
-		Body: EmptyResponse{Message: "Server deleted successfully"},
 	}, nil
 }
 

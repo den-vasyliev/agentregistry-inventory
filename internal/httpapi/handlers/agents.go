@@ -201,17 +201,6 @@ func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 		}, func(ctx context.Context, input *AgentDetailInput) (*Response[AgentListResponse], error) {
 			return h.listAgentVersions(ctx, input)
 		})
-
-		// Delete agent version
-		huma.Register(api, huma.Operation{
-			OperationID: "delete-agent-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodDelete,
-			Path:        pathPrefix + "/agents/{agentName}/versions/{version}",
-			Summary:     "Delete agent version",
-			Tags:        tags,
-		}, func(ctx context.Context, input *AgentVersionDetailInput) (*Response[EmptyResponse], error) {
-			return h.deleteAgentVersion(ctx, input)
-		})
 	}
 }
 
@@ -506,32 +495,6 @@ func (h *AgentHandler) listAgentVersions(ctx context.Context, input *AgentDetail
 				Count: len(agents),
 			},
 		},
-	}, nil
-}
-
-func (h *AgentHandler) deleteAgentVersion(ctx context.Context, input *AgentVersionDetailInput) (*Response[EmptyResponse], error) {
-	agentName, err := url.PathUnescape(input.AgentName)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid agent name encoding", err)
-	}
-	version, err := url.PathUnescape(input.Version)
-	if err != nil {
-		return nil, huma.Error400BadRequest("Invalid version encoding", err)
-	}
-
-	crName := GenerateCRName(agentName, version)
-	agent := &agentregistryv1alpha1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-		},
-	}
-
-	if err := h.client.Delete(ctx, agent); err != nil {
-		return nil, huma.Error500InternalServerError("Failed to delete agent", err)
-	}
-
-	return &Response[EmptyResponse]{
-		Body: EmptyResponse{Message: "Agent deleted successfully"},
 	}, nil
 }
 

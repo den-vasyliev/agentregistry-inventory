@@ -3,23 +3,20 @@
 import { ModelResponse } from "@/lib/admin-api"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Trash2, Brain, CheckCircle2, XCircle, Server } from "lucide-react"
+import { Calendar, Tag, Brain, CheckCircle2, XCircle, Server } from "lucide-react"
 
 interface ModelCardProps {
   model: ModelResponse
-  onDelete?: (model: ModelResponse) => void
-  showDelete?: boolean
   onClick?: () => void
 }
 
-export function ModelCard({ model, onDelete, showDelete = true, onClick }: ModelCardProps) {
+export function ModelCard({ model, onClick }: ModelCardProps) {
   const { model: modelData, _meta } = model
 
   const handleClick = () => {
@@ -115,22 +112,6 @@ export function ModelCard({ model, onDelete, showDelete = true, onClick }: Model
               {getStatusBadge()}
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1 ml-2">
-          {showDelete && onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(model)
-              }}
-              title="Remove from registry"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
         </div>
       </div>
 

@@ -74,7 +74,7 @@ build: build-ui build-controller ## Build both UI and controller
 
 run: build ## Build and run controller and ui locally
 	@echo "Running controller..."
-	@cd ui && npm install && npm run dev&
+	@cd ui && npm install && NEXT_PUBLIC_DISABLE_AUTH=true npm run dev&
 	@echo "Starting Next.js dev server..."
 	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller --log-level=debug
 

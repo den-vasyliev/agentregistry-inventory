@@ -10,20 +10,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Calendar, Tag, Bot, Trash2, Container, Cpu, Brain, Github, BadgeCheck, Play, StopCircle, CheckCircle2, XCircle } from "lucide-react"
+import { Calendar, Tag, Bot, Container, Cpu, Brain, Github, BadgeCheck, Play, StopCircle, CheckCircle2, XCircle } from "lucide-react"
 
 interface AgentCardProps {
   agent: AgentResponse
-  onDelete?: (agent: AgentResponse) => void
   onDeploy?: (agent: AgentResponse) => void
   onUndeploy?: (agent: AgentResponse) => void
-  showDelete?: boolean
   showDeploy?: boolean
   showExternalLinks?: boolean
   onClick?: () => void
 }
 
-export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = true, showDeploy = true, showExternalLinks = true, onClick }: AgentCardProps) {
+export function AgentCard({ agent, onDeploy, onUndeploy, showDeploy = true, showExternalLinks = true, onClick }: AgentCardProps) {
   const { agent: agentData, _meta } = agent
 
   // Get deployment status
@@ -177,21 +175,6 @@ export function AgentCard({ agent, onDelete, onDeploy, onUndeploy, showDelete = 
                 <p>Undeploy this agent</p>
               </TooltipContent>
             </Tooltip>
-          )}
-          {/* Delete button - only for managed (non-external) resources */}
-          {!isExternal && showDelete && onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(agent)
-              }}
-              title="Remove from registry"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
           )}
         </div>
       </div>

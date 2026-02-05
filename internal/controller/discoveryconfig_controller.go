@@ -456,6 +456,15 @@ func (r *DiscoveryConfigReconciler) handleMCPServerAdd(
 	mcpServer *kmcpv1alpha1.MCPServer,
 	env *agentregistryv1alpha1.Environment,
 ) error {
+	// Skip resources managed by Agent Registry to avoid duplicate catalog entries
+	if managedBy, ok := mcpServer.Labels["agentregistry.dev/managed-by"]; ok && managedBy == "agentregistry" {
+		r.Logger.Debug().
+			Str("mcpserver", mcpServer.Name).
+			Str("namespace", mcpServer.Namespace).
+			Msg("Skipping MCPServer managed by Agent Registry")
+		return nil
+	}
+
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateCatalogName(mcpServer.Namespace, mcpServer.Name)
 	namespace := config.GetNamespace()
@@ -614,6 +623,15 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	agent *kagentv1alpha2.Agent,
 	env *agentregistryv1alpha1.Environment,
 ) error {
+	// Skip resources managed by Agent Registry to avoid duplicate catalog entries
+	if managedBy, ok := agent.Labels["agentregistry.dev/managed-by"]; ok && managedBy == "agentregistry" {
+		r.Logger.Debug().
+			Str("agent", agent.Name).
+			Str("namespace", agent.Namespace).
+			Msg("Skipping Agent managed by Agent Registry")
+		return nil
+	}
+
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateAgentCatalogName(agent.Namespace, agent.Name)
 	namespace := config.GetNamespace()
@@ -705,6 +723,15 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 	model *kagentv1alpha2.ModelConfig,
 	env *agentregistryv1alpha1.Environment,
 ) error {
+	// Skip resources managed by Agent Registry to avoid duplicate catalog entries
+	if managedBy, ok := model.Labels["agentregistry.dev/managed-by"]; ok && managedBy == "agentregistry" {
+		r.Logger.Debug().
+			Str("modelconfig", model.Name).
+			Str("namespace", model.Namespace).
+			Msg("Skipping ModelConfig managed by Agent Registry")
+		return nil
+	}
+
 	// Catalog name: namespace-name (environment/cluster info in labels)
 	catalogName := generateModelCatalogName(model.Namespace, model.Name)
 	namespace := config.GetNamespace()

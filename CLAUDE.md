@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Git Workflow
 
-**CRITICAL: NO commits or pushes until ALL tests pass.** Run `make test` first. If any test fails, fix it before committing. NEVER commit or push untested code.
+**CRITICAL: Pre-commit checklist - ALWAYS run these commands before EVERY commit:**
+
+1. `make fmt` - Format all code (gofmt, prettier)
+2. `make lint` - Check for linting issues
+3. `make test` - Run all tests
+
+If ANY of these fail, fix the issues before committing. NEVER commit or push code that fails formatting, linting, or tests.
 
 **CRITICAL: NEVER push before user tests!** After committing, WAIT for the user to test and explicitly ask to push.
 

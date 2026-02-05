@@ -102,45 +102,6 @@ func TestServerHandler_CreateServer_InvalidName(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid server name")
 }
 
-func TestServerHandler_DeleteServer(t *testing.T) {
-	c := setupTestClient(t)
-	ctx := context.Background()
-	logger := zerolog.Nop()
-
-	handler := NewServerHandler(c, nil, logger)
-
-	// Create server to delete - no namespace for cluster-scoped resources
-	server := &agentregistryv1alpha1.MCPServerCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "delete-test-server-1-0-0",
-		},
-		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-			Name:    "delete-test-server",
-			Version: "1.0.0",
-		},
-	}
-	require.NoError(t, c.Create(ctx, server))
-
-	// Verify server exists first
-	existing := &agentregistryv1alpha1.MCPServerCatalog{}
-	err := c.Get(ctx, client.ObjectKey{Name: "delete-test-server-1-0-0"}, existing)
-	require.NoError(t, err)
-
-	// Delete server
-	input := &ServerVersionDetailInput{
-		ServerName: "delete-test-server",
-		Version:    "1.0.0",
-	}
-	_, err = handler.deleteServerVersion(ctx, input)
-	require.NoError(t, err)
-
-	// Verify server was deleted
-	deleted := &agentregistryv1alpha1.MCPServerCatalog{}
-	err = c.Get(ctx, client.ObjectKey{Name: "delete-test-server-1-0-0"}, deleted)
-	require.Error(t, err)
-	assert.True(t, client.IgnoreNotFound(err) == nil)
-}
-
 func TestSanitizeK8sName(t *testing.T) {
 	tests := []struct {
 		input    string

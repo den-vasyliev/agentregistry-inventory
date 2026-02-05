@@ -10,21 +10,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Trash2, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
-  onDelete?: (server: ServerResponse) => void
   onDeploy?: (server: ServerResponse) => void
   onUndeploy?: (server: ServerResponse) => void
-  showDelete?: boolean
   showDeploy?: boolean
   showExternalLinks?: boolean
   onClick?: () => void
   versionCount?: number
 }
 
-export function ServerCard({ server, onDelete, onDeploy, onUndeploy, showDelete = true, showDeploy = true, showExternalLinks = true, onClick, versionCount }: ServerCardProps) {
+export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, showExternalLinks = true, onClick, versionCount }: ServerCardProps) {
   const { server: serverData, _meta } = server
 
   // Get deployment status
@@ -226,21 +224,6 @@ export function ServerCard({ server, onDelete, onDeploy, onUndeploy, showDelete 
               title="Visit website"
             >
               <Globe className="h-4 w-4" />
-            </Button>
-          )}
-          {/* Delete button - only for managed (non-external) resources */}
-          {!isExternal && showDelete && onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(server)
-              }}
-              title="Remove from registry"
-            >
-              <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>
