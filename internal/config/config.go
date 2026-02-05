@@ -43,7 +43,6 @@ func IsAuthEnabled() bool {
 	return os.Getenv("AGENTREGISTRY_DISABLE_AUTH") != "true"
 }
 
-
 // GetOIDCIssuer returns the OIDC issuer URL for JWT validation.
 func GetOIDCIssuer() string {
 	return os.Getenv("AGENTREGISTRY_OIDC_ISSUER")
