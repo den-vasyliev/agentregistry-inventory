@@ -15,8 +15,8 @@ ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)
 NEXT_VERSION := $(shell echo $(BASE_VERSION) | awk -F. '{$$3=$$3+1; print $$1"."$$2"."$$3}')
 VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)
 else
-# On a tag - use the tag as-is
-VERSION ?= $(LAST_TAG)
+# On a tag - use the tag as-is (strip v prefix if present)
+VERSION ?= $(shell echo $(LAST_TAG) | sed 's/^v//')
 endif
 
 LDFLAGS := \
@@ -156,14 +156,13 @@ push: build-ui ## Build and push controller image
 	@echo "Base Version: $(BASE_VERSION)"
 	@echo "Git Commit: $(GIT_COMMIT)"
 	@KO_DOCKER_REPO=$(REGISTRY) ko build \
-		--tags=$(VERSION),$(NEXT_VERSION),latest \
+		--tags=$(VERSION),latest \
 		--bare \
 		--image-label org.opencontainers.image.version=$(VERSION) \
 		--image-label org.opencontainers.image.revision=$(GIT_COMMIT) \
 		cmd/controller/main.go
 	@echo "✓ Images pushed:"
 	@echo "  $(REGISTRY):$(VERSION)"
-	@echo "  $(REGISTRY):$(NEXT_VERSION)"
 	@echo "  $(REGISTRY):latest"
 
 image: build ## Build container image locally
