@@ -102,29 +102,6 @@ func TestServerHandler_CreateServer_InvalidName(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid server name")
 }
 
-func TestSanitizeK8sName(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"hello-world", "hello-world"},
-		{"HelloWorld", "helloworld"},
-		{"hello_world", "hello-world"},
-		{"hello/world", "hello-world"},
-		{"hello world", "hello-world"},
-		{"---hello---", "hello"},
-		{"", "resource"},
-		{"!!!", "resource"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := SanitizeK8sName(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestGenerateCRName(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
@@ -591,12 +592,12 @@ func parseURLComponents(rawURL string) (host string, port uint32, path string) {
 
 	// Strip protocol
 	urlStr := rawURL
-	if idx := indexOf(urlStr, "://"); idx >= 0 {
+	if idx := strings.Index(urlStr, "://"); idx >= 0 {
 		urlStr = urlStr[idx+3:]
 	}
 
 	// Split host and path
-	pathIdx := indexOf(urlStr, "/")
+	pathIdx := strings.Index(urlStr, "/")
 	if pathIdx >= 0 {
 		path = urlStr[pathIdx:]
 		urlStr = urlStr[:pathIdx]
@@ -605,7 +606,7 @@ func parseURLComponents(rawURL string) (host string, port uint32, path string) {
 	}
 
 	// Split host and port
-	portIdx := indexOf(urlStr, ":")
+	portIdx := strings.Index(urlStr, ":")
 	if portIdx >= 0 {
 		host = urlStr[:portIdx]
 		portStr := urlStr[portIdx+1:]
@@ -618,15 +619,6 @@ func parseURLComponents(rawURL string) (host string, port uint32, path string) {
 	}
 
 	return host, port, path
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }
 
 func getImageAndCommand(registryType, runtimeHint string) (image, cmd string) {

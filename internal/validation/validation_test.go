@@ -139,6 +139,8 @@ func TestSanitizeName(t *testing.T) {
 		{"with slashes", "my/resource", "my-resource"},
 		{"empty becomes resource", "", "resource"},
 		{"multiple special chars", "a@@b##c", "a-b-c"},
+		{"leading and trailing dashes trimmed", "---hello---", "hello"},
+		{"all special chars", "!!!", "resource"},
 	}
 
 	for _, tt := range tests {

@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/validation"
 )
 
 // Response is a generic response wrapper
@@ -37,25 +37,7 @@ type ListMetadata struct {
 
 // SanitizeK8sName converts a name to a valid Kubernetes resource name
 func SanitizeK8sName(name string) string {
-	name = strings.ToLower(name)
-	var b strings.Builder
-	prevDash := false
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			prevDash = false
-			continue
-		}
-		if !prevDash {
-			b.WriteRune('-')
-			prevDash = true
-		}
-	}
-	result := strings.Trim(b.String(), "-")
-	if result == "" {
-		return "resource"
-	}
-	return result
+	return validation.SanitizeName(name)
 }
 
 // GenerateCRName generates a CR name from name and version
