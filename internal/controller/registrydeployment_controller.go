@@ -669,16 +669,20 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 			}
 
 			// Check Ready condition - if exists and True, running
+			ready := false
 			for _, cond := range mcp.Status.Conditions {
 				if cond.Type == "Ready" {
 					if cond.Status == metav1.ConditionTrue {
-						continue // This resource is ready, check next
+						ready = true
+						break // This resource is ready, check next resource
 					}
 					return false, cond.Message // Not ready, use condition message
 				}
 			}
-			// No Ready condition yet
-			return false, "Pending"
+			// If no Ready condition found or Ready=False
+			if !ready {
+				return false, "Pending"
+			}
 
 		case "RemoteMCPServer":
 			var remoteMCP kagentv1alpha2.RemoteMCPServer
@@ -691,16 +695,20 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 			}
 
 			// Check Ready condition - if exists and True, running
+			ready := false
 			for _, cond := range remoteMCP.Status.Conditions {
 				if cond.Type == "Ready" {
 					if cond.Status == metav1.ConditionTrue {
-						continue // This resource is ready, check next
+						ready = true
+						break // This resource is ready, check next resource
 					}
 					return false, cond.Message // Not ready, use condition message
 				}
 			}
-			// No Ready condition yet
-			return false, "Pending"
+			// If no Ready condition found or Ready=False
+			if !ready {
+				return false, "Pending"
+			}
 
 		case "Agent":
 			var agent kagentv1alpha2.Agent
@@ -713,16 +721,20 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 			}
 
 			// Check Ready condition - if exists and True, running
+			ready := false
 			for _, cond := range agent.Status.Conditions {
 				if cond.Type == "Ready" {
 					if cond.Status == metav1.ConditionTrue {
-						continue // This resource is ready, check next
+						ready = true
+						break // This resource is ready, check next resource
 					}
 					return false, cond.Message // Not ready, use condition message
 				}
 			}
-			// No Ready condition yet
-			return false, "Pending"
+			// If no Ready condition found or Ready=False
+			if !ready {
+				return false, "Pending"
+			}
 
 		case "ConfigMap":
 			var cm corev1.ConfigMap
