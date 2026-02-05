@@ -1,9 +1,11 @@
 // Admin API client for the registry management UI
 // This client communicates with the /admin/v0 API endpoints
 
-// In development mode with Next.js dev server, use relative URL to leverage proxy
-// In production (static export), API_BASE_URL is set via environment variable or defaults to current origin
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.origin) || ''
+// Use the UI proxy for authenticated deployments unless we are doing a static export build.
+const API_BASE_URL =
+  process.env.NEXT_BUILD_EXPORT === "true"
+    ? (process.env.NEXT_PUBLIC_API_URL || "")
+    : "/api/registry"
 
 // Retry configuration
 const DEFAULT_RETRIES = 3
@@ -241,6 +243,9 @@ export interface SkillResponse {
         }
       }
     }
+    deployment?: DeploymentInfo
+    source?: string
+    isDiscovered?: boolean
   }
 }
 
@@ -541,44 +546,6 @@ class AdminApiClient {
     }
   }
 
-  // Delete a server
-  async deleteServer(serverName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(serverName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers/${encodedName}/versions/${encodedVersion}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to delete server')
-    }
-  }
-
-  // Delete an agent
-  async deleteAgent(agentName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(agentName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to delete agent')
-    }
-  }
-
-  // Delete a skill
-  async deleteSkill(skillName: string, version: string): Promise<void> {
-    const encodedName = encodeURIComponent(skillName)
-    const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to delete skill')
-    }
-  }
 
   // Get registry statistics
   async getStats(): Promise<ServerStats> {
@@ -832,18 +799,6 @@ class AdminApiClient {
     return response.json()
   }
 
-  // Delete a model
-  async deleteModel(modelName: string): Promise<void> {
-    const encodedName = encodeURIComponent(modelName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Failed to delete model')
-    }
-  }
-
   // ===== Import APIs =====
 
   // Import skills from an external source
@@ -1000,4 +955,3 @@ export const adminApiClient = new AdminApiClient()
 export function createAuthenticatedClient(accessToken: string | null | undefined): AdminApiClient {
   return new AdminApiClient(API_BASE_URL, () => accessToken || null)
 }
-

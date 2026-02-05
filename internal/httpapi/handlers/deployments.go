@@ -261,7 +261,7 @@ func (h *DeploymentHandler) getDeployment(ctx context.Context, input *Deployment
 	}
 
 	var deployment agentregistryv1alpha1.RegistryDeployment
-	if err := h.cache.Get(ctx, client.ObjectKey{Name: deploymentName}, &deployment); err != nil {
+	if err := h.cache.Get(ctx, client.ObjectKey{Namespace: "agentregistry", Name: deploymentName}, &deployment); err != nil {
 		return nil, huma.Error404NotFound("Deployment not found")
 	}
 
@@ -278,16 +278,16 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 	// Always use kubernetes runtime
 	runtime := agentregistryv1alpha1.RuntimeTypeKubernetes
 
-	// Default namespace if not provided - use agentregistry namespace
-	namespace := input.Body.Namespace
-	if namespace == "" {
-		namespace = "agentregistry"
+	// Target namespace for the deployed resources (MCPServer, Agent, etc.)
+	targetNamespace := input.Body.Namespace
+	if targetNamespace == "" {
+		targetNamespace = "agentregistry"
 	}
 
 	deployment := &agentregistryv1alpha1.RegistryDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      crName,
-			Namespace: namespace, // RegistryDeployment is namespaced
+			Namespace: "agentregistry", // RegistryDeployment CR lives in agentregistry (controller watch namespace)
 			Labels: map[string]string{
 				"agentregistry.dev/resource-name": SanitizeK8sName(input.Body.ResourceName),
 				"agentregistry.dev/version":       SanitizeK8sName(input.Body.Version),
@@ -302,7 +302,7 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 			Runtime:      runtime,
 			PreferRemote: input.Body.PreferRemote,
 			Config:       input.Body.Config,
-			Namespace:    namespace, // Target namespace for deployed resources
+			Namespace:    targetNamespace, // Target namespace for deployed resources
 		},
 	}
 
@@ -327,7 +327,7 @@ func (h *DeploymentHandler) updateDeploymentConfig(ctx context.Context, input *U
 	}
 
 	var deployment agentregistryv1alpha1.RegistryDeployment
-	if err := h.client.Get(ctx, client.ObjectKey{Name: deploymentName}, &deployment); err != nil {
+	if err := h.client.Get(ctx, client.ObjectKey{Namespace: "agentregistry", Name: deploymentName}, &deployment); err != nil {
 		return nil, huma.Error404NotFound("Deployment not found")
 	}
 
@@ -357,7 +357,8 @@ func (h *DeploymentHandler) deleteDeployment(ctx context.Context, input *Deploym
 
 	deployment := &agentregistryv1alpha1.RegistryDeployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: deploymentName,
+			Name:      deploymentName,
+			Namespace: "agentregistry",
 		},
 	}
 

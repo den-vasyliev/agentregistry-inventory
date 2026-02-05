@@ -9,18 +9,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Trash2, Zap, BadgeCheck, ShieldCheck, CheckCircle2 } from "lucide-react"
+import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Zap, BadgeCheck, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface SkillCardProps {
   skill: SkillResponse
-  onDelete?: (skill: SkillResponse) => void
-  showDelete?: boolean
   showExternalLinks?: boolean
   onClick?: () => void
 }
 
-export function SkillCard({ skill, onDelete, showDelete = true, showExternalLinks = true, onClick }: SkillCardProps) {
+export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCardProps) {
   const { skill: skillData, _meta } = skill
 
   // Extract metadata
@@ -147,20 +145,6 @@ export function SkillCard({ skill, onDelete, showDelete = true, showExternalLink
               title="Visit website"
             >
               <Globe className="h-4 w-4" />
-            </Button>
-          )}
-          {showDelete && onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(skill)
-              }}
-              title="Remove from registry"
-            >
-              <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>

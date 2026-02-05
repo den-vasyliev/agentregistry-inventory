@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,7 +50,6 @@ import {
   Brain,
   GitPullRequest,
   Rocket,
-  Trash2,
   ShieldCheck,
   BadgeCheck,
 } from "lucide-react"
@@ -64,7 +64,9 @@ interface GroupedServer extends ServerResponse {
 type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
 
 export default function AdminPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH !== "false"
   const [activeTab, setActiveTab] = useState("servers")
   const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<DeploymentStatus>("all")
   const [servers, setServers] = useState<ServerResponse[]>([])
@@ -88,6 +90,12 @@ export default function AdminPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
 
+  useEffect(() => {
+    if (!disableAuth && status === "unauthenticated") {
+      router.push("/auth/signin")
+    }
+  }, [status, router, disableAuth])
+
   // Deploy/Undeploy dialog state
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
   const [undeployDialogOpen, setUndeployDialogOpen] = useState(false)
@@ -100,11 +108,6 @@ export default function AdminPage() {
     { name: "agentregistry", namespace: "agentregistry" }
   ])
   const [loadingEnvironments, setLoadingEnvironments] = useState(false)
-
-  // Delete dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<{ item: ServerResponse | AgentResponse | SkillResponse | ModelResponse, type: string } | null>(null)
-  const [deleting, setDeleting] = useState(false)
 
   // Pagination state
   const [currentPageServers, setCurrentPageServers] = useState(1)
@@ -345,8 +348,9 @@ export default function AdminPage() {
     try {
       const envs = await adminApiClient.listEnvironments()
       if (envs && envs.length > 0) {
-        setEnvironments(envs)
-        setDeployNamespace(envs[0].namespace)
+        const unique = envs.filter((env, idx, arr) => arr.findIndex(e => e.namespace === env.namespace) === idx)
+        setEnvironments(unique)
+        setDeployNamespace(unique[0].namespace)
       }
     } catch (err) {
       console.error("Failed to fetch environments:", err)
@@ -401,44 +405,6 @@ export default function AdminPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to undeploy resource')
     } finally {
       setUndeploying(false)
-    }
-  }
-
-  // Handle delete
-  const handleDelete = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse, type: string) => {
-    setItemToDelete({ item, type })
-    setDeleteDialogOpen(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!itemToDelete) return
-
-    try {
-      setDeleting(true)
-      const { item, type } = itemToDelete
-
-      if (type === 'server') {
-        const server = item as ServerResponse
-        await adminApiClient.deleteServer(server.server.name, server.server.version)
-      } else if (type === 'agent') {
-        const agent = item as AgentResponse
-        await adminApiClient.deleteAgent(agent.agent.name, agent.agent.version)
-      } else if (type === 'skill') {
-        const skill = item as SkillResponse
-        await adminApiClient.deleteSkill(skill.skill.name, skill.skill.version)
-      } else if (type === 'model') {
-        const model = item as ModelResponse
-        await adminApiClient.deleteModel(model.model.name)
-      }
-
-      setDeleteDialogOpen(false)
-      setItemToDelete(null)
-      toast.success(`Successfully deleted resource`)
-      await fetchData() // Refresh data
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete resource')
-    } finally {
-      setDeleting(false)
     }
   }
 
@@ -665,42 +631,6 @@ export default function AdminPage() {
               disabled={undeploying}
             >
               {undeploying ? 'Undeploying...' : 'Undeploy'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Resource</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>
-                {itemToDelete?.type === 'server' ? (itemToDelete.item as ServerResponse).server.name :
-                 itemToDelete?.type === 'agent' ? (itemToDelete.item as AgentResponse).agent.name :
-                 itemToDelete?.type === 'skill' ? (itemToDelete.item as SkillResponse).skill.name :
-                 itemToDelete?.type === 'model' ? (itemToDelete.item as ModelResponse).model.name : ''}
-              </strong>?
-              <br />
-              <br />
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -968,7 +898,6 @@ export default function AdminPage() {
                           onClick={() => handleServerClick(server)}
                           onDeploy={(s) => handleDeploy(s, 'server')}
                           onUndeploy={(s) => handleUndeploy(s, 'server')}
-                          onDelete={(s) => handleDelete(s, 'server')}
                         />
                       ))}
                   </div>
@@ -1049,7 +978,6 @@ export default function AdminPage() {
                           key={`${skill.skill.name}-${skill.skill.version}-${index}`}
                           skill={skill}
                           onClick={() => setSelectedSkill(skill)}
-                          onDelete={(s) => handleDelete(s, 'skill')}
                         />
                       ))}
                   </div>
@@ -1132,7 +1060,6 @@ export default function AdminPage() {
                           onClick={() => setSelectedAgent(agent)}
                           onDeploy={(a) => handleDeploy(a, 'agent')}
                           onUndeploy={(a) => handleUndeploy(a, 'agent')}
-                          onDelete={(a) => handleDelete(a, 'agent')}
                         />
                       ))}
                   </div>
@@ -1203,7 +1130,6 @@ export default function AdminPage() {
                           key={`${model.model.name}-${index}`}
                           model={model}
                           onClick={() => setSelectedModel(model)}
-                          onDelete={(m) => handleDelete(m, 'model')}
                         />
                       ))}
                   </div>

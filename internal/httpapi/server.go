@@ -35,6 +35,7 @@ type Server struct {
 	api           huma.API
 	authEnabled   bool
 	allowedTokens map[string]bool // Simple token allowlist for now
+	oidcVerifier  *OIDCVerifier
 }
 
 // NewServer creates a new HTTP API server
@@ -61,6 +62,9 @@ func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Serve
 
 	// Load allowed tokens from Kubernetes Secret
 	s.loadTokensFromSecret()
+
+	// Initialize OIDC verifier (optional)
+	s.initOIDCVerifier()
 
 	s.registerRoutes()
 
@@ -103,6 +107,54 @@ func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 
 	// Token valid, continue
 	next(ctx)
+}
+
+// deployAuthMiddleware enforces OIDC auth for deploy write endpoints.
+func (s *Server) deployAuthMiddleware(ctx huma.Context, next func(huma.Context)) {
+	if !s.authEnabled {
+		next(ctx)
+		return
+	}
+
+	if s.oidcVerifier == nil {
+		ctx.SetStatus(http.StatusUnauthorized)
+		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "OIDC not configured")
+		return
+	}
+
+	if !s.isDeployWriteRequest(ctx) {
+		next(ctx)
+		return
+	}
+
+	if !s.oidcVerifier.RequireAdminGroup(ctx) {
+		return
+	}
+
+	next(ctx)
+}
+
+func (s *Server) isDeployWriteRequest(ctx huma.Context) bool {
+	path := ctx.URL().Path
+	if !strings.HasPrefix(path, "/admin/v0/deployments") {
+		return false
+	}
+
+	switch ctx.Method() {
+	case http.MethodPost, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) initOIDCVerifier() {
+	verifier, err := NewOIDCVerifier(context.Background(), s.api, s.logger)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("OIDC verifier not enabled")
+		return
+	}
+	s.oidcVerifier = verifier
 }
 
 // loadTokensFromSecret loads API tokens from Kubernetes Secret
@@ -160,7 +212,7 @@ func (s *Server) registerRoutes() {
 
 	// Register admin API endpoints with auth middleware
 	if s.authEnabled {
-		s.api.UseMiddleware(s.authMiddleware)
+		s.api.UseMiddleware(s.deployAuthMiddleware)
 	}
 	serverHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	agentHandler.RegisterRoutes(s.api, "/admin/v0", true)
