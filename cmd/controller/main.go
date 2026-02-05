@@ -1,7 +1,9 @@
 package main
 
 import (
+	"embed"
 	"flag"
+	"io/fs"
 	"os"
 
 	// Import all Kubernetes client auth plugins
@@ -28,6 +30,9 @@ import (
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 )
+
+//go:embed all:ui/out
+var embeddedUI embed.FS
 
 var (
 	scheme = runtime.NewScheme()
@@ -211,6 +216,15 @@ func main() {
 
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {
+		// Set up embedded UI files
+		uiFS, err := fs.Sub(embeddedUI, "ui/out")
+		if err != nil {
+			log.Warn().Err(err).Msg("UI files not found, API will not serve UI")
+		} else {
+			httpapi.UIFiles = uiFS
+			log.Info().Msg("UI files embedded successfully")
+		}
+
 		apiLogger := log.Logger.With().Str("component", "httpapi").Logger()
 		httpServer := httpapi.NewServer(
 			mgr.GetClient(),
