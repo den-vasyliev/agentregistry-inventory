@@ -78,3 +78,26 @@ affinity: {}
 
 # Target namespace for KAgent/KMCP resources created by deployments
 kagentNamespace: kagent
+
+# OIDC Authentication Configuration
+oidc:
+  # Enable OIDC authentication for the controller API
+  enabled: false
+
+  # OIDC provider issuer URL (required when enabled)
+  # Example: https://keycloak.example.com/realms/myrealm
+  issuer: ""
+
+  # Expected JWT audience (client ID) (required when enabled)
+  audience: ""
+
+  # Group claim name in JWT token (default: groups)
+  groupClaim: "groups"
+
+  # Admin group required for deployment operations (optional)
+  # Users must be members of this group to create/update/delete deployments
+  adminGroup: ""
+
+  # Token cache safety margin in seconds (default: 300)
+  # Tokens are evicted from cache this many seconds before expiry
+  cacheMarginSeconds: 300

@@ -43,6 +43,24 @@ spec:
             {{- end }}
             - --enable-http-api=true
             - --http-api-address=:{{ .Values.httpApi.port }}
+          env:
+            {{- if .Values.oidc.enabled }}
+            - name: AGENTREGISTRY_OIDC_ISSUER
+              value: "{{ .Values.oidc.issuer }}"
+            - name: AGENTREGISTRY_OIDC_AUDIENCE
+              value: "{{ .Values.oidc.audience }}"
+            {{- if .Values.oidc.adminGroup }}
+            - name: AGENTREGISTRY_OIDC_ADMIN_GROUP
+              value: "{{ .Values.oidc.adminGroup }}"
+            {{- end }}
+            - name: AGENTREGISTRY_OIDC_GROUP_CLAIM
+              value: "{{ .Values.oidc.groupClaim }}"
+            - name: AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS
+              value: "{{ .Values.oidc.cacheMarginSeconds }}"
+            {{- else }}
+            - name: AGENTREGISTRY_DISABLE_AUTH
+              value: "true"
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.httpApi.port }}
