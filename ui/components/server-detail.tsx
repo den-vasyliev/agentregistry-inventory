@@ -67,9 +67,10 @@ export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailPr
   
   const { server: serverData, _meta } = selectedVersion
   const official = _meta?.['io.modelcontextprotocol.registry/official']
-  
-  // Extract metadata
-  const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+
+  // Extract metadata - check both locations for backward compatibility
+  const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] ||
+                            (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
   const overallScore = publisherMetadata?.score
   const openSSFScore = publisherMetadata?.scorecard?.openssf

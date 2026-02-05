@@ -30,8 +30,9 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
   const isExternal = _meta?.isDiscovered || _meta?.source === 'discovery'
   const deploymentStatus = deployment?.ready ? "Running" : deployment ? "Failed" : "Not Deployed"
 
-  // Extract metadata
-  const publisherMetadata = (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
+  // Extract metadata - check both locations for backward compatibility
+  const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata'] ||
+                            (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
   const identityData = publisherMetadata?.identity
 

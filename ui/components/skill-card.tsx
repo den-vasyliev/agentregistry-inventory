@@ -21,8 +21,9 @@ interface SkillCardProps {
 export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCardProps) {
   const { skill: skillData, _meta } = skill
 
-  // Extract metadata
-  const publisherMetadata = _meta?.['io.modelcontextprotocol.registry/publisher-provided'] as Record<string, unknown> | undefined
+  // Extract metadata - check both locations for backward compatibility
+  const publisherMetadata = (_meta?.['io.modelcontextprotocol.registry/publisher-provided'] ||
+                             (skillData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']) as Record<string, unknown> | undefined
   const aregistryMetadata = publisherMetadata?.['aregistry.ai/metadata'] as Record<string, unknown> | undefined
   const identityData = aregistryMetadata?.['identity'] as Record<string, unknown> | undefined
 
