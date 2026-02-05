@@ -157,7 +157,7 @@ fmt: ## Format Go code
 
 ##@ Container Images
 
-push: build-ui ## Build and push controller image
+push: prepare-ui-embed ## Build and push controller image
 	@echo "Building and pushing controller image..."
 	@echo "Version: $(VERSION)"
 	@echo "Base Version: $(BASE_VERSION)"
