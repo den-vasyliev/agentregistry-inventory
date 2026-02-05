@@ -79,11 +79,6 @@ run: build ## Build and run controller and ui locally
 	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller --log-level=debug
 
 
-dev: envtest build-ui ## Run dev environment with envtest, sample data, and UI
-	@echo "Starting development environment..."
-	@KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use --bin-dir $(LOCALBIN) -p path)" \
-		go run -ldflags "$(LDFLAGS)" cmd/demo/main.go
-
 demo-stop: ## Stop demo environment
 	@echo "Stopping demo environment..."
 	@pkill -f "cmd/demo/main.go" 2>/dev/null || true
@@ -123,7 +118,7 @@ test: envtest ## Run all tests with coverage
 		./internal/runtime/translation/kagent
 	@go tool cover -func=coverage.out | grep total:
 
-test-dev-env: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
+dev: envtest ## Start interactive dev environment (envtest + real controller + HTTP API)
 	@echo "═══════════════════════════════════════════════════════════════════"
 	@echo "  Starting dev environment..."
 	@echo "═══════════════════════════════════════════════════════════════════"
