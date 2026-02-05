@@ -41,7 +41,7 @@ jobs:
 
     - name: Build and Push Controller Image
       env:
-        REGISTRY: ghcr.io/${{ github.repository_owner }}/agentregistry-enterprise
+        REGISTRY: ghcr.io/${{ github.repository_owner }}/agentregistry-inventory
       run: |
         # if workflow_dispatch is used, use the version input
         if [ -n "${{ github.event.inputs.version }}" ]; then
