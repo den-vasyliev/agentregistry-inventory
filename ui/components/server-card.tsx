@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Code, Tag, GitBranch, Star, Github, Globe, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
+import { Package, Code, Tag, GitBranch, Star, Github, Globe, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle, Bot } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
@@ -36,6 +36,7 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
                             (serverData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const githubStars = publisherMetadata?.stars
   const identityData = publisherMetadata?.identity
+  const isVerified = identityData?.org_is_verified === true && identityData?.publisher_identity_verified_by_jwt === true
 
   // Get owner from metadata or extract from repository URL
   const getOwner = () => {
@@ -54,9 +55,10 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
 
   const owner = getOwner()
 
-  // Derive package type badges and primary language
+  // Derive package type badges, primary language, and usedBy
   const packageTypes = [...new Set(serverData.packages?.map(p => p.registryType).filter(Boolean) || [])]
   const primaryLanguage = publisherMetadata?.repo?.primary_language
+  const usedBy = _meta?.usedBy || []
 
   const handleClick = () => {
     if (onClick) {
@@ -138,7 +140,7 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
         </div>
         <div className="flex items-center gap-1 ml-2">
           {/* Deploy/Undeploy buttons - only for managed (non-external) resources */}
-          {!isExternal && showDeploy && deploymentStatus === "Not Deployed" && onDeploy && (
+          {!isExternal && isVerified && showDeploy && deploymentStatus === "Not Deployed" && onDeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -159,7 +161,7 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
               </TooltipContent>
             </Tooltip>
           )}
-          {!isExternal && showDeploy && deploymentStatus === "Running" && onUndeploy && (
+          {!isExternal && showDeploy && deploymentStatus !== "Not Deployed" && onUndeploy && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -258,6 +260,13 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
           <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
             <Star className="h-3 w-3 fill-yellow-600 dark:fill-yellow-400" />
             <span className="font-medium">{githubStars.toLocaleString()}</span>
+          </div>
+        )}
+
+        {usedBy.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Bot className="h-3 w-3" />
+            <span>Used by {usedBy.length} agent{usedBy.length !== 1 ? 's' : ''}</span>
           </div>
         )}
       </div>

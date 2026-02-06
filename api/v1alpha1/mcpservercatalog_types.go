@@ -49,6 +49,16 @@ type SourceReference struct {
 	Namespace string `json:"namespace"`
 }
 
+// MCPServerUsageRef represents a reference to an agent using this MCP server
+type MCPServerUsageRef struct {
+	// Namespace of the agent
+	Namespace string `json:"namespace"`
+	// Name of the agent
+	Name string `json:"name"`
+	// Kind of the resource (e.g., Agent)
+	Kind string `json:"kind,omitempty"`
+}
+
 // MCPServerCatalogStatus defines the observed state of MCPServerCatalog
 type MCPServerCatalogStatus struct {
 	// Published indicates whether this server version is published and visible
@@ -69,6 +79,9 @@ type MCPServerCatalogStatus struct {
 	// For managed resources: set by RegistryDeployment
 	// +optional
 	Deployment *DeploymentRef `json:"deployment,omitempty"`
+	// UsedBy lists the agents that reference this MCP server
+	// +optional
+	UsedBy []MCPServerUsageRef `json:"usedBy,omitempty"`
 	// Conditions represent the latest available observations of the server's state
 	// +optional
 	Conditions []CatalogCondition `json:"conditions,omitempty"`

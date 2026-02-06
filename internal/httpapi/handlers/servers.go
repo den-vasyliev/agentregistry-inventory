@@ -98,12 +98,19 @@ type ArgumentJSON struct {
 	Multiple    bool   `json:"multiple,omitempty"`
 }
 
+type ServerUsageRefJSON struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind,omitempty"`
+}
+
 type ServerMeta struct {
 	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
 	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
 	Deployment        *DeploymentInfo        `json:"deployment,omitempty"`
 	Source            string                 `json:"source,omitempty"` // discovery, manual, deployment
 	IsDiscovered      bool                   `json:"isDiscovered,omitempty"`
+	UsedBy            []ServerUsageRefJSON   `json:"usedBy,omitempty"`
 }
 
 type OfficialMeta struct {
@@ -657,6 +664,15 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 			t := s.Status.Deployment.LastChecked.Time
 			resp.Meta.Deployment.LastChecked = &t
 		}
+	}
+
+	// Convert usedBy references
+	for _, ref := range s.Status.UsedBy {
+		resp.Meta.UsedBy = append(resp.Meta.UsedBy, ServerUsageRefJSON{
+			Namespace: ref.Namespace,
+			Name:      ref.Name,
+			Kind:      ref.Kind,
+		})
 	}
 
 	return resp

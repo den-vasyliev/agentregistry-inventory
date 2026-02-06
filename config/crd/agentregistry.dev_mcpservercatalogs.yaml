@@ -395,6 +395,26 @@ spec:
               status:
                 description: Status is the lifecycle status (active, deprecated, deleted)
                 type: string
+              usedBy:
+                description: UsedBy lists the agents that reference this MCP server
+                items:
+                  description: MCPServerUsageRef represents a reference to an agent
+                    using this MCP server
+                  properties:
+                    kind:
+                      description: Kind of the resource (e.g., Agent)
+                      type: string
+                    name:
+                      description: Name of the agent
+                      type: string
+                    namespace:
+                      description: Namespace of the agent
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
             required:
             - isLatest
             - published

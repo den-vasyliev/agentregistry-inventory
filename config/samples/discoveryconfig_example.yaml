@@ -25,6 +25,7 @@ spec:
         - MCPServer
         - Agent
         - ModelConfig
+        - RemoteMCPServer
       labels:
         environment: dev
         managed-by: agentregistry
@@ -49,6 +50,7 @@ spec:
         - MCPServer
         - Agent
         - ModelConfig
+        - RemoteMCPServer
       labels:
         environment: staging
         managed-by: agentregistry

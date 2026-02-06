@@ -52,16 +52,18 @@ var RemoteClientFactory func(env *agentregistryv1alpha1.Environment, scheme *run
 // DiscoveredResourceCache provides read access to resources from discovered namespaces.
 // Populated by DiscoveryConfig informers, used by catalog reconcilers for SourceRef lookups.
 type DiscoveredResourceCache struct {
-	mu           sync.RWMutex
-	mcpservers   map[string]*kmcpv1alpha1.MCPServer     // key: "namespace/name"
-	agents       map[string]*kagentv1alpha2.Agent       // key: "namespace/name"
-	modelconfigs map[string]*kagentv1alpha2.ModelConfig // key: "namespace/name"
+	mu               sync.RWMutex
+	mcpservers       map[string]*kmcpv1alpha1.MCPServer         // key: "namespace/name"
+	agents           map[string]*kagentv1alpha2.Agent           // key: "namespace/name"
+	modelconfigs     map[string]*kagentv1alpha2.ModelConfig     // key: "namespace/name"
+	remotemcpservers map[string]*kagentv1alpha2.RemoteMCPServer // key: "namespace/name"
 }
 
 var discoveredCache = &DiscoveredResourceCache{
-	mcpservers:   make(map[string]*kmcpv1alpha1.MCPServer),
-	agents:       make(map[string]*kagentv1alpha2.Agent),
-	modelconfigs: make(map[string]*kagentv1alpha2.ModelConfig),
+	mcpservers:       make(map[string]*kmcpv1alpha1.MCPServer),
+	agents:           make(map[string]*kagentv1alpha2.Agent),
+	modelconfigs:     make(map[string]*kagentv1alpha2.ModelConfig),
+	remotemcpservers: make(map[string]*kagentv1alpha2.RemoteMCPServer),
 }
 
 // GetMCPServer retrieves an MCPServer from the discovered cache.
@@ -142,6 +144,32 @@ func deleteDiscoveredModelConfig(namespace, name string) {
 	delete(discoveredCache.modelconfigs, key)
 }
 
+// GetRemoteMCPServer retrieves a RemoteMCPServer from the discovered cache.
+func GetRemoteMCPServer(ctx context.Context, namespace, name string) (*kagentv1alpha2.RemoteMCPServer, error) {
+	key := namespace + "/" + name
+	discoveredCache.mu.RLock()
+	defer discoveredCache.mu.RUnlock()
+
+	if server, ok := discoveredCache.remotemcpservers[key]; ok {
+		return server.DeepCopy(), nil
+	}
+	return nil, fmt.Errorf("RemoteMCPServer %s/%s not found in discovery cache", namespace, name)
+}
+
+func setDiscoveredRemoteMCPServer(server *kagentv1alpha2.RemoteMCPServer) {
+	key := server.Namespace + "/" + server.Name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	discoveredCache.remotemcpservers[key] = server.DeepCopy()
+}
+
+func deleteDiscoveredRemoteMCPServer(namespace, name string) {
+	key := namespace + "/" + name
+	discoveredCache.mu.Lock()
+	defer discoveredCache.mu.Unlock()
+	delete(discoveredCache.remotemcpservers, key)
+}
+
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=discoveryconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=discoveryconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agentregistry.dev,resources=mcpservercatalogs,verbs=get;list;watch;create;update;patch;delete
@@ -183,7 +211,7 @@ func (r *DiscoveryConfigReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		resourceTypes := env.ResourceTypes
 		if len(resourceTypes) == 0 {
 			// Default to all types
-			resourceTypes = []string{"MCPServer", "Agent", "ModelConfig"}
+			resourceTypes = []string{"MCPServer", "Agent", "ModelConfig", "RemoteMCPServer"}
 		}
 
 		for _, ns := range env.Namespaces {
@@ -256,6 +284,8 @@ func (r *DiscoveryConfigReconciler) setupInformerForResource(
 		informer = r.createAgentInformer(ctx, remoteClient, namespace, env, logger)
 	case "ModelConfig":
 		informer = r.createModelConfigInformer(ctx, remoteClient, namespace, env, logger)
+	case "RemoteMCPServer":
+		informer = r.createRemoteMCPServerInformer(ctx, remoteClient, namespace, env, logger)
 	default:
 		return fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
@@ -448,6 +478,186 @@ func (r *DiscoveryConfigReconciler) createModelConfigInformer(
 	})
 
 	return informer
+}
+
+// createRemoteMCPServerInformer creates an informer for RemoteMCPServer resources
+func (r *DiscoveryConfigReconciler) createRemoteMCPServerInformer(
+	ctx context.Context,
+	remoteClient client.WithWatch,
+	namespace string,
+	env *agentregistryv1alpha1.Environment,
+	logger zerolog.Logger,
+) cache.SharedIndexInformer {
+	informer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				list := &kagentv1alpha2.RemoteMCPServerList{}
+				err := remoteClient.List(context.Background(), list, client.InNamespace(namespace))
+				return list, err
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return remoteClient.Watch(context.Background(), &kagentv1alpha2.RemoteMCPServerList{}, client.InNamespace(namespace))
+			},
+		},
+		&kagentv1alpha2.RemoteMCPServer{},
+		0,
+		cache.Indexers{},
+	)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			server := obj.(*kagentv1alpha2.RemoteMCPServer)
+			logger.Info().Str("remotemcpserver", server.Name).Msg("RemoteMCPServer added")
+			setDiscoveredRemoteMCPServer(server)
+			resourceKey := fmt.Sprintf("remotemcpserver/%s/%s", server.Namespace, server.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleRemoteMCPServerAdd(ctx, server, env)
+			}, logger)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			server := newObj.(*kagentv1alpha2.RemoteMCPServer)
+			logger.Debug().Str("remotemcpserver", server.Name).Msg("RemoteMCPServer updated")
+			setDiscoveredRemoteMCPServer(server)
+			resourceKey := fmt.Sprintf("remotemcpserver/%s/%s", server.Namespace, server.Name)
+			r.executeWithRetry(ctx, resourceKey, func() error {
+				return r.handleRemoteMCPServerAdd(ctx, server, env)
+			}, logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			server := obj.(*kagentv1alpha2.RemoteMCPServer)
+			logger.Info().Str("remotemcpserver", server.Name).Msg("RemoteMCPServer deleted")
+			deleteDiscoveredRemoteMCPServer(server.Namespace, server.Name)
+		},
+	})
+
+	return informer
+}
+
+// handleRemoteMCPServerAdd creates/updates catalog entry for discovered RemoteMCPServer
+func (r *DiscoveryConfigReconciler) handleRemoteMCPServerAdd(
+	ctx context.Context,
+	server *kagentv1alpha2.RemoteMCPServer,
+	env *agentregistryv1alpha1.Environment,
+) error {
+	if managedBy, ok := server.Labels["agentregistry.dev/managed-by"]; ok && managedBy == "agentregistry" {
+		r.Logger.Debug().
+			Str("remotemcpserver", server.Name).
+			Str("namespace", server.Namespace).
+			Msg("Skipping RemoteMCPServer managed by Agent Registry")
+		return nil
+	}
+
+	catalogName := generateCatalogName(server.Namespace, server.Name)
+	namespace := config.GetNamespace()
+
+	version := "latest"
+	if v, ok := server.Labels["app.kubernetes.io/version"]; ok {
+		version = v
+	}
+
+	title := server.Name
+	description := server.Spec.Description
+
+	// Map protocol to transport type
+	transportType := "streamable-http"
+	if server.Spec.Protocol == kagentv1alpha2.RemoteMCPServerProtocolSse {
+		transportType = "sse"
+	}
+
+	labels := make(map[string]string)
+	for k, v := range env.Labels {
+		labels[k] = v
+	}
+	labels[discoveryLabel] = "true"
+	labels[sourceKindLabel] = "RemoteMCPServer"
+	labels[sourceNameLabel] = server.Name
+	labels[sourceNSLabel] = server.Namespace
+	labels["agentregistry.dev/environment"] = env.Name
+	labels["agentregistry.dev/cluster"] = env.Cluster.Name
+
+	catalog := agentregistryv1alpha1.MCPServerCatalog{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      catalogName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
+			Name:        fmt.Sprintf("%s/%s", server.Namespace, server.Name),
+			Version:     version,
+			Title:       title,
+			Description: description,
+			SourceRef: &agentregistryv1alpha1.SourceReference{
+				Kind:      "RemoteMCPServer",
+				Name:      server.Name,
+				Namespace: server.Namespace,
+			},
+			Remotes: []agentregistryv1alpha1.Transport{{
+				Type: transportType,
+				URL:  server.Spec.URL,
+			}},
+		},
+	}
+
+	existing := &agentregistryv1alpha1.MCPServerCatalog{}
+	err := r.Get(ctx, client.ObjectKey{Name: catalogName, Namespace: namespace}, existing)
+
+	if apierrors.IsNotFound(err) {
+		if err := r.Create(ctx, &catalog); err != nil {
+			return err
+		}
+		catalog.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		catalog.Status.Published = true
+		catalog.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		syncRemoteMCPServerDeploymentStatus(&catalog, server)
+		return r.Status().Update(ctx, &catalog)
+	} else if err != nil {
+		return err
+	}
+
+	existing.Spec = catalog.Spec
+	existing.Labels = labels
+	if err := r.Update(ctx, existing); err != nil {
+		return err
+	}
+	needsUpdate := false
+	if existing.Status.ManagementType == "" {
+		existing.Status.ManagementType = agentregistryv1alpha1.ManagementTypeExternal
+		existing.Status.Published = true
+		existing.Status.Status = agentregistryv1alpha1.CatalogStatusActive
+		needsUpdate = true
+	}
+	if existing.Status.ManagementType == agentregistryv1alpha1.ManagementTypeExternal {
+		syncRemoteMCPServerDeploymentStatus(existing, server)
+		needsUpdate = true
+	}
+	if needsUpdate {
+		return r.Status().Update(ctx, existing)
+	}
+	return nil
+}
+
+// syncRemoteMCPServerDeploymentStatus syncs deployment status from RemoteMCPServer to catalog
+func syncRemoteMCPServerDeploymentStatus(catalog *agentregistryv1alpha1.MCPServerCatalog, server *kagentv1alpha2.RemoteMCPServer) {
+	ready := false
+	message := ""
+
+	for _, cond := range server.Status.Conditions {
+		if cond.Type == "Accepted" {
+			ready = cond.Status == metav1.ConditionTrue
+			message = cond.Message
+			break
+		}
+	}
+
+	now := metav1.Now()
+	catalog.Status.Deployment = &agentregistryv1alpha1.DeploymentRef{
+		Namespace:   server.Namespace,
+		ServiceName: server.Name,
+		URL:         server.Spec.URL,
+		Ready:       ready,
+		Message:     message,
+		LastChecked: &now,
+	}
 }
 
 // handleMCPServerAdd creates/updates catalog entry for discovered MCPServer
