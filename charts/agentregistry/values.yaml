@@ -107,3 +107,11 @@ oidc:
   # Token cache safety margin in seconds (default: 300)
   # Tokens are evicted from cache this many seconds before expiry
   cacheMarginSeconds: 300
+
+# HTTPRoute configuration (Gateway API)
+httpRoute:
+  enabled: false
+  hostname: agentregistry.gfknewron.com
+  gatewayName: mcp-gateway-gfknewron-com
+  gatewayNamespace: ""
+  sectionName: https
