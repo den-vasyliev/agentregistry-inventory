@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { AgentResponse } from "@/lib/admin-api"
 import { formatDateTime as formatDate } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
@@ -33,7 +34,22 @@ import {
   XCircle,
   Circle,
   BadgeCheck,
+  Server,
+  Package,
+  Globe,
+  Wrench,
+  Activity,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Blocks,
+  Settings2,
+  Network,
 } from "lucide-react"
+const AgentDependencyGraph = dynamic(
+  () => import("@/components/agent-dependency-graph").then((m) => m.AgentDependencyGraph),
+  { ssr: false },
+)
 
 interface AgentDetailProps {
   agent: AgentResponse
@@ -42,6 +58,7 @@ interface AgentDetailProps {
 
 export function AgentDetail({ agent, onClose }: AgentDetailProps) {
   const [activeTab, setActiveTab] = useState("overview")
+  const [systemMessageExpanded, setSystemMessageExpanded] = useState(false)
 
   const { agent: agentData, _meta } = agent
   const official = _meta?.['io.modelcontextprotocol.registry/official']
@@ -68,6 +85,19 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
   }
 
   const owner = getOwner()
+
+  // kagent dependency data
+  const tools = agentData.tools || []
+  const skills = agentData.skills || []
+  const modelConfigRef = agentData.modelConfigRef
+  const systemMessage = agentData.systemMessage
+
+  // Legacy dependency counts
+  const mcpServers = agentData.mcpServers || []
+  const packages = agentData.packages || []
+  const remotes = agentData.remotes || []
+  const dependencyCount = tools.length + skills.length + mcpServers.length + packages.length + remotes.length + (modelConfigRef ? 1 : 0)
+  const hasDependencies = dependencyCount > 0 || !!systemMessage
 
   // Handle ESC key to close
   useEffect(() => {
@@ -105,12 +135,21 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold">{agentData.name}</h1>
-                <Badge variant="outline" className="text-sm">
-                  {agentData.framework}
-                </Badge>
-                <Badge variant="secondary" className="text-sm">
-                  {agentData.language}
-                </Badge>
+                {agentData.agentType && (
+                  <Badge variant={agentData.agentType === 'Declarative' ? 'default' : 'secondary'} className="text-sm">
+                    {agentData.agentType}
+                  </Badge>
+                )}
+                {agentData.framework && (
+                  <Badge variant="outline" className="text-sm">
+                    {agentData.framework}
+                  </Badge>
+                )}
+                {agentData.language && (
+                  <Badge variant="secondary" className="text-sm">
+                    {agentData.language}
+                  </Badge>
+                )}
               </div>
               {agentData.description && (
                 <p className="text-muted-foreground">{agentData.description}</p>
@@ -163,6 +202,14 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
             </div>
           )}
 
+          {modelConfigRef && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
+              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">Model Config:</span>
+              <span className="font-medium font-mono">{modelConfigRef}</span>
+            </div>
+          )}
+
           {official?.publishedAt && (
             <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -184,6 +231,14 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            {hasDependencies && (
+              <TabsTrigger value="dependencies">
+                Dependencies
+                <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
+                  {dependencyCount}
+                </Badge>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="technical">Technical Details</TabsTrigger>
             <TabsTrigger value="raw">Raw Data</TabsTrigger>
           </TabsList>
@@ -232,6 +287,113 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
               </div>
             </Card>
 
+            {/* Connected Resources Summary */}
+            {hasDependencies && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Connected Resources
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {tools.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Wrench className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{tools.length} Tool{tools.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {tools.map(t => t.name).join(', ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {skills.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Blocks className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{skills.length} Skill{skills.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {skills.map(s => s.split('/').pop() || s).join(', ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {modelConfigRef && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Settings2 className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Model Config</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{modelConfigRef}</p>
+                      </div>
+                    </button>
+                  )}
+                  {mcpServers.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Server className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{mcpServers.length} MCP Server{mcpServers.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {mcpServers.map(m => m.name).join(', ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {packages.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Package className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{packages.length} Package{packages.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {packages.map(p => p.identifier).join(', ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {remotes.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("dependencies")}
+                      className="flex items-center gap-3 p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-left"
+                    >
+                      <Globe className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{remotes.length} Remote{remotes.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {remotes.map(r => r.type).join(', ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Telemetry */}
+            {agentData.telemetryEndpoint && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Telemetry
+                </h3>
+                <div className="bg-muted p-4 rounded-lg">
+                  <code className="text-sm break-all">{agentData.telemetryEndpoint}</code>
+                </div>
+              </Card>
+            )}
+
             {/* Repository */}
             {agentData.repository?.url && (
               <Card className="p-6">
@@ -256,6 +418,222 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
               </Card>
             )}
           </TabsContent>
+
+          {hasDependencies && (
+            <TabsContent value="dependencies" className="space-y-4">
+              {/* Dependency Graph */}
+              {dependencyCount > 0 && (
+                <Card className="p-4">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Network className="h-5 w-5" />
+                    Dependency Graph
+                  </h3>
+                  <AgentDependencyGraph agent={agentData} />
+                </Card>
+              )}
+
+              {/* Tools (from kagent) */}
+              {tools.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Wrench className="h-5 w-5" />
+                    Tools
+                    <Badge variant="secondary" className="text-xs">{tools.length}</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {tools.map((tool, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                        {tool.type === 'McpServer' ? (
+                          <Server className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <Bot className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium font-mono">{tool.name}</span>
+                            <Badge variant="outline" className="text-xs">{tool.type}</Badge>
+                          </div>
+                          {tool.toolNames && tool.toolNames.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {tool.toolNames.map((tn, j) => (
+                                <Badge key={j} variant="secondary" className="text-xs font-mono">{tn}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Skills (OCI images) */}
+              {skills.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Blocks className="h-5 w-5" />
+                    Skills
+                    <Badge variant="secondary" className="text-xs">{skills.length}</Badge>
+                  </h3>
+                  <div className="space-y-2">
+                    {skills.map((skill, i) => (
+                      <div key={i} className="bg-muted p-3 rounded-lg">
+                        <code className="text-sm break-all">{skill}</code>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Model Config */}
+              {modelConfigRef && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Settings2 className="h-5 w-5" />
+                    Model Config
+                  </h3>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <code className="text-sm">{modelConfigRef}</code>
+                  </div>
+                </Card>
+              )}
+
+              {/* System Message */}
+              {systemMessage && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    System Message
+                  </h3>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-sm whitespace-pre-wrap">
+                      {systemMessageExpanded ? systemMessage : systemMessage.slice(0, 300)}
+                      {!systemMessageExpanded && systemMessage.length > 300 && '...'}
+                    </p>
+                    {systemMessage.length > 300 && (
+                      <button
+                        onClick={() => setSystemMessageExpanded(!systemMessageExpanded)}
+                        className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        {systemMessageExpanded ? (
+                          <>
+                            <ChevronUp className="h-3 w-3" />
+                            Show less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3 w-3" />
+                            Show full message ({systemMessage.length} chars)
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {/* MCP Servers (legacy) */}
+              {mcpServers.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Server className="h-5 w-5" />
+                    MCP Servers
+                    <Badge variant="secondary" className="text-xs">{mcpServers.length}</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {mcpServers.map((mcp, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                        <Server className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{mcp.name}</span>
+                            <Badge variant="outline" className="text-xs">{mcp.type}</Badge>
+                          </div>
+                          {mcp.url && (
+                            <p className="text-sm text-muted-foreground mt-1 font-mono truncate">{mcp.url}</p>
+                          )}
+                          {mcp.registryServerName && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Registry: <span className="font-medium">{mcp.registryServerName}</span>
+                              {mcp.registryServerVersion && (
+                                <span className="ml-1">v{mcp.registryServerVersion}</span>
+                              )}
+                            </p>
+                          )}
+                          {mcp.image && (
+                            <p className="text-sm text-muted-foreground mt-1 font-mono truncate">{mcp.image}</p>
+                          )}
+                          {mcp.command && (
+                            <p className="text-sm text-muted-foreground mt-1 font-mono">
+                              {mcp.command} {mcp.args?.join(' ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Packages */}
+              {packages.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Packages
+                    <Badge variant="secondary" className="text-xs">{packages.length}</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {packages.map((pkg, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                        <Package className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium font-mono">{pkg.identifier}</span>
+                            <Badge variant="outline" className="text-xs">{pkg.registryType}</Badge>
+                            {pkg.version && (
+                              <Badge variant="secondary" className="text-xs">v{pkg.version}</Badge>
+                            )}
+                          </div>
+                          {pkg.transport?.type && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Transport: {pkg.transport.type}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Remotes */}
+              {remotes.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    Remote Endpoints
+                    <Badge variant="secondary" className="text-xs">{remotes.length}</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {remotes.map((remote, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                        <Globe className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">{remote.type}</Badge>
+                          </div>
+                          {remote.url && (
+                            <p className="text-sm text-muted-foreground mt-1 font-mono truncate">{remote.url}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="technical" className="space-y-4">
             {/* Repository */}
@@ -297,6 +675,35 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
                 </h3>
                 <div className="bg-muted p-4 rounded-lg">
                   <code className="text-sm break-all">{agentData.image}</code>
+                </div>
+              </Card>
+            )}
+
+            {/* Website & Telemetry */}
+            {(agentData.websiteUrl || agentData.telemetryEndpoint) && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Endpoints</h3>
+                <div className="space-y-3">
+                  {agentData.websiteUrl && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Website</p>
+                      <a
+                        href={agentData.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-primary hover:underline break-all"
+                      >
+                        <span className="font-mono text-sm">{agentData.websiteUrl}</span>
+                        <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                      </a>
+                    </div>
+                  )}
+                  {agentData.telemetryEndpoint && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Telemetry Endpoint</p>
+                      <code className="text-sm break-all">{agentData.telemetryEndpoint}</code>
+                    </div>
+                  )}
                 </div>
               </Card>
             )}

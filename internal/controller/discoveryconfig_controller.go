@@ -661,6 +661,56 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	labels["agentregistry.dev/environment"] = env.Name
 	labels["agentregistry.dev/cluster"] = env.Cluster.Name
 
+	// Extract kagent-specific data
+	agentType := string(agent.Spec.Type)
+	systemMessage := ""
+	modelConfigRef := ""
+	var tools []agentregistryv1alpha1.AgentToolRef
+	var skills []string
+	image := ""
+	framework := ""
+
+	if agent.Spec.Declarative != nil {
+		systemMessage = agent.Spec.Declarative.SystemMessage
+		modelConfigRef = agent.Spec.Declarative.ModelConfig
+		if agent.Spec.Declarative.Deployment != nil && agent.Spec.Declarative.Deployment.ImageRegistry != "" {
+			image = agent.Spec.Declarative.Deployment.ImageRegistry
+		}
+		for _, tool := range agent.Spec.Declarative.Tools {
+			if tool == nil {
+				continue
+			}
+			ref := agentregistryv1alpha1.AgentToolRef{
+				Type: string(tool.Type),
+			}
+			if tool.McpServer != nil {
+				ref.Name = tool.McpServer.Name
+				ref.ToolNames = tool.McpServer.ToolNames
+			} else if tool.Agent != nil {
+				ref.Name = tool.Agent.Name
+			}
+			tools = append(tools, ref)
+		}
+	}
+
+	if agent.Spec.BYO != nil && agent.Spec.BYO.Deployment != nil {
+		if agent.Spec.BYO.Deployment.Image != "" {
+			image = agent.Spec.BYO.Deployment.Image
+		}
+	}
+
+	if agent.Spec.Skills != nil {
+		skills = agent.Spec.Skills.Refs
+	}
+
+	// Extract framework from labels if available
+	if f, ok := agent.Labels["kagent.dev/framework"]; ok {
+		framework = f
+	}
+	if f, ok := agent.Labels["app.kubernetes.io/framework"]; ok {
+		framework = f
+	}
+
 	catalog := agentregistryv1alpha1.AgentCatalog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      catalogName,
@@ -668,11 +718,17 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 			Labels:    labels,
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
-			Name:        fmt.Sprintf("%s/%s", agent.Namespace, agent.Name),
-			Version:     version,
-			Title:       title,
-			Description: description,
-			Image:       "", // TODO: Extract from Agent spec if available
+			Name:           fmt.Sprintf("%s/%s", agent.Namespace, agent.Name),
+			Version:        version,
+			Title:          title,
+			Description:    description,
+			Image:          image,
+			Framework:      framework,
+			AgentType:      agentType,
+			SystemMessage:  systemMessage,
+			ModelConfigRef: modelConfigRef,
+			Tools:          tools,
+			Skills:         skills,
 		},
 	}
 

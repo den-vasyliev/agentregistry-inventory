@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
@@ -39,7 +39,15 @@ import {
   GitPullRequest,
   ShieldCheck,
   BadgeCheck,
+  Filter,
 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 // Grouped server type
 interface GroupedServer extends ServerResponse {
@@ -70,6 +78,9 @@ export default function AdminPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [filterVerifiedOrg, setFilterVerifiedOrg] = useState(false)
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
+  const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [filterFramework, setFilterFramework] = useState<string>("all")
+  const [filterProvider, setFilterProvider] = useState<string>("all")
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +100,25 @@ export default function AdminPage() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
     return () => clearTimeout(timer)
   }, [searchQuery])
+
+  // Compute unique filter options from loaded data
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>()
+    skills.forEach(s => { if (s.skill.category) cats.add(s.skill.category) })
+    return Array.from(cats).sort()
+  }, [skills])
+
+  const availableFrameworks = useMemo(() => {
+    const vals = new Set<string>()
+    agents.forEach(a => { if (a.agent.framework) vals.add(a.agent.framework) })
+    return Array.from(vals).sort()
+  }, [agents])
+
+  const availableProviders = useMemo(() => {
+    const vals = new Set<string>()
+    models.forEach(m => { if (m.model.provider) vals.add(m.model.provider) })
+    return Array.from(vals).sort()
+  }, [models])
 
   // Deploy/Undeploy dialog state
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
@@ -381,13 +411,13 @@ export default function AdminPage() {
     }
   }
 
-  // Reset all page numbers when search query changes
+  // Reset all page numbers when search or filters change
   useEffect(() => {
     setCurrentPageServers(1)
     setCurrentPageSkills(1)
     setCurrentPageAgents(1)
     setCurrentPageModels(1)
-  }, [debouncedSearch, deploymentStatusFilter])
+  }, [debouncedSearch, deploymentStatusFilter, filterCategory, filterFramework, filterProvider])
 
   // Filter and sort servers
   useEffect(() => {
@@ -447,6 +477,9 @@ export default function AdminPage() {
         return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
+    if (filterCategory !== "all") {
+      filteredSk = filteredSk.filter((s) => s.skill.category === filterCategory)
+    }
     setFilteredSkills(sortByCreatedDesc(filteredSk))
 
     let filteredA = agents
@@ -470,6 +503,9 @@ export default function AdminPage() {
         return identityData?.publisher_identity_verified_by_jwt === true
       })
     }
+    if (filterFramework !== "all") {
+      filteredA = filteredA.filter((a) => a.agent.framework === filterFramework)
+    }
     filteredA = filteredA.filter((a) => matchesDeploymentFilter(a, deploymentStatusFilter))
     setFilteredAgents(sortByCreatedDesc(filteredA))
 
@@ -483,8 +519,11 @@ export default function AdminPage() {
           model.description?.toLowerCase().includes(query)
       )
     }
+    if (filterProvider !== "all") {
+      filteredM = filteredM.filter((m) => m.model.provider === filterProvider)
+    }
     setFilteredModels(sortByCreatedDesc(filteredM))
-  }, [debouncedSearch, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
+  }, [debouncedSearch, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter, filterCategory, filterFramework, filterProvider])
 
   if (loading) {
     return (
@@ -573,6 +612,8 @@ export default function AdminPage() {
           skillCount={skills.length}
           agentCount={agents.length}
           modelCount={models.length}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
       )}
 
@@ -672,6 +713,52 @@ export default function AdminPage() {
                   </Tooltip>
                 </div>
               </TooltipProvider>
+            )}
+
+            {/* Per-tab category/type filters */}
+            {activeTab === 'skills' && availableCategories.length > 0 && (
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {availableCategories.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {activeTab === 'agents' && availableFrameworks.length > 0 && (
+              <Select value={filterFramework} onValueChange={setFilterFramework}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Framework" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All frameworks</SelectItem>
+                  {availableFrameworks.map(f => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {activeTab === 'models' && availableProviders.length > 0 && (
+              <Select value={filterProvider} onValueChange={setFilterProvider}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All providers</SelectItem>
+                  {availableProviders.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
 
             {/* Action Buttons */}

@@ -66,6 +66,17 @@ type McpServerConfig struct {
 	RegistryServerPreferRemote bool `json:"registryServerPreferRemote,omitempty"`
 }
 
+// AgentToolRef represents a tool reference from a kagent Agent
+type AgentToolRef struct {
+	// Type is the tool provider type ("McpServer" or "Agent")
+	Type string `json:"type"`
+	// Name is the resource name
+	Name string `json:"name"`
+	// ToolNames are specific tool names from an MCP server (optional)
+	// +optional
+	ToolNames []string `json:"toolNames,omitempty"`
+}
+
 // AgentCatalogSpec defines the desired state of AgentCatalog
 type AgentCatalogSpec struct {
 	// Name is the canonical name of the agent
@@ -92,6 +103,21 @@ type AgentCatalogSpec struct {
 	// ModelName is the specific model name
 	// +optional
 	ModelName string `json:"modelName,omitempty"`
+	// AgentType is the agent type from kagent (Declarative or BYO)
+	// +optional
+	AgentType string `json:"agentType,omitempty"`
+	// SystemMessage is the system prompt for declarative agents
+	// +optional
+	SystemMessage string `json:"systemMessage,omitempty"`
+	// ModelConfigRef is the reference to ModelConfig used by the agent
+	// +optional
+	ModelConfigRef string `json:"modelConfigRef,omitempty"`
+	// Tools are the tool references (MCP servers and sub-agents)
+	// +optional
+	Tools []AgentToolRef `json:"tools,omitempty"`
+	// Skills are OCI image references for loaded skills
+	// +optional
+	Skills []string `json:"skills,omitempty"`
 	// TelemetryEndpoint is the endpoint for telemetry data
 	// +optional
 	TelemetryEndpoint string `json:"telemetryEndpoint,omitempty"`

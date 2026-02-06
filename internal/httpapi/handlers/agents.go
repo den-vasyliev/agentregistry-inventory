@@ -42,6 +42,13 @@ func NewAgentHandler(c client.Client, cache cache.Cache, logger zerolog.Logger) 
 	}
 }
 
+// AgentToolRefJSON represents a tool reference from a kagent Agent
+type AgentToolRefJSON struct {
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
+	ToolNames []string `json:"toolNames,omitempty"`
+}
+
 // Agent response types
 type AgentJSON struct {
 	Name              string                `json:"name"`
@@ -53,6 +60,11 @@ type AgentJSON struct {
 	Framework         string                `json:"framework,omitempty"`
 	ModelProvider     string                `json:"modelProvider,omitempty"`
 	ModelName         string                `json:"modelName,omitempty"`
+	AgentType         string                `json:"agentType,omitempty"`
+	SystemMessage     string                `json:"systemMessage,omitempty"`
+	ModelConfigRef    string                `json:"modelConfigRef,omitempty"`
+	Tools             []AgentToolRefJSON    `json:"tools,omitempty"`
+	Skills            []string              `json:"skills,omitempty"`
 	TelemetryEndpoint string                `json:"telemetryEndpoint,omitempty"`
 	WebsiteURL        string                `json:"websiteUrl,omitempty"`
 	Repository        *RepositoryJSON       `json:"repository,omitempty"`
@@ -388,6 +400,10 @@ func (h *AgentHandler) createAgent(ctx context.Context, input *CreateAgentInput)
 			Framework:         input.Body.Framework,
 			ModelProvider:     input.Body.ModelProvider,
 			ModelName:         input.Body.ModelName,
+			AgentType:         input.Body.AgentType,
+			SystemMessage:     input.Body.SystemMessage,
+			ModelConfigRef:    input.Body.ModelConfigRef,
+			Skills:            input.Body.Skills,
 			TelemetryEndpoint: input.Body.TelemetryEndpoint,
 			WebsiteURL:        input.Body.WebsiteURL,
 		},
@@ -451,6 +467,14 @@ func (h *AgentHandler) createAgent(ctx context.Context, input *CreateAgentInput)
 		agent.Spec.McpServers = append(agent.Spec.McpServers, mcp)
 	}
 
+	for _, t := range input.Body.Tools {
+		agent.Spec.Tools = append(agent.Spec.Tools, agentregistryv1alpha1.AgentToolRef{
+			Type:      t.Type,
+			Name:      t.Name,
+			ToolNames: t.ToolNames,
+		})
+	}
+
 	if err := h.client.Create(ctx, agent); err != nil {
 		return nil, huma.Error500InternalServerError("Failed to create agent", err)
 	}
@@ -509,8 +533,20 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 		Framework:         a.Spec.Framework,
 		ModelProvider:     a.Spec.ModelProvider,
 		ModelName:         a.Spec.ModelName,
+		AgentType:         a.Spec.AgentType,
+		SystemMessage:     a.Spec.SystemMessage,
+		ModelConfigRef:    a.Spec.ModelConfigRef,
+		Skills:            a.Spec.Skills,
 		TelemetryEndpoint: a.Spec.TelemetryEndpoint,
 		WebsiteURL:        a.Spec.WebsiteURL,
+	}
+
+	for _, t := range a.Spec.Tools {
+		agent.Tools = append(agent.Tools, AgentToolRefJSON{
+			Type:      t.Type,
+			Name:      t.Name,
+			ToolNames: t.ToolNames,
+		})
 	}
 
 	if a.Spec.Repository != nil {

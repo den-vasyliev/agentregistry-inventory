@@ -71,6 +71,14 @@
   }
 }
 
+/* React Flow attribution styling */
+.react-flow__attribution {
+  @apply !bg-transparent !text-muted-foreground/30;
+}
+.react-flow__attribution a {
+  @apply !text-muted-foreground/30;
+}
+
 /* Scrollbar styling */
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
