@@ -66,6 +66,10 @@ spec:
                   verification, etc.)
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              agentType:
+                description: AgentType is the agent type from kagent (Declarative
+                  or BYO)
+                type: string
               description:
                 description: Description is a human-readable description of the agent
                 type: string
@@ -140,6 +144,10 @@ spec:
                   - type
                   type: object
                 type: array
+              modelConfigRef:
+                description: ModelConfigRef is the reference to ModelConfig used by
+                  the agent
+                type: string
               modelName:
                 description: ModelName is the specific model name
                 type: string
@@ -239,12 +247,44 @@ spec:
                     description: URL is the repository URL for browsing source code
                     type: string
                 type: object
+              skills:
+                description: Skills are OCI image references for loaded skills
+                items:
+                  type: string
+                type: array
+              systemMessage:
+                description: SystemMessage is the system prompt for declarative agents
+                type: string
               telemetryEndpoint:
                 description: TelemetryEndpoint is the endpoint for telemetry data
                 type: string
               title:
                 description: Title is a human-readable title for the agent
                 type: string
+              tools:
+                description: Tools are the tool references (MCP servers and sub-agents)
+                items:
+                  description: AgentToolRef represents a tool reference from a kagent
+                    Agent
+                  properties:
+                    name:
+                      description: Name is the resource name
+                      type: string
+                    toolNames:
+                      description: ToolNames are specific tool names from an MCP server
+                        (optional)
+                      items:
+                        type: string
+                      type: array
+                    type:
+                      description: Type is the tool provider type ("McpServer" or
+                        "Agent")
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
               version:
                 description: Version is the semantic version of the agent
                 type: string

@@ -193,6 +193,12 @@ export interface ServerStats {
   deleted_servers: number
 }
 
+export interface VersionInfo {
+  version: string
+  commit: string
+  buildDate: string
+}
+
 // Skill types
 export interface SkillRepository {
   url: string
@@ -215,6 +221,7 @@ export interface SkillRemoteInfo {
 export interface SkillJSON {
   name: string
   title?: string
+  category?: string
   description: string
   version: string
   status?: string
@@ -247,6 +254,7 @@ export interface SkillResponse {
     deployment?: DeploymentInfo
     source?: string
     isDiscovered?: boolean
+    usedBy?: Array<{ namespace: string; name: string; kind?: string }>
   }
 }
 
@@ -259,13 +267,63 @@ export interface SkillListResponse {
 }
 
 // Agent types
+export interface AgentMcpServerConfig {
+  type: string
+  name: string
+  image?: string
+  build?: string
+  command?: string
+  args?: string[]
+  env?: string[]
+  url?: string
+  headers?: Record<string, string>
+  registryURL?: string
+  registryServerName?: string
+  registryServerVersion?: string
+  registryServerPreferRemote?: boolean
+}
+
+export interface AgentPackageInfo {
+  registryType: string
+  identifier: string
+  version?: string
+  transport?: {
+    type: string
+  }
+}
+
+export interface AgentRemoteInfo {
+  type: string
+  url?: string
+  headers?: Array<{
+    name: string
+    description?: string
+    value?: string
+    required?: boolean
+  }>
+}
+
+export interface AgentToolRef {
+  type: string    // "McpServer" | "Agent"
+  name: string
+  toolNames?: string[]
+}
+
 export interface AgentJSON {
   name: string
+  title?: string
   image: string
   language: string
   framework: string
   modelProvider: string
   modelName: string
+  agentType?: string        // "Declarative" | "BYO"
+  systemMessage?: string
+  modelConfigRef?: string
+  tools?: AgentToolRef[]
+  skills?: string[]         // OCI image refs
+  telemetryEndpoint?: string
+  websiteUrl?: string
   description: string
   updatedAt: string
   version: string
@@ -274,6 +332,9 @@ export interface AgentJSON {
     url: string
     source: string
   }
+  mcpServers?: AgentMcpServerConfig[]
+  packages?: AgentPackageInfo[]
+  remotes?: AgentRemoteInfo[]
 }
 
 export interface AgentRegistryExtensions {
@@ -558,6 +619,15 @@ class AdminApiClient {
     const response = await fetch(`${this.baseUrl}/admin/v0/health`)
     if (!response.ok) {
       throw new Error('Health check failed')
+    }
+    return response.json()
+  }
+
+  // Get controller version info
+  async getVersion(): Promise<VersionInfo> {
+    const response = await fetch(`${this.baseUrl}/v0/version`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch version')
     }
     return response.json()
   }

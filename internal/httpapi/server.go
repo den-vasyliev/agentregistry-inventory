@@ -26,6 +26,7 @@ import (
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers"
+	"github.com/agentregistry-dev/agentregistry/internal/version"
 )
 
 // UIFiles is the embedded filesystem for UI files, set by main package
@@ -233,6 +234,17 @@ func (s *Server) registerRoutes() {
 	// Register submit endpoint
 	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
 	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
+
+	// Version endpoint (public)
+	s.mux.HandleFunc("/v0/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"version":   version.Version,
+			"commit":    version.GitCommit,
+			"buildDate": version.BuildDate,
+		})
+	})
 
 	// Ping endpoint for CLI compatibility
 	s.mux.HandleFunc("/v0/ping", func(w http.ResponseWriter, r *http.Request) {

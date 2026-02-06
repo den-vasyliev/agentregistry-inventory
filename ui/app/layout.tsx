@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Navigation } from "@/components/navigation"
 import { SessionProvider } from "@/components/session-provider"
+import { BuildVersion } from "@/components/build-version"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
@@ -27,7 +28,7 @@ export default function RootLayout({
           <Navigation />
           {children}
           <Toaster />
-          <div className="fixed bottom-2 right-2 text-xs text-muted-foreground/50">v2025.02.03.3</div>
+          <BuildVersion />
         </SessionProvider>
       </body>
     </html>

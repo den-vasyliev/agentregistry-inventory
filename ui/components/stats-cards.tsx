@@ -10,14 +10,19 @@ interface StatsCardsProps {
   skillCount: number
   agentCount: number
   modelCount: number
+  activeTab: string
+  onTabChange: (tab: string) => void
 }
 
-export function StatsCards({ stats, skillCount, agentCount, modelCount }: StatsCardsProps) {
+export function StatsCards({ stats, skillCount, agentCount, modelCount, activeTab, onTabChange }: StatsCardsProps) {
   return (
     <div className="bg-muted/30 border-b">
       <div className="container mx-auto px-6 py-6">
         <div className="grid gap-4 md:grid-cols-4">
-          <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 border ${activeTab === "servers" ? "border-primary shadow-md" : "hover:border-primary/20 hover:shadow-md"}`}
+            onClick={() => onTabChange("servers")}
+          >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg flex items-center justify-center">
                 <span className="h-5 w-5 text-primary flex items-center justify-center">
@@ -31,21 +36,12 @@ export function StatsCards({ stats, skillCount, agentCount, modelCount }: StatsC
             </div>
           </Card>
 
-          <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 border ${activeTab === "agents" ? "border-primary shadow-md" : "hover:border-primary/20 hover:shadow-md"}`}
+            onClick={() => onTabChange("agents")}
+          >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/20 rounded-lg flex items-center justify-center">
-                <Zap className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{skillCount}</p>
-                <p className="text-xs text-muted-foreground">Skills</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/30 rounded-lg flex items-center justify-center">
                 <Bot className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -55,7 +51,25 @@ export function StatsCards({ stats, skillCount, agentCount, modelCount }: StatsC
             </div>
           </Card>
 
-          <Card className="p-4 hover:shadow-md transition-all duration-200 border hover:border-primary/20">
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 border ${activeTab === "skills" ? "border-primary shadow-md" : "hover:border-primary/20 hover:shadow-md"}`}
+            onClick={() => onTabChange("skills")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/30 rounded-lg flex items-center justify-center">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{skillCount}</p>
+                <p className="text-xs text-muted-foreground">Skills</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 border ${activeTab === "models" ? "border-primary shadow-md" : "hover:border-primary/20 hover:shadow-md"}`}
+            onClick={() => onTabChange("models")}
+          >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/40 rounded-lg flex items-center justify-center">
                 <Brain className="h-5 w-5 text-primary" />

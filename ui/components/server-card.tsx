@@ -1,7 +1,7 @@
 "use client"
 
 import { ServerResponse } from "@/lib/admin-api"
-import { formatDate, getStatusBadgeStyles } from "@/lib/utils"
+import { getStatusBadgeStyles } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Star, Github, Globe, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
+import { Package, Code, Tag, GitBranch, Star, Github, Globe, Play, StopCircle, ShieldCheck, BadgeCheck, CheckCircle2, XCircle } from "lucide-react"
 
 interface ServerCardProps {
   server: ServerResponse
@@ -53,6 +53,10 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
   }
 
   const owner = getOwner()
+
+  // Derive package type badges and primary language
+  const packageTypes = [...new Set(serverData.packages?.map(p => p.registryType).filter(Boolean) || [])]
+  const primaryLanguage = publisherMetadata?.repo?.primary_language
 
   const handleClick = () => {
     if (onClick) {
@@ -229,18 +233,18 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
           )}
         </div>
 
-        {serverData.packages && serverData.packages.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Package className="h-3 w-3" />
-            <span>{serverData.packages.length} package{serverData.packages.length !== 1 ? 's' : ''}</span>
-          </div>
-        )}
+        {packageTypes.map(type => (
+          <Badge variant="outline" className="text-xs" key={type}>
+            <Package className="h-3 w-3 mr-1" />
+            {type}
+          </Badge>
+        ))}
 
-        {serverData.remotes && serverData.remotes.length > 0 && (
-          <div className="flex items-center gap-1">
-            <ExternalLink className="h-3 w-3" />
-            <span>{serverData.remotes.length} remote{serverData.remotes.length !== 1 ? 's' : ''}</span>
-          </div>
+        {primaryLanguage && (
+          <Badge variant="secondary" className="text-xs">
+            <Code className="h-3 w-3 mr-1" />
+            {primaryLanguage}
+          </Badge>
         )}
 
         {serverData.repository && (

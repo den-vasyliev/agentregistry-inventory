@@ -1,7 +1,6 @@
 "use client"
 
 import { SkillResponse } from "@/lib/admin-api"
-import { formatDate } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Package, Calendar, Tag, ExternalLink, GitBranch, Github, Globe, Zap, BadgeCheck, ShieldCheck, CheckCircle2 } from "lucide-react"
+import { Package, Tag, GitBranch, Github, Globe, Zap, Bot, BadgeCheck, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface SkillCardProps {
@@ -46,6 +45,10 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
   }
 
   const owner = getOwner()
+
+  // Derive package type badges and usedBy
+  const packageTypes = [...new Set(skillData.packages?.map(p => p.registryType).filter(Boolean) || [])]
+  const usedBy = _meta?.usedBy || []
 
   const isRedundantWebsite = () => {
     if (!skillData.websiteUrl || !skillData.repository?.url) return false
@@ -98,6 +101,11 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Active
               </Badge>
+              {skillData.category && (
+                <Badge variant="outline" className="text-xs">
+                  {skillData.category}
+                </Badge>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ShieldCheck
@@ -179,17 +187,17 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
           <span>{skillData.version}</span>
         </div>
 
-        {skillData.packages && skillData.packages.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Package className="h-3 w-3" />
-            <span>{skillData.packages.length} package{skillData.packages.length !== 1 ? 's' : ''}</span>
-          </div>
-        )}
+        {packageTypes.map(type => (
+          <Badge variant="outline" className="text-xs" key={type}>
+            <Package className="h-3 w-3 mr-1" />
+            {type}
+          </Badge>
+        ))}
 
-        {skillData.remotes && skillData.remotes.length > 0 && (
+        {usedBy.length > 0 && (
           <div className="flex items-center gap-1">
-            <ExternalLink className="h-3 w-3" />
-            <span>{skillData.remotes.length} remote{skillData.remotes.length !== 1 ? 's' : ''}</span>
+            <Bot className="h-3 w-3" />
+            <span>Used by {usedBy.length} agent{usedBy.length !== 1 ? 's' : ''}</span>
           </div>
         )}
 
