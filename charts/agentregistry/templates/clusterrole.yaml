@@ -48,26 +48,14 @@ rules:
     verbs:
       - update
 
-  # KAgent CRDs (for deployments)
+  # KAgent CRDs (for deployments and discovery)
   - apiGroups:
       - kagent.dev
     resources:
       - agents
       - remotemcpservers
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-
-  # MCPServer CRDs (kagent.dev - for MCP server deployments and discovery)
-  - apiGroups:
-      - kagent.dev
-    resources:
       - mcpservers
+      - modelconfigs
     verbs:
       - get
       - list

@@ -49,6 +49,7 @@ import {
   Clock,
   ShieldCheck,
   BadgeCheck,
+  Bot,
 } from "lucide-react"
 
 interface ServerDetailProps {
@@ -312,6 +313,7 @@ export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailPr
             {serverData.remotes && serverData.remotes.length > 0 && (
               <TabsTrigger value="remotes">Remotes</TabsTrigger>
             )}
+            <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="raw">Raw Data</TabsTrigger>
           </TabsList>
 
@@ -685,6 +687,34 @@ export function ServerDetail({ server, onClose, onServerCopied }: ServerDetailPr
                 <p className="text-center text-muted-foreground">No remotes defined</p>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="usage" className="space-y-4">
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Used By
+              </h3>
+              {_meta?.usedBy && _meta.usedBy.length > 0 ? (
+                <div className="space-y-3">
+                  {_meta.usedBy.map((ref, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-muted rounded-md">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="text-sm font-medium">{ref.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {ref.kind && `${ref.kind} in `}{ref.namespace}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This server is not currently used by any agents.
+                </p>
+              )}
+            </Card>
           </TabsContent>
 
           <TabsContent value="raw">

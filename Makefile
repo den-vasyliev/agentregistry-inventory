@@ -29,7 +29,7 @@ LDFLAGS := \
 LOCALARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 LOCALOS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev demo-stop
+.PHONY: help build build-ui build-controller test lint clean image push release version run fmt dev demo-stop generate sync-crds
 
 ##@ General
 
@@ -56,7 +56,13 @@ generate: ## Generate CRD manifests and deepcopy code
 	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./api/v1alpha1"
 	@controller-gen crd paths="./api/v1alpha1" output:crd:artifacts:config=config/crd
+	@$(MAKE) sync-crds
 	@echo "✓ Generation complete"
+
+sync-crds: ## Sync CRDs from config/crd/ to Helm chart
+	@echo "Syncing CRDs to Helm chart..."
+	@cp config/crd/agentregistry.dev_*.yaml charts/agentregistry/crds/
+	@echo "✓ CRDs synced to charts/agentregistry/crds/"
 
 build-ui: ## Build UI static export
 	@echo "Building UI..."

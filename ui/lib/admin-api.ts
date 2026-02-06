@@ -149,6 +149,7 @@ export interface ServerResponse {
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
+    usedBy?: Array<{ namespace: string; name: string; kind?: string }>
   }
 }
 

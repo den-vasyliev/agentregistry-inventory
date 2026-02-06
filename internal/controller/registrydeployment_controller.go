@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -158,6 +160,11 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 		return fmt.Errorf("MCP server %s version %s not found", deployment.Spec.ResourceName, deployment.Spec.Version)
 	}
 
+	// Validate publisher identity before deploying
+	if err := validatePublisherIdentity(catalogEntry.Spec.Metadata); err != nil {
+		return fmt.Errorf("deployment blocked for %s %s: %w", deployment.Spec.ResourceName, deployment.Spec.Version, err)
+	}
+
 	// Mark as managed if not already set
 	if catalogEntry.Status.ManagementType != agentregistryv1alpha1.ManagementTypeManaged {
 		catalogEntry.Status.ManagementType = agentregistryv1alpha1.ManagementTypeManaged
@@ -240,6 +247,11 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 
 	if catalogEntry == nil {
 		return fmt.Errorf("agent %s version %s not found", deployment.Spec.ResourceName, deployment.Spec.Version)
+	}
+
+	// Validate publisher identity before deploying
+	if err := validatePublisherIdentity(catalogEntry.Spec.Metadata); err != nil {
+		return fmt.Errorf("deployment blocked for %s %s: %w", deployment.Spec.ResourceName, deployment.Spec.Version, err)
 	}
 
 	// Mark as managed if not already set
@@ -643,6 +655,56 @@ func getImageAndCommand(registryType, runtimeHint string) (image, cmd string) {
 	default:
 		return "", ""
 	}
+}
+
+// validatePublisherIdentity checks that the catalog entry has both verified organization
+// and verified publisher identity. Deployments are blocked if either validation is missing.
+func validatePublisherIdentity(metadata *apiextensionsv1.JSON) error {
+	if metadata == nil || len(metadata.Raw) == 0 {
+		return fmt.Errorf("missing publisher metadata: both org_is_verified and publisher_identity_verified_by_jwt are required")
+	}
+
+	var meta map[string]json.RawMessage
+	if err := json.Unmarshal(metadata.Raw, &meta); err != nil {
+		return fmt.Errorf("invalid metadata: %w", err)
+	}
+
+	publisherRaw, ok := meta["io.modelcontextprotocol.registry/publisher-provided"]
+	if !ok {
+		return fmt.Errorf("missing publisher-provided metadata: both org_is_verified and publisher_identity_verified_by_jwt are required")
+	}
+
+	var publisherProvided map[string]json.RawMessage
+	if err := json.Unmarshal(publisherRaw, &publisherProvided); err != nil {
+		return fmt.Errorf("invalid publisher-provided metadata: %w", err)
+	}
+
+	aregistryRaw, ok := publisherProvided["aregistry.ai/metadata"]
+	if !ok {
+		return fmt.Errorf("missing aregistry.ai/metadata: both org_is_verified and publisher_identity_verified_by_jwt are required")
+	}
+
+	var aregistryMeta struct {
+		Identity struct {
+			OrgIsVerified                  bool `json:"org_is_verified"`
+			PublisherIdentityVerifiedByJWT bool `json:"publisher_identity_verified_by_jwt"`
+		} `json:"identity"`
+	}
+	if err := json.Unmarshal(aregistryRaw, &aregistryMeta); err != nil {
+		return fmt.Errorf("invalid aregistry.ai/metadata: %w", err)
+	}
+
+	if !aregistryMeta.Identity.OrgIsVerified && !aregistryMeta.Identity.PublisherIdentityVerifiedByJWT {
+		return fmt.Errorf("organization is not verified and publisher identity is not verified")
+	}
+	if !aregistryMeta.Identity.OrgIsVerified {
+		return fmt.Errorf("organization is not verified (org_is_verified=false)")
+	}
+	if !aregistryMeta.Identity.PublisherIdentityVerifiedByJWT {
+		return fmt.Errorf("publisher identity is not verified (publisher_identity_verified_by_jwt=false)")
+	}
+
+	return nil
 }
 
 // checkManagedResourcesReady checks managed resources status from their conditions
