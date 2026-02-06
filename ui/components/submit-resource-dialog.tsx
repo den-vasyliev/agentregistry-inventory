@@ -29,7 +29,7 @@ interface SubmitResourceDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type ResourceKind = "mcp-server" | "agent" | "skill"
+type ResourceKind = "mcp-server" | "agent" | "skill" | "model"
 
 interface ManifestData {
   kind: ResourceKind
@@ -48,7 +48,16 @@ interface ManifestData {
   language?: string
   modelProvider?: string
   modelName?: string
+  agentType?: string
   mcpServers?: string  // Comma-separated list of MCP server names
+  // Skill specific
+  category?: string
+  skillPackageType?: string
+  skillPackageIdentifier?: string
+  // Model specific
+  provider?: string
+  model?: string
+  baseUrl?: string
   // Common
   repositoryUrl?: string
   environment?: string
@@ -72,7 +81,14 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
     language: "",
     modelProvider: "",
     modelName: "",
+    agentType: "",
     mcpServers: "",
+    category: "",
+    skillPackageType: "",
+    skillPackageIdentifier: "",
+    provider: "",
+    model: "",
+    baseUrl: "",
     repositoryUrl: "",
     environment: "dev",
   })
@@ -80,7 +96,9 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
   const generateManifest = (): string => {
     // Generate Kubernetes CRD manifest for Agent Registry
     const resourceName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-    const crName = `${resourceName}-${formData.version.replace(/\./g, '-')}`
+    const crName = formData.kind === "model"
+      ? resourceName
+      : `${resourceName}-${formData.version.replace(/\./g, '-')}`
     const environment = formData.environment || "dev"
     
     // Generate universal resource UID: name-env-ver
@@ -129,7 +147,46 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
           type: "streamable-http",
         }]
       }
+
+      if (formData.repositoryUrl) {
+        (manifest.spec as Record<string, unknown>).repository = {
+          url: formData.repositoryUrl,
+          source: "github",
+        }
+      }
     } else if (formData.kind === "agent") {
+      const agentSpec: Record<string, unknown> = {
+        name: formData.name,
+        version: formData.version,
+        title: formData.title || formData.name,
+        description: formData.description,
+        image: formData.image,
+      }
+
+      if (formData.framework) agentSpec.framework = formData.framework
+      if (formData.language) agentSpec.language = formData.language
+      if (formData.modelProvider) agentSpec.modelProvider = formData.modelProvider
+      if (formData.modelName) agentSpec.modelName = formData.modelName
+      if (formData.agentType) agentSpec.agentType = formData.agentType
+
+      if (formData.mcpServers) {
+        const serverNames = formData.mcpServers.split(",").map(s => s.trim()).filter(Boolean)
+        if (serverNames.length > 0) {
+          agentSpec.mcpServers = serverNames.map(name => ({
+            type: "registry",
+            name,
+            registryServerName: name,
+          }))
+        }
+      }
+
+      if (formData.repositoryUrl) {
+        agentSpec.repository = {
+          url: formData.repositoryUrl,
+          source: "github",
+        }
+      }
+
       manifest = {
         apiVersion: "agentregistry.dev/v1alpha1",
         kind: "AgentCatalog",
@@ -137,16 +194,53 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
           name: crName,
           labels: resourceLabels,
         },
-        spec: {
-          name: formData.name,
-          version: formData.version,
-          title: formData.title || formData.name,
-          description: formData.description,
-          image: formData.image,
-        } as Record<string, unknown>,
+        spec: agentSpec,
+      }
+    } else if (formData.kind === "model") {
+      const modelSpec: Record<string, unknown> = {
+        name: formData.name,
+        provider: formData.provider,
+        model: formData.model,
+      }
+
+      if (formData.description) modelSpec.description = formData.description
+      if (formData.baseUrl) modelSpec.baseUrl = formData.baseUrl
+
+      manifest = {
+        apiVersion: "agentregistry.dev/v1alpha1",
+        kind: "ModelCatalog",
+        metadata: {
+          name: crName,
+          namespace: "agentregistry",
+          labels: resourceLabels,
+        },
+        spec: modelSpec,
       }
     } else {
       // skill
+      const skillSpec: Record<string, unknown> = {
+        name: formData.name,
+        version: formData.version,
+        title: formData.title || formData.name,
+        description: formData.description,
+      }
+
+      if (formData.category) skillSpec.category = formData.category
+
+      if (formData.skillPackageIdentifier) {
+        skillSpec.packages = [{
+          registryType: formData.skillPackageType || "oci",
+          identifier: formData.skillPackageIdentifier,
+        }]
+      }
+
+      if (formData.repositoryUrl) {
+        skillSpec.repository = {
+          url: formData.repositoryUrl,
+          source: "github",
+        }
+      }
+
       manifest = {
         apiVersion: "agentregistry.dev/v1alpha1",
         kind: "SkillCatalog",
@@ -154,12 +248,7 @@ export function SubmitResourceDialog({ open, onOpenChange }: SubmitResourceDialo
           name: crName,
           labels: resourceLabels,
         },
-        spec: {
-          name: formData.name,
-          version: formData.version,
-          title: formData.title || formData.name,
-          description: formData.description,
-        },
+        spec: skillSpec,
       }
     }
 
@@ -244,12 +333,20 @@ ${formatAsYaml(manifest)}`
       toast.error("Name is required")
       return
     }
-    if (!formData.version) {
+    if (formData.kind !== "model" && !formData.version) {
       toast.error("Version is required")
       return
     }
     if (formData.kind === "agent" && !formData.image) {
       toast.error("Container Image is required for agents")
+      return
+    }
+    if (formData.kind === "model" && !formData.provider) {
+      toast.error("Provider is required for models")
+      return
+    }
+    if (formData.kind === "model" && !formData.model) {
+      toast.error("Model identifier is required for models")
       return
     }
     setStep("manifest")
@@ -282,7 +379,14 @@ ${formatAsYaml(manifest)}`
       language: "",
       modelProvider: "",
       modelName: "",
+      agentType: "",
       mcpServers: "",
+      category: "",
+      skillPackageType: "",
+      skillPackageIdentifier: "",
+      provider: "",
+      model: "",
+      baseUrl: "",
       repositoryUrl: "",
       environment: "dev",
     })
@@ -309,10 +413,11 @@ ${formatAsYaml(manifest)}`
         {step === "form" ? (
           <div className="space-y-4 py-4">
             <Tabs value={kind} onValueChange={(v) => handleKindChange(v as ResourceKind)}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="mcp-server">MCP Server</TabsTrigger>
                 <TabsTrigger value="agent">Agent</TabsTrigger>
                 <TabsTrigger value="skill">Skill</TabsTrigger>
+                <TabsTrigger value="model">Model</TabsTrigger>
               </TabsList>
 
               <div className="mt-4 space-y-4">
@@ -327,26 +432,30 @@ ${formatAsYaml(manifest)}`
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="version">Version *</Label>
-                    <Input
-                      id="version"
-                      placeholder="1.0.0"
-                      value={formData.version}
-                      onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                    />
-                  </div>
+                  {kind !== "model" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="version">Version *</Label>
+                      <Input
+                        id="version"
+                        placeholder="1.0.0"
+                        value={formData.version}
+                        onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="My Resource Title"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  />
-                </div>
+                {kind !== "model" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="My Resource Title"
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
@@ -358,36 +467,38 @@ ${formatAsYaml(manifest)}`
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="environment">Environment</Label>
-                    <Select
-                      value={formData.environment}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, environment: v }))}
-                    >
-                      <SelectTrigger id="environment">
-                        <SelectValue placeholder="Select environment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dev">Development</SelectItem>
-                        <SelectItem value="staging">Staging</SelectItem>
-                        <SelectItem value="prod">Production</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Used for resource UID generation
-                    </p>
+                {kind !== "model" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="environment">Environment</Label>
+                      <Select
+                        value={formData.environment}
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, environment: v }))}
+                      >
+                        <SelectTrigger id="environment">
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dev">Development</SelectItem>
+                          <SelectItem value="staging">Staging</SelectItem>
+                          <SelectItem value="prod">Production</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Used for resource UID generation
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repositoryUrl">Repository URL *</Label>
+                      <Input
+                        id="repositoryUrl"
+                        placeholder="https://github.com/owner/repo"
+                        value={formData.repositoryUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, repositoryUrl: e.target.value }))}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="repositoryUrl">Repository URL *</Label>
-                    <Input
-                      id="repositoryUrl"
-                      placeholder="https://github.com/owner/repo"
-                      value={formData.repositoryUrl}
-                      onChange={(e) => setFormData(prev => ({ ...prev, repositoryUrl: e.target.value }))}
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* MCP Server specific fields */}
                 <TabsContent value="mcp-server" className="mt-0 space-y-4">
@@ -435,14 +546,31 @@ ${formatAsYaml(manifest)}`
 
                 {/* Agent specific fields */}
                 <TabsContent value="agent" className="mt-0 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="image">Container Image *</Label>
-                    <Input
-                      id="image"
-                      placeholder="ghcr.io/org/agent:latest"
-                      value={formData.image}
-                      onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="image">Container Image *</Label>
+                      <Input
+                        id="image"
+                        placeholder="ghcr.io/org/agent:latest"
+                        value={formData.image}
+                        onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="agentType">Agent Type</Label>
+                      <Select
+                        value={formData.agentType}
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, agentType: v }))}
+                      >
+                        <SelectTrigger id="agentType">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Declarative">Declarative</SelectItem>
+                          <SelectItem value="BYO">BYO (Bring Your Own)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -485,25 +613,103 @@ ${formatAsYaml(manifest)}`
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="mcpServers">MCP Servers (Tools/Skills) *</Label>
+                    <Label htmlFor="mcpServers">MCP Servers (Tools/Skills)</Label>
                     <Textarea
                       id="mcpServers"
-                      placeholder="Enter MCP server names from registry, comma-separated (e.g., brave-search, sqlite, filesystem)"
+                      placeholder="Comma-separated MCP server names (e.g., brave-search, sqlite, filesystem)"
                       value={formData.mcpServers}
                       onChange={(e) => setFormData(prev => ({ ...prev, mcpServers: e.target.value }))}
-                      rows={3}
+                      rows={2}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Agents need at least one MCP server to provide tools/skills. Reference servers from the Agent Registry catalog.
+                      Reference MCP servers from the catalog to provide tools for this agent.
                     </p>
                   </div>
                 </TabsContent>
 
                 {/* Skill specific fields */}
                 <TabsContent value="skill" className="mt-0 space-y-4">
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      Skills are typically discovered from deployed agents. The name, version, title, and description fields above are sufficient for manual skill registration.
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      placeholder="e.g., code-generation, testing, data-processing"
+                      value={formData.category}
+                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="skillPackageType">Package Type</Label>
+                      <Select
+                        value={formData.skillPackageType}
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, skillPackageType: v }))}
+                      >
+                        <SelectTrigger id="skillPackageType">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="oci">OCI/Docker</SelectItem>
+                          <SelectItem value="npm">NPM</SelectItem>
+                          <SelectItem value="pypi">PyPI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="skillPackageIdentifier">Package Identifier</Label>
+                      <Input
+                        id="skillPackageIdentifier"
+                        placeholder="e.g., ghcr.io/org/skill:v1"
+                        value={formData.skillPackageIdentifier}
+                        onChange={(e) => setFormData(prev => ({ ...prev, skillPackageIdentifier: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Model specific fields */}
+                <TabsContent value="model" className="mt-0 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="provider">Provider *</Label>
+                      <Select
+                        value={formData.provider}
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, provider: v }))}
+                      >
+                        <SelectTrigger id="provider">
+                          <SelectValue placeholder="Select provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Anthropic">Anthropic</SelectItem>
+                          <SelectItem value="OpenAI">OpenAI</SelectItem>
+                          <SelectItem value="AzureOpenAI">Azure OpenAI</SelectItem>
+                          <SelectItem value="Ollama">Ollama</SelectItem>
+                          <SelectItem value="Gemini">Gemini</SelectItem>
+                          <SelectItem value="GeminiVertexAI">Gemini Vertex AI</SelectItem>
+                          <SelectItem value="AnthropicVertexAI">Anthropic Vertex AI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="model">Model *</Label>
+                      <Input
+                        id="model"
+                        placeholder="e.g., gpt-4o, claude-sonnet-4-5-20250514"
+                        value={formData.model}
+                        onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="baseUrl">Base URL</Label>
+                    <Input
+                      id="baseUrl"
+                      placeholder="e.g., https://api.openai.com/v1"
+                      value={formData.baseUrl}
+                      onChange={(e) => setFormData(prev => ({ ...prev, baseUrl: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      API endpoint URL. Required for Ollama and custom deployments.
                     </p>
                   </div>
                 </TabsContent>

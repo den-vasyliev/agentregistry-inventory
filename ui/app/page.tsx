@@ -80,6 +80,8 @@ export default function AdminPage() {
   const [filterVerifiedPublisher, setFilterVerifiedPublisher] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [filterFramework, setFilterFramework] = useState<string>("all")
+  const [filterAgentType, setFilterAgentType] = useState<string>("all")
+  const [filterPackageType, setFilterPackageType] = useState<string>("all")
   const [filterProvider, setFilterProvider] = useState<string>("all")
   const [submitResourceDialogOpen, setSubmitResourceDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -102,6 +104,14 @@ export default function AdminPage() {
   }, [searchQuery])
 
   // Compute unique filter options from loaded data
+  const availablePackageTypes = useMemo(() => {
+    const types = new Set<string>()
+    servers.forEach(s => {
+      s.server.packages?.forEach(p => { if (p.registryType) types.add(p.registryType) })
+    })
+    return Array.from(types).sort()
+  }, [servers])
+
   const availableCategories = useMemo(() => {
     const cats = new Set<string>()
     skills.forEach(s => { if (s.skill.category) cats.add(s.skill.category) })
@@ -111,6 +121,12 @@ export default function AdminPage() {
   const availableFrameworks = useMemo(() => {
     const vals = new Set<string>()
     agents.forEach(a => { if (a.agent.framework) vals.add(a.agent.framework) })
+    return Array.from(vals).sort()
+  }, [agents])
+
+  const availableAgentTypes = useMemo(() => {
+    const vals = new Set<string>()
+    agents.forEach(a => { if (a.agent.agentType) vals.add(a.agent.agentType) })
     return Array.from(vals).sort()
   }, [agents])
 
@@ -417,7 +433,7 @@ export default function AdminPage() {
     setCurrentPageSkills(1)
     setCurrentPageAgents(1)
     setCurrentPageModels(1)
-  }, [debouncedSearch, deploymentStatusFilter, filterCategory, filterFramework, filterProvider])
+  }, [debouncedSearch, deploymentStatusFilter, filterCategory, filterFramework, filterAgentType, filterPackageType, filterProvider])
 
   // Filter and sort servers
   useEffect(() => {
@@ -447,10 +463,16 @@ export default function AdminPage() {
       })
     }
 
+    if (filterPackageType !== "all") {
+      filtered = filtered.filter((s) =>
+        s.server.packages?.some(p => p.registryType === filterPackageType)
+      )
+    }
+
     filtered = filtered.filter((s) => matchesDeploymentFilter(s, deploymentStatusFilter))
 
     setFilteredServers(sortByCreatedDesc(filtered))
-  }, [debouncedSearch, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter])
+  }, [debouncedSearch, groupedServers, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter, filterPackageType])
 
   // Filter skills, agents, and models
   useEffect(() => {
@@ -506,6 +528,9 @@ export default function AdminPage() {
     if (filterFramework !== "all") {
       filteredA = filteredA.filter((a) => a.agent.framework === filterFramework)
     }
+    if (filterAgentType !== "all") {
+      filteredA = filteredA.filter((a) => a.agent.agentType === filterAgentType)
+    }
     filteredA = filteredA.filter((a) => matchesDeploymentFilter(a, deploymentStatusFilter))
     setFilteredAgents(sortByCreatedDesc(filteredA))
 
@@ -523,7 +548,7 @@ export default function AdminPage() {
       filteredM = filteredM.filter((m) => m.model.provider === filterProvider)
     }
     setFilteredModels(sortByCreatedDesc(filteredM))
-  }, [debouncedSearch, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter, filterCategory, filterFramework, filterProvider])
+  }, [debouncedSearch, skills, agents, models, filterVerifiedOrg, filterVerifiedPublisher, deploymentStatusFilter, filterCategory, filterFramework, filterAgentType, filterProvider])
 
   if (loading) {
     return (
@@ -620,27 +645,6 @@ export default function AdminPage() {
       <div className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center gap-4 mb-8">
-            <TabsList>
-              <TabsTrigger value="servers" className="gap-2">
-                <span className="h-4 w-4 flex items-center justify-center">
-                  <MCPIcon />
-                </span>
-                MCP
-              </TabsTrigger>
-              <TabsTrigger value="agents" className="gap-2">
-                <Bot className="h-4 w-4" />
-                Agents
-              </TabsTrigger>
-              <TabsTrigger value="skills" className="gap-2">
-                <Zap className="h-4 w-4" />
-                Skills
-              </TabsTrigger>
-              <TabsTrigger value="models" className="gap-2">
-                <Brain className="h-4 w-4" />
-                Models
-              </TabsTrigger>
-            </TabsList>
-
             {/* Search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
@@ -716,6 +720,21 @@ export default function AdminPage() {
             )}
 
             {/* Per-tab category/type filters */}
+            {activeTab === 'servers' && availablePackageTypes.length > 0 && (
+              <Select value={filterPackageType} onValueChange={setFilterPackageType}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Package type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {availablePackageTypes.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {activeTab === 'skills' && availableCategories.length > 0 && (
               <Select value={filterCategory} onValueChange={setFilterCategory}>
                 <SelectTrigger className="w-[140px] h-9">
@@ -741,6 +760,21 @@ export default function AdminPage() {
                   <SelectItem value="all">All frameworks</SelectItem>
                   {availableFrameworks.map(f => (
                     <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {activeTab === 'agents' && availableAgentTypes.length > 0 && (
+              <Select value={filterAgentType} onValueChange={setFilterAgentType}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {availableAgentTypes.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
