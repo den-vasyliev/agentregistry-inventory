@@ -6,7 +6,7 @@
   <h2>The Control Plane for AI Infrastructure</h2>
   
   <p>
-    <strong>Kubernetes-native registry for MCP servers, agents, skills & models</strong>
+    <h3>Kubernetes-native registry for MCP servers, agents, skills & models</h3>
   </p>
 
   <p>
@@ -23,25 +23,24 @@
     <a href="#docs">📚 Docs</a> •
     <a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a">📝 Blog</a>
   </p>
-<p><h3>Automatically indexes MCP servers, agents, skills, and models across clusters.
 
-If it's running, it's in the catalog.</h3>
-</p>
 
-> **No CLI needed.** Agent Registry ships an [MCP server](#-mcp-server) — connect it to Claude Code, Cursor, or any MCP-compatible client and manage your registry conversationally.
-
-  <p><a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a"><img src="https://img.shields.io/badge/Medium-Read%20the%20story-black?style=flat-square&logo=medium&logoColor=white" alt="Read on Medium"></a></p>
-
-  <a href="https://youtu.be/sCut0CEHRr0">
+  <p><a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a"><img src="https://img.shields.io/badge/Medium-Read%20the%20story-black?style=flat-square&logo=medium&logoColor=white" alt="Read on Medium"></a>  <a href="https://youtu.be/sCut0CEHRr0">
     <img src="https://img.shields.io/badge/▶_Watch_Demo-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube"/>
   </a>
-
+  </p>
 
 </div>
 
 <a id="features"></a>
 
 ## ✨ What You Get
+<p><h3>Automatically indexes MCP servers, agents, skills, and models across clusters.
+
+If it's running, it's in the catalog.</h3>
+</p>
+
+> **No CLI needed.** Agent Registry ships an [MCP server](#-mcp-server) — connect it to Claude Code, Cursor, or any MCP-compatible client and manage your registry conversationally.
 <center><img src="docs/img/inventory.png"></center>
 
 | Capability | What It Means |
