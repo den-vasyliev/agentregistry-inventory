@@ -33,11 +33,9 @@ If it's running, it's in the catalog.</h3>
   <p><a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a"><img src="https://img.shields.io/badge/Medium-Read%20the%20story-black?style=flat-square&logo=medium&logoColor=white" alt="Read on Medium"></a></p>
 
   <a href="https://youtu.be/sCut0CEHRr0">
-    <img src="https://img.youtube.com/vi/sCut0CEHRr0/maxresdefault.jpg" alt="Agent Inventory Demo" width="480"/>
+    <img src="https://img.shields.io/badge/▶_Watch_Demo-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube"/>
   </a>
-  <p>
-    <a href="https://youtu.be/sCut0CEHRr0"><img src="https://img.shields.io/badge/YouTube-Watch%20Demo-red?style=flat-square&logo=youtube&logoColor=white" alt="Watch on YouTube"></a>
-  </p>
+
 
 </div>
 
