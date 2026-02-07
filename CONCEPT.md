@@ -1,6 +1,6 @@
 # Your AI Infrastructure Is Sprawling. You Just Don't Know It Yet.
 
-[![README](https://img.shields.io/badge/README-docs-blue)](README.md)
+[![README](https://img.shields.io/badge/README-docs-blue)](README.md) [![Medium](https://img.shields.io/badge/Medium-read-black?logo=medium)](https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a)
 
 > Built at the [AI + MCP Agents Hackathon](https://aihackathon.dev). Inspired by the [solo.io](https://solo.io) team and their work on kagent, kgateway, kmcp and agent registry — pushing us to make AI infrastructure safe and reliable.
 
