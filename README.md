@@ -21,7 +21,7 @@
     <a href="#features">✨ Features</a> •
     <a href="#architecture">🏗️ Architecture</a> •
     <a href="#docs">📚 Docs</a> •
-    <a href="CONCEPT.md">📝 Blog</a>
+    <a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a">📝 Blog</a>
   </p>
 <p><h3>Automatically indexes MCP servers, agents, skills, and models across clusters.
 
@@ -30,7 +30,7 @@ If it's running, it's in the catalog.</h3>
 
 > **No CLI needed.** Agent Registry ships an [MCP server](#-mcp-server) — connect it to Claude Code, Cursor, or any MCP-compatible client and manage your registry conversationally.
 
-  <p><a href="CONCEPT.md">📝 Read the story behind Agent Inventory</a></p>
+  <p><a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a">📝 Read the story behind Agent Inventory</a></p>
 
   <a href="https://youtu.be/sCut0CEHRr0">
     <img src="https://img.youtube.com/vi/sCut0CEHRr0/maxresdefault.jpg" alt="Agent Inventory Demo" width="480"/>
