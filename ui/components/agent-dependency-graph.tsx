@@ -214,7 +214,6 @@ function getLayoutedElements(
   nodes: Node<DepNodeData>[],
   edges: Edge[],
 ): { nodes: Node<DepNodeData>[]; edges: Edge[] } {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Dagre = require("@dagrejs/dagre")
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
   g.setGraph({ rankdir: "TB", nodesep: 50, ranksep: 80 })

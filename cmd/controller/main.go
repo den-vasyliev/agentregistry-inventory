@@ -23,8 +23,10 @@ import (
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/cluster"
+	arconfig "github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/controller"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi"
+	registrymcp "github.com/agentregistry-dev/agentregistry/internal/mcp"
 	"github.com/agentregistry-dev/agentregistry/internal/version"
 
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
@@ -59,6 +61,7 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		httpAPIAddr          string
+		mcpAddr              string
 		enableHTTPAPI        bool
 		logLevel             string
 	)
@@ -69,6 +72,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&httpAPIAddr, "http-api-address", ":8080", "The address the HTTP API server binds to.")
+	flag.StringVar(&mcpAddr, "mcp-address", ":8083", "The address the MCP server binds to.")
 	flag.BoolVar(&enableHTTPAPI, "enable-http-api", true, "Enable the HTTP API server.")
 	flag.StringVar(&logLevel, "log-level", "info", "Log level (trace, debug, info, warn, error)")
 
@@ -118,6 +122,7 @@ func main() {
 		Str("probe-addr", probeAddr).
 		Bool("leader-elect", enableLeaderElection).
 		Str("http-api-addr", httpAPIAddr).
+		Str("mcp-addr", mcpAddr).
 		Bool("enable-http-api", enableHTTPAPI).
 		Str("log-level", logLevel).
 		Msg("starting agent registry controller")
@@ -237,6 +242,14 @@ func main() {
 			log.Error().Err(err).Msg("unable to add HTTP API server")
 			os.Exit(1)
 		}
+	}
+
+	// Set up MCP server on its own port
+	mcpLogger := log.Logger.With().Str("component", "mcp").Logger()
+	mcpServer := registrymcp.NewMCPServer(mgr.GetClient(), mgr.GetCache(), mcpLogger, arconfig.IsAuthEnabled())
+	if err := mgr.Add(mcpServer.Runnable(mcpAddr)); err != nil {
+		log.Error().Err(err).Msg("unable to add MCP server")
+		os.Exit(1)
 	}
 
 	// Add health check endpoints

@@ -20,12 +20,22 @@
     <a href="#quick-start">🚀 Quick Start</a> •
     <a href="#features">✨ Features</a> •
     <a href="#architecture">🏗️ Architecture</a> •
-    <a href="#docs">📚 Docs</a>
+    <a href="#docs">📚 Docs</a> •
+    <a href="CONCEPT.md">📝 Blog</a>
   </p>
-<p><h3>Automatically indexes MCP servers, agents, skills, and models across clusters. 
+<p><h3>Automatically indexes MCP servers, agents, skills, and models across clusters.
 
 If it's running, it's in the catalog.</h3>
 </p>
+
+> **No CLI needed.** Agent Registry ships an [MCP server](#-mcp-server) — connect it to Claude Code, Cursor, or any MCP-compatible client and manage your registry conversationally.
+
+  <p><a href="CONCEPT.md">📝 Read the story behind Agent Inventory</a></p>
+
+  <a href="https://youtu.be/sCut0CEHRr0">
+    <img src="https://img.youtube.com/vi/sCut0CEHRr0/maxresdefault.jpg" alt="Agent Inventory Demo" width="480"/>
+  </a>
+
 </div>
 
 <a id="features"></a>
@@ -232,6 +242,54 @@ curl -X POST http://localhost:8080/admin/v0/deploy \
     "namespace": "default"
   }'
 ```
+
+---
+
+## 🤖 MCP Server
+
+The controller embeds an MCP (Model Context Protocol) server, so any MCP-compatible client (Claude Code, Cursor, etc.) can browse, deploy, and manage registry resources conversationally.
+
+### Connect
+
+Add to your MCP client config (e.g. `.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "agentregistry": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_catalog` | List catalog entries — `type` (servers/agents/skills/models), `search?`, `version?`, `category?`, `provider?`, `limit?` |
+| `get_catalog` | Get entry details — `type`, `name`, `version?` |
+| `get_registry_stats` | Counts of all resource types |
+| `list_deployments` | List active deployments |
+| `get_deployment` | Deployment details by name |
+| `deploy_catalog_item` | Deploy a catalog item to Kubernetes |
+| `delete_deployment` | Remove a deployment |
+| `update_deployment_config` | Update deployment config |
+| `list_environments` | Discovered environments from DiscoveryConfig |
+| `get_discovery_map` | Cluster topology and resource counts |
+| `trigger_discovery` | Force re-scan of discovery |
+| `recommend_servers` | AI-powered server recommendations (uses sampling) |
+| `analyze_agent_dependencies` | AI-powered dependency analysis (uses sampling) |
+| `generate_deployment_plan` | AI-powered deployment planning (uses sampling) |
+
+### Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `agentregistry_skill` | Complete guide to all tools and workflows |
+| `deploy_server` | Guided MCP server deployment workflow |
+| `find_agents` | Guided agent discovery workflow |
+| `registry_overview` | Comprehensive registry status overview |
 
 ---
 
