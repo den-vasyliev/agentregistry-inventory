@@ -35,6 +35,9 @@ If it's running, it's in the catalog.</h3>
   <a href="https://youtu.be/sCut0CEHRr0">
     <img src="https://img.youtube.com/vi/sCut0CEHRr0/maxresdefault.jpg" alt="Agent Inventory Demo" width="480"/>
   </a>
+  <p>
+    <a href="https://youtu.be/sCut0CEHRr0"><img src="https://img.shields.io/badge/YouTube-Watch%20Demo-red?style=flat-square&logo=youtube&logoColor=white" alt="Watch on YouTube"></a>
+  </p>
 
 </div>
 
