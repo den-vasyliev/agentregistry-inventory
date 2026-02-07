@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useEffect, useState } from "react"
+import { useMemo, useCallback, useState } from "react"
 import {
   ReactFlow,
   Background,
@@ -436,7 +436,6 @@ function getLayoutedElements(
   nodes: Node<MapNodeData>[],
   edges: Edge[],
 ): { nodes: Node<MapNodeData>[]; edges: Edge[] } {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Dagre = require("@dagrejs/dagre")
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
   g.setGraph({ rankdir: "TB", nodesep: 80, ranksep: 100 })
@@ -471,32 +470,32 @@ export function DiscoveryMapGraph({
     return getLayoutedElements(nodes, edges)
   }, [configs, resourceCounts])
 
-  // Track nodes/edges in state so ReactFlow can update them, but sync from layouted data
-  const [nodes, setNodes] = useState<Node<MapNodeData>[]>(layoutedNodes)
-  const [edges, setEdges] = useState<Edge[]>(layoutedEdges)
+  // Track drag overrides separately to avoid calling setState in an effect
+  const [dragOverrides, setDragOverrides] = useState<Record<string, { x: number; y: number }>>({})
 
-  useEffect(() => {
-    setNodes(layoutedNodes)
-    setEdges(layoutedEdges)
-  }, [layoutedNodes, layoutedEdges])
+  const nodes = useMemo(
+    () => layoutedNodes.map((n) => (dragOverrides[n.id] ? { ...n, position: dragOverrides[n.id] } : n)),
+    [layoutedNodes, dragOverrides],
+  )
+
+  const onNodesChange = useCallback((changes: Parameters<Exclude<React.ComponentProps<typeof ReactFlow>["onNodesChange"], undefined>>[0]) => {
+    const posUpdates: Record<string, { x: number; y: number }> = {}
+    for (const change of changes) {
+      if (change.type === "position" && change.position) {
+        posUpdates[change.id] = change.position
+      }
+    }
+    if (Object.keys(posUpdates).length > 0) {
+      setDragOverrides((prev) => ({ ...prev, ...posUpdates }))
+    }
+  }, [])
 
   return (
     <div style={{ width: "100%", height: "calc(100vh - 100px)" }} className="rounded-lg border bg-card">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
-        onNodesChange={(changes) => {
-          setNodes((nds) => {
-            const updated = [...nds]
-            for (const change of changes) {
-              if (change.type === "position" && change.position) {
-                const idx = updated.findIndex((n) => n.id === change.id)
-                if (idx !== -1) updated[idx] = { ...updated[idx], position: change.position }
-              }
-            }
-            return updated
-          })
-        }}
+        edges={layoutedEdges}
+        onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.15 }}

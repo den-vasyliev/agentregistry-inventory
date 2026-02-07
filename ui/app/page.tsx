@@ -63,6 +63,69 @@ interface GroupedServer extends ServerResponse {
 // Deployment status filter type
 type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
 
+// Helper function to get resource creation date (for sorting)
+const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
+  const dateStr = item._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
+  if (!dateStr) return null
+  try {
+    return new Date(dateStr)
+  } catch {
+    return null
+  }
+}
+
+// Extract the canonical name from any resource type
+const getResourceName = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): string => {
+  if ('server' in item) return item.server.name
+  if ('agent' in item) return item.agent.name
+  if ('skill' in item) return item.skill.name
+  if ('model' in item) return item.model.name
+  return ''
+}
+
+// Sort newest first by creation date
+const sortByCreatedDesc = <T extends ServerResponse | AgentResponse | SkillResponse | ModelResponse>(list: T[]): T[] =>
+  [...list].sort((a, b) => {
+    const dateA = getResourceDate(a)
+    const dateB = getResourceDate(b)
+    if (!dateA && !dateB) return getResourceName(a).localeCompare(getResourceName(b))
+    if (!dateA) return 1
+    if (!dateB) return -1
+    const diff = dateB.getTime() - dateA.getTime()
+    return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
+  })
+
+// Group servers by name, keeping the latest version as the representative
+const groupServersByName = (servers: ServerResponse[]): GroupedServer[] => {
+  const grouped: Record<string, ServerResponse[]> = {}
+
+  servers.forEach((server) => {
+    const name = server.server.name
+    if (!grouped[name]) {
+      grouped[name] = []
+    }
+    grouped[name].push(server)
+  })
+
+  return Object.entries(grouped).map(([name, versions]) => {
+    const sortedVersions = [...versions].sort((a, b) => {
+      const dateA = getResourceDate(a)
+      const dateB = getResourceDate(b)
+      if (dateA && dateB) {
+        return dateB.getTime() - dateA.getTime()
+      }
+      return b.server.version.localeCompare(a.server.version)
+    })
+
+    const latestVersion = sortedVersions[0]
+    return {
+      ...latestVersion,
+      versionCount: versions.length,
+      allVersions: sortedVersions,
+    }
+  })
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -167,38 +230,6 @@ export default function AdminPage() {
   const scrollPositionRef = useRef<number>(0)
   const shouldRestoreScrollRef = useRef<boolean>(false)
 
-  // Helper function to get resource creation date (for sorting)
-  const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
-    const dateStr = item._meta?.['io.modelcontextprotocol.registry/official']?.updatedAt
-    if (!dateStr) return null
-    try {
-      return new Date(dateStr)
-    } catch {
-      return null
-    }
-  }
-
-  // Extract the canonical name from any resource type
-  const getResourceName = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): string => {
-    if ('server' in item) return item.server.name
-    if ('agent' in item) return item.agent.name
-    if ('skill' in item) return item.skill.name
-    if ('model' in item) return item.model.name
-    return ''
-  }
-
-  // Sort newest first by creation date
-  const sortByCreatedDesc = <T extends ServerResponse | AgentResponse | SkillResponse | ModelResponse>(list: T[]): T[] =>
-    [...list].sort((a, b) => {
-      const dateA = getResourceDate(a)
-      const dateB = getResourceDate(b)
-      if (!dateA && !dateB) return getResourceName(a).localeCompare(getResourceName(b))
-      if (!dateA) return 1
-      if (!dateB) return -1
-      const diff = dateB.getTime() - dateA.getTime()
-      return diff !== 0 ? diff : getResourceName(a).localeCompare(getResourceName(b))
-    })
-
   const matchesDeploymentFilter = (item: ServerResponse | AgentResponse, filter: DeploymentStatus): boolean => {
     if (filter === "all") return true
 
@@ -215,37 +246,6 @@ export default function AdminPage() {
       case "not_deployed":
         return !isExternal && !deployment
     }
-  }
-
-  // Group servers by name, keeping the latest version as the representative
-  const groupServersByName = (servers: ServerResponse[]): GroupedServer[] => {
-    const grouped: Record<string, ServerResponse[]> = {}
-
-    servers.forEach((server) => {
-      const name = server.server.name
-      if (!grouped[name]) {
-        grouped[name] = []
-      }
-      grouped[name].push(server)
-    })
-
-    return Object.entries(grouped).map(([name, versions]) => {
-      const sortedVersions = [...versions].sort((a, b) => {
-        const dateA = getResourceDate(a)
-        const dateB = getResourceDate(b)
-        if (dateA && dateB) {
-          return dateB.getTime() - dateA.getTime()
-        }
-        return b.server.version.localeCompare(a.server.version)
-      })
-
-      const latestVersion = sortedVersions[0]
-      return {
-        ...latestVersion,
-        versionCount: versions.length,
-        allVersions: sortedVersions,
-      }
-    })
   }
 
   // Fetch data from API
