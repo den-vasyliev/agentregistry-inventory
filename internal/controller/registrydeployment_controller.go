@@ -550,6 +550,9 @@ func (r *RegistryDeploymentReconciler) getTargetClient(ctx context.Context, depl
 		for j := range dcList.Items[i].Spec.Environments {
 			env := &dcList.Items[i].Spec.Environments[j]
 			if env.Name == envName {
+				if !env.DeployEnabled {
+					return nil, "", fmt.Errorf("deployment to environment %q is not allowed (deployEnabled is false)", envName)
+				}
 				remoteClient, err := factory(env, r.Scheme)
 				if err != nil {
 					return nil, "", fmt.Errorf("failed to create remote client for environment %q: %w", envName, err)

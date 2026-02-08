@@ -19,6 +19,7 @@ spec:
         prefix: newron-dev
         useWorkloadIdentity: true
       discoveryEnabled: true
+      deployEnabled: true # allow deploying catalog items to this environment
       namespaces:
         - default
       resourceTypes:
@@ -30,7 +31,7 @@ spec:
         environment: dev
         managed-by: agentregistry
 
-    # Remote GKE cluster - Staging environment
+    # Remote GKE cluster - Staging environment (read-only discovery)
     - name: staging
       cluster:
         name: panda

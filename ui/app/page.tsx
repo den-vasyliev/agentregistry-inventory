@@ -215,8 +215,8 @@ export default function AdminPage() {
   const [undeploying, setUndeploying] = useState(false)
   const [deployNamespace, setDeployNamespace] = useState("agentregistry")
   const [deployEnvironment, setDeployEnvironment] = useState("")
-  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, namespace: string}>>([
-    { name: "local", cluster: "", namespace: "agentregistry" }
+  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, provider?: string, region?: string, namespace: string, deployEnabled: boolean}>>([
+    { name: "local", cluster: "", namespace: "agentregistry", deployEnabled: true }
   ])
   const [loadingEnvironments, setLoadingEnvironments] = useState(false)
 
@@ -375,10 +375,14 @@ export default function AdminPage() {
     try {
       const envs = await adminApiClient.listEnvironments()
       if (envs && envs.length > 0) {
-        const unique = envs.filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
-        setEnvironments(unique)
-        setDeployNamespace(unique[0].namespace)
-        setDeployEnvironment(unique[0].name)
+        const deployable = envs
+          .filter(env => env.deployEnabled)
+          .filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
+        setEnvironments(deployable)
+        if (deployable.length > 0) {
+          setDeployNamespace(deployable[0].namespace)
+          setDeployEnvironment(deployable[0].name)
+        }
       }
     } catch (err) {
       console.error("Failed to fetch environments:", err)

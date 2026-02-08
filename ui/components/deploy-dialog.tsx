@@ -26,7 +26,7 @@ interface DeployDialogProps {
   itemType?: 'server' | 'agent'
   deploying: boolean
   onConfirm: () => void
-  environments: Array<{ name: string; cluster: string; namespace: string }>
+  environments: Array<{ name: string; cluster: string; provider?: string; region?: string; namespace: string; deployEnabled: boolean }>
   loadingEnvironments: boolean
   deployNamespace: string
   deployEnvironment: string
@@ -76,8 +76,16 @@ export function DeployDialog({
               <SelectContent>
                 {environments.map((env) => (
                   <SelectItem key={env.name} value={env.name}>
-                    {env.name}
-                    {env.cluster && <span className="text-muted-foreground ml-1">· {env.cluster}</span>}
+                    <span className="flex items-center gap-1.5">
+                      {env.provider && (
+                        <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                          {env.provider}
+                        </span>
+                      )}
+                      <span>{env.name}</span>
+                      {env.cluster && <span className="text-muted-foreground">· {env.cluster}</span>}
+                      {env.region && <span className="text-muted-foreground text-xs">({env.region})</span>}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -92,10 +100,22 @@ export function DeployDialog({
                 const env = environments.find(e => e.name === deployEnvironment)
                 return env ? (
                   <>
+                    {env.provider && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Provider</span>
+                        <span className="font-mono uppercase">{env.provider}</span>
+                      </div>
+                    )}
                     {env.cluster && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Cluster</span>
                         <span className="font-mono">{env.cluster}</span>
+                      </div>
+                    )}
+                    {env.region && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Region</span>
+                        <span className="font-mono">{env.region}</span>
                       </div>
                     )}
                     <div className="flex justify-between">

@@ -99,6 +99,11 @@ spec:
                       required:
                       - name
                       type: object
+                    deployEnabled:
+                      description: |-
+                        DeployEnabled allows deploying catalog items to this environment.
+                        When false (default), the environment is read-only for discovery.
+                      type: boolean
                     discoveryEnabled:
                       default: true
                       description: DiscoveryEnabled enables/disables discovery for

@@ -1030,7 +1030,10 @@ class AdminApiClient {
   async listEnvironments(): Promise<Array<{
     name: string
     cluster: string
+    provider?: string
+    region?: string
     namespace: string
+    deployEnabled: boolean
     labels?: Record<string, string>
   }>> {
     const response = await fetch(`${this.baseUrl}/v0/environments`)

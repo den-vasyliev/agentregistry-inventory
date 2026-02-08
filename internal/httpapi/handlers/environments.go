@@ -31,10 +31,13 @@ func NewEnvironmentHandler(c client.Client, cache cache.Cache, logger zerolog.Lo
 
 // Environment response types
 type EnvironmentJSON struct {
-	Name      string            `json:"name"`
-	Cluster   string            `json:"cluster"`
-	Namespace string            `json:"namespace"`
-	Labels    map[string]string `json:"labels,omitempty"`
+	Name          string            `json:"name"`
+	Cluster       string            `json:"cluster"`
+	Provider      string            `json:"provider,omitempty"`
+	Region        string            `json:"region,omitempty"`
+	Namespace     string            `json:"namespace"`
+	DeployEnabled bool              `json:"deployEnabled"`
+	Labels        map[string]string `json:"labels,omitempty"`
 }
 
 type EnvironmentListResponse struct {
@@ -129,11 +132,18 @@ func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[En
 			if ns == "" && len(env.Namespaces) > 0 {
 				ns = env.Namespaces[0]
 			}
+			region := env.Cluster.Region
+			if region == "" {
+				region = env.Cluster.Zone
+			}
 			environments = append(environments, EnvironmentJSON{
-				Name:      env.Name,
-				Cluster:   env.Cluster.Name,
-				Namespace: ns,
-				Labels:    env.Labels,
+				Name:          env.Name,
+				Cluster:       env.Cluster.Name,
+				Provider:      env.Provider,
+				Region:        region,
+				Namespace:     ns,
+				DeployEnabled: env.DeployEnabled,
+				Labels:        env.Labels,
 			})
 		}
 	}
