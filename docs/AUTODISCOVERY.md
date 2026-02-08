@@ -6,7 +6,7 @@ Agent Registry automatically discovers resources across multiple Kubernetes clus
 
 - Monitor multiple clusters (dev, staging, prod)
 - Auto-create catalog entries for discovered resources
-- Workload identity authentication (GCP)
+- Workload identity authentication (GCP; AWS and Azure planned)
 - Namespace and resource type filtering
 - Custom labels on discovered resources
 
@@ -134,6 +134,12 @@ EOF
 4. Re-syncs every 5 minutes
 
 Catalog naming: `{environment}-{namespace}-{resource-name}` (e.g., `dev-default-filesystem-mcp`)
+
+## TODO
+
+- [ ] **AWS (EKS) auth** — Add `internal/cluster/aws.go` using `aws-sdk-go-v2` default credentials chain + EKS API to get cluster endpoint/CA + presigned STS token for k8s auth. Works locally with `aws sso login` and in-cluster with IRSA.
+- [ ] **Azure (AKS) auth** — Add `internal/cluster/azure.go` using `azidentity.NewDefaultAzureCredential()` + AKS API (`armcontainerservice`) to get cluster endpoint/CA + AAD token. Needs `subscriptionId` and `resourceGroup` fields on `ClusterConfig`. Works locally with `az login` and in-cluster with Azure Workload Identity Federation.
+- [ ] **On-prem / kubeconfig Secret** — Support referencing a k8s Secret containing a kubeconfig for clusters that can't use cloud workload identity.
 
 ## Reference
 
