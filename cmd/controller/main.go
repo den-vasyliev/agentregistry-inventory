@@ -223,6 +223,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set up MasterAgentConfig reconciler (autonomous infrastructure agent)
+	masterAgentReconciler := &controller.MasterAgentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Logger: ctrlLogger.With().Str("controller", "masteragent").Logger(),
+	}
+	if err := masterAgentReconciler.SetupWithManager(mgr); err != nil {
+		log.Error().Err(err).Str("controller", "MasterAgent").Msg("unable to create controller")
+		os.Exit(1)
+	}
+
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {
 		// Set up embedded UI files
@@ -239,6 +250,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetCache(),
 			apiLogger,
+			httpapi.WithMasterAgentAccessors(masterAgentReconciler.GetHub, masterAgentReconciler.GetAgent),
 		)
 		if err := mgr.Add(httpServer.Runnable(httpAPIAddr)); err != nil {
 			log.Error().Err(err).Msg("unable to add HTTP API server")

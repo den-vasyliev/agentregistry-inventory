@@ -26,11 +26,27 @@ import (
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/httpapi/handlers"
+	"github.com/agentregistry-dev/agentregistry/internal/masteragent"
 	"github.com/agentregistry-dev/agentregistry/internal/version"
 )
 
 // UIFiles is the embedded filesystem for UI files, set by main package
 var UIFiles fs.FS
+
+// ServerOption is a functional option for configuring the server
+type ServerOption func(*Server)
+
+// WithMasterAgentAccessors sets closures for accessing the master agent hub and agent.
+// This decouples the HTTP API server from the controller package.
+func WithMasterAgentAccessors(
+	getHub func() *masteragent.EventHub,
+	getAgent func() *masteragent.MasterAgent,
+) ServerOption {
+	return func(s *Server) {
+		s.masterAgentGetHub = getHub
+		s.masterAgentGetAgent = getAgent
+	}
+}
 
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
@@ -43,10 +59,14 @@ type Server struct {
 	allowedTokens  map[string]bool // Simple token allowlist for now
 	oidcVerifier   *OIDCVerifier
 	wrappedHandler http.Handler // Wrapped handler with UI serving
+
+	// Master agent accessors (set via WithMasterAgentAccessors option)
+	masterAgentGetHub   func() *masteragent.EventHub
+	masterAgentGetAgent func() *masteragent.MasterAgent
 }
 
 // NewServer creates a new HTTP API server
-func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Server {
+func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger, opts ...ServerOption) *Server {
 	mux := http.NewServeMux()
 
 	apiConfig := huma.DefaultConfig("Agent Registry API", "1.0.0")
@@ -65,6 +85,11 @@ func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger) *Serve
 		api:           api,
 		authEnabled:   authEnabled,
 		allowedTokens: make(map[string]bool),
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	// Load allowed tokens from Kubernetes Secret
@@ -208,6 +233,12 @@ func (s *Server) registerRoutes() {
 	modelHandler := handlers.NewModelHandler(s.client, s.cache, s.logger)
 	deploymentHandler := handlers.NewDeploymentHandler(s.client, s.cache, s.logger)
 	environmentHandler := handlers.NewEnvironmentHandler(s.client, s.cache, s.logger)
+
+	// Register master agent endpoints (public)
+	if s.masterAgentGetHub != nil && s.masterAgentGetAgent != nil {
+		masterAgentHandler := handlers.NewMasterAgentHandler(s.logger, s.masterAgentGetHub, s.masterAgentGetAgent)
+		masterAgentHandler.RegisterRoutes(s.api, "/v0")
+	}
 
 	// Register public API endpoints (v0)
 	serverHandler.RegisterRoutes(s.api, "/v0", false)

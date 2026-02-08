@@ -1,0 +1,33 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: MasterAgentConfig
+metadata:
+  name: default
+  namespace: agentregistry
+spec:
+  enabled: true
+
+  eventSources:
+    kubernetes:
+      enabled: true
+      namespaces: []
+      watchPods: true
+      watchNodes: true
+      watchEvents: true
+    webhooks:
+      enabled: true
+
+  models:
+    fast: "anthropic-sonnet"
+    thinking: "anthropic-opus"
+    default: "anthropic-sonnet"
+
+  mcpServers:
+    - name: "registry"
+      url: "http://localhost:8083/mcp"
+
+  a2a:
+    enabled: true
+    port: 8084
+
+  maxConcurrentEvents: 5
+  eventRetentionMinutes: 60

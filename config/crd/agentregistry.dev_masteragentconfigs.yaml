@@ -1,0 +1,313 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: masteragentconfigs.agentregistry.dev
+spec:
+  group: agentregistry.dev
+  names:
+    kind: MasterAgentConfig
+    listKind: MasterAgentConfigList
+    plural: masteragentconfigs
+    shortNames:
+    - mac
+    - masteragent
+    singular: masteragentconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.enabled
+      name: Enabled
+      type: boolean
+    - jsonPath: .status.llmAvailable
+      name: LLM
+      type: boolean
+    - jsonPath: .status.queueDepth
+      name: Queue
+      type: integer
+    - jsonPath: .status.worldState.activeIncidents
+      name: Incidents
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MasterAgentConfig is the Schema for the masteragentconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MasterAgentConfigSpec defines the desired state of MasterAgentConfig
+            properties:
+              a2a:
+                description: A2A configures the Agent-to-Agent protocol server
+                properties:
+                  enabled:
+                    description: Enabled enables the A2A server
+                    type: boolean
+                  port:
+                    default: 8084
+                    description: Port is the port to listen on
+                    type: integer
+                type: object
+              enabled:
+                description: Enabled activates the master agent
+                type: boolean
+              eventRetentionMinutes:
+                default: 60
+                description: EventRetentionMinutes is how long to keep processed events
+                type: integer
+              eventSources:
+                description: EventSources configures event ingestion
+                properties:
+                  kubernetes:
+                    description: Kubernetes configures Kubernetes event watching
+                    properties:
+                      enabled:
+                        description: Enabled enables Kubernetes event watching
+                        type: boolean
+                      namespaces:
+                        description: Namespaces to watch. Empty means all namespaces.
+                        items:
+                          type: string
+                        type: array
+                      watchEvents:
+                        default: true
+                        description: WatchEvents enables watching Kubernetes Event
+                          resources
+                        type: boolean
+                      watchNodes:
+                        default: true
+                        description: WatchNodes enables watching node events
+                        type: boolean
+                      watchPods:
+                        default: true
+                        description: WatchPods enables watching pod events
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                  webhooks:
+                    description: Webhooks enables the POST /v0/agent/events endpoint
+                    properties:
+                      enabled:
+                        description: Enabled enables the webhook endpoint
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                type: object
+              maxConcurrentEvents:
+                default: 5
+                description: MaxConcurrentEvents is the number of parallel event processing
+                  workers
+                type: integer
+              mcpServers:
+                description: MCPServers lists MCP servers the agent can use as tools
+                items:
+                  description: MCPServerRef references an MCP server the agent can
+                    connect to
+                  properties:
+                    name:
+                      description: Name is a human-readable identifier for this MCP
+                        server
+                      type: string
+                    url:
+                      description: URL is the streamable-http endpoint of the MCP
+                        server
+                      type: string
+                  required:
+                  - name
+                  - url
+                  type: object
+                type: array
+              models:
+                description: Models maps roles to ModelCatalog entries
+                properties:
+                  default:
+                    description: Default is the ModelCatalog spec.name used when no
+                      specific role is needed
+                    type: string
+                  fast:
+                    description: Fast is the ModelCatalog spec.name for fast/cheap
+                      operations
+                    type: string
+                  thinking:
+                    description: Thinking is the ModelCatalog spec.name for complex
+                      reasoning
+                    type: string
+                required:
+                - default
+                - fast
+                - thinking
+                type: object
+              systemPrompt:
+                description: SystemPrompt overrides the default system prompt
+                type: string
+            required:
+            - enabled
+            - models
+            type: object
+          status:
+            description: MasterAgentConfigStatus defines the observed state of MasterAgentConfig
+            properties:
+              a2aEndpoint:
+                description: A2AEndpoint is the URL of the A2A server if running
+                type: string
+              conditions:
+                description: Conditions represent the latest available observations
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              incidents:
+                description: Incidents lists detected infrastructure issues
+                items:
+                  description: Incident represents a detected infrastructure issue
+                  properties:
+                    actions:
+                      description: Actions lists actions taken by the agent
+                      items:
+                        type: string
+                      type: array
+                    firstSeen:
+                      description: FirstSeen is when the incident was first detected
+                      format: date-time
+                      type: string
+                    id:
+                      description: ID is a unique identifier for the incident
+                      type: string
+                    lastSeen:
+                      description: LastSeen is when the incident was last observed
+                      format: date-time
+                      type: string
+                    severity:
+                      description: Severity is the incident severity (info, warning,
+                        critical)
+                      type: string
+                    source:
+                      description: Source identifies the origin (e.g., "k8s/pod/namespace/name")
+                      type: string
+                    status:
+                      description: Status is the incident lifecycle status
+                      type: string
+                    summary:
+                      description: Summary is a human-readable description
+                      type: string
+                  required:
+                  - firstSeen
+                  - id
+                  - lastSeen
+                  - severity
+                  - source
+                  - status
+                  - summary
+                  type: object
+                type: array
+              llmAvailable:
+                description: LLMAvailable indicates whether the configured LLM is
+                  reachable
+                type: boolean
+              queueDepth:
+                description: QueueDepth is the current number of events waiting in
+                  the queue
+                type: integer
+              worldState:
+                description: WorldState is the agent's running picture of infrastructure
+                properties:
+                  activeIncidents:
+                    description: ActiveIncidents is the count of unresolved incidents
+                    type: integer
+                  lastUpdated:
+                    description: LastUpdated is when the world state was last modified
+                    format: date-time
+                    type: string
+                  pendingEvents:
+                    description: PendingEvents is the number of events waiting to
+                      be processed
+                    type: integer
+                  summary:
+                    description: Summary is a human-readable summary of current infrastructure
+                      state
+                    type: string
+                  totalEvents:
+                    description: TotalEvents is the total number of events processed
+                    format: int64
+                    type: integer
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
