@@ -46,4 +46,4 @@ Thumbs.db
 .env.local
 .env.staging
 .env.production
-
+config/samples/discoveryconfig_example.yaml
