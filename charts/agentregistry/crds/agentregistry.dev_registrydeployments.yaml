@@ -30,6 +30,10 @@ spec:
     - jsonPath: .spec.runtime
       name: Runtime
       type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      priority: 1
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -68,6 +72,11 @@ spec:
                 description: Config contains deployment configuration (environment
                   variables, etc.)
                 type: object
+              environment:
+                description: |-
+                  Environment is the target environment name (from DiscoveryConfig) for remote cluster deployment.
+                  If empty, deploys to the local cluster.
+                type: string
               namespace:
                 description: Namespace is the target namespace for Kubernetes deployments
                 type: string
@@ -142,6 +151,10 @@ spec:
                   properties:
                     apiVersion:
                       description: APIVersion is the API version of the resource
+                      type: string
+                    cluster:
+                      description: Cluster is the cluster name where this resource
+                        is deployed (empty = local)
                       type: string
                     kind:
                       description: Kind is the kind of the resource

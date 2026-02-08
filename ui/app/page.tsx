@@ -214,8 +214,9 @@ export default function AdminPage() {
   const [deploying, setDeploying] = useState(false)
   const [undeploying, setUndeploying] = useState(false)
   const [deployNamespace, setDeployNamespace] = useState("agentregistry")
-  const [environments, setEnvironments] = useState<Array<{name: string, namespace: string}>>([
-    { name: "agentregistry", namespace: "agentregistry" }
+  const [deployEnvironment, setDeployEnvironment] = useState("")
+  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, namespace: string}>>([
+    { name: "local", cluster: "", namespace: "agentregistry" }
   ])
   const [loadingEnvironments, setLoadingEnvironments] = useState(false)
 
@@ -374,9 +375,10 @@ export default function AdminPage() {
     try {
       const envs = await adminApiClient.listEnvironments()
       if (envs && envs.length > 0) {
-        const unique = envs.filter((env, idx, arr) => arr.findIndex(e => e.namespace === env.namespace) === idx)
+        const unique = envs.filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
         setEnvironments(unique)
         setDeployNamespace(unique[0].namespace)
+        setDeployEnvironment(unique[0].name)
       }
     } catch (err) {
       console.error("Failed to fetch environments:", err)
@@ -398,11 +400,13 @@ export default function AdminPage() {
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
         namespace: deployNamespace,
+        environment: deployEnvironment || undefined,
       })
 
       setDeployDialogOpen(false)
       setItemToDeploy(null)
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${deployNamespace}!`)
+      const target = deployEnvironment ? `${deployEnvironment} (${deployNamespace})` : deployNamespace
+      toast.success(`Successfully deployed ${itemToDeploy.name} to ${target}!`)
       await fetchData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to deploy resource')
@@ -595,7 +599,11 @@ export default function AdminPage() {
         environments={environments}
         loadingEnvironments={loadingEnvironments}
         deployNamespace={deployNamespace}
-        onNamespaceChange={setDeployNamespace}
+        deployEnvironment={deployEnvironment}
+        onEnvironmentChange={(envName, ns) => {
+          setDeployEnvironment(envName)
+          setDeployNamespace(ns)
+        }}
       />
 
       <UndeployDialog

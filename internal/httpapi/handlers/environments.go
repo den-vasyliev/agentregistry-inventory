@@ -32,6 +32,7 @@ func NewEnvironmentHandler(c client.Client, cache cache.Cache, logger zerolog.Lo
 // Environment response types
 type EnvironmentJSON struct {
 	Name      string            `json:"name"`
+	Cluster   string            `json:"cluster"`
 	Namespace string            `json:"namespace"`
 	Labels    map[string]string `json:"labels,omitempty"`
 }
@@ -130,6 +131,7 @@ func (h *EnvironmentHandler) listEnvironments(ctx context.Context) (*Response[En
 			}
 			environments = append(environments, EnvironmentJSON{
 				Name:      env.Name,
+				Cluster:   env.Cluster.Name,
 				Namespace: ns,
 				Labels:    env.Labels,
 			})

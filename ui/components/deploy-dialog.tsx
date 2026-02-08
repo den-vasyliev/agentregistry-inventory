@@ -26,10 +26,11 @@ interface DeployDialogProps {
   itemType?: 'server' | 'agent'
   deploying: boolean
   onConfirm: () => void
-  environments: Array<{ name: string; namespace: string }>
+  environments: Array<{ name: string; cluster: string; namespace: string }>
   loadingEnvironments: boolean
   deployNamespace: string
-  onNamespaceChange: (ns: string) => void
+  deployEnvironment: string
+  onEnvironmentChange: (envName: string, namespace: string) => void
 }
 
 export function DeployDialog({
@@ -43,7 +44,8 @@ export function DeployDialog({
   environments,
   loadingEnvironments,
   deployNamespace,
-  onNamespaceChange,
+  deployEnvironment,
+  onEnvironmentChange,
 }: DeployDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,27 +61,52 @@ export function DeployDialog({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Deployment destination</Label>
-            <p className="text-sm text-muted-foreground">Kubernetes</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="deploy-namespace">Namespace / Environment</Label>
-            <Select value={deployNamespace} onValueChange={onNamespaceChange} disabled={loadingEnvironments}>
-              <SelectTrigger id="deploy-namespace">
-                <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select namespace"} />
+            <Label htmlFor="deploy-environment">Target environment</Label>
+            <Select
+              value={deployEnvironment}
+              onValueChange={(envName) => {
+                const env = environments.find(e => e.name === envName)
+                if (env) onEnvironmentChange(env.name, env.namespace)
+              }}
+              disabled={loadingEnvironments}
+            >
+              <SelectTrigger id="deploy-environment">
+                <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select environment"} />
               </SelectTrigger>
               <SelectContent>
                 {environments.map((env) => (
-                  <SelectItem key={env.namespace} value={env.namespace}>
-                    {env.name}/{env.namespace}
+                  <SelectItem key={env.name} value={env.name}>
+                    {env.name}
+                    {env.cluster && <span className="text-muted-foreground ml-1">· {env.cluster}</span>}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Choose which namespace/environment to deploy to
+              Cluster and namespace where the resource will be deployed
             </p>
           </div>
+          {deployEnvironment && (
+            <div className="rounded-md border px-3 py-2 text-sm space-y-1">
+              {(() => {
+                const env = environments.find(e => e.name === deployEnvironment)
+                return env ? (
+                  <>
+                    {env.cluster && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cluster</span>
+                        <span className="font-mono">{env.cluster}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Namespace</span>
+                      <span className="font-mono">{deployNamespace}</span>
+                    </div>
+                  </>
+                ) : null
+              })()}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button

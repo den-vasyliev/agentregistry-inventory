@@ -32,8 +32,9 @@ import (
 // RegistryDeploymentReconciler reconciles a RegistryDeployment object
 type RegistryDeploymentReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Logger zerolog.Logger
+	Scheme              *runtime.Scheme
+	Logger              zerolog.Logger
+	RemoteClientFactory func(env *agentregistryv1alpha1.Environment, scheme *runtime.Scheme) (client.WithWatch, error)
 }
 
 const (
@@ -173,6 +174,12 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 		}
 	}
 
+	// Resolve the target client (remote or local)
+	targetClient, clusterName, err := r.getTargetClient(ctx, deployment)
+	if err != nil {
+		return fmt.Errorf("failed to resolve target client: %w", err)
+	}
+
 	// Convert catalog to runtime format
 	mcpServer, err := r.convertCatalogToMCPServer(catalogEntry, deployment)
 	if err != nil {
@@ -196,7 +203,7 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 	// Apply MCPServers (local)
 	for _, mcpServer := range runtimeConfig.Kubernetes.MCPServers {
 		r.setOwnerLabels(mcpServer, deployment)
-		if err := r.applyResource(ctx, mcpServer); err != nil {
+		if err := r.applyResource(ctx, targetClient, mcpServer); err != nil {
 			return fmt.Errorf("failed to apply MCPServer: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -204,13 +211,14 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 			Kind:       mcpServer.Kind,
 			Name:       mcpServer.Name,
 			Namespace:  mcpServer.Namespace,
+			Cluster:    clusterName,
 		})
 	}
 
 	// Apply RemoteMCPServers
 	for _, remoteMCP := range runtimeConfig.Kubernetes.RemoteMCPServers {
 		r.setOwnerLabels(remoteMCP, deployment)
-		if err := r.applyResource(ctx, remoteMCP); err != nil {
+		if err := r.applyResource(ctx, targetClient, remoteMCP); err != nil {
 			return fmt.Errorf("failed to apply RemoteMCPServer: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -218,6 +226,7 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 			Kind:       remoteMCP.Kind,
 			Name:       remoteMCP.Name,
 			Namespace:  remoteMCP.Namespace,
+			Cluster:    clusterName,
 		})
 	}
 
@@ -262,6 +271,12 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 		}
 	}
 
+	// Resolve the target client (remote or local)
+	targetClient, clusterName, err := r.getTargetClient(ctx, deployment)
+	if err != nil {
+		return fmt.Errorf("failed to resolve target client: %w", err)
+	}
+
 	// Convert catalog to runtime format
 	agent, err := r.convertCatalogToAgent(catalogEntry, deployment)
 	if err != nil {
@@ -285,7 +300,7 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 	// Apply ConfigMaps
 	for _, cm := range runtimeConfig.Kubernetes.ConfigMaps {
 		r.setOwnerLabels(cm, deployment)
-		if err := r.applyResource(ctx, cm); err != nil {
+		if err := r.applyResource(ctx, targetClient, cm); err != nil {
 			return fmt.Errorf("failed to apply ConfigMap: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -293,13 +308,14 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 			Kind:       "ConfigMap",
 			Name:       cm.Name,
 			Namespace:  cm.Namespace,
+			Cluster:    clusterName,
 		})
 	}
 
 	// Apply Agents
 	for _, agent := range runtimeConfig.Kubernetes.Agents {
 		r.setOwnerLabels(agent, deployment)
-		if err := r.applyResource(ctx, agent); err != nil {
+		if err := r.applyResource(ctx, targetClient, agent); err != nil {
 			return fmt.Errorf("failed to apply Agent: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -307,6 +323,7 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 			Kind:       agent.Kind,
 			Name:       agent.Name,
 			Namespace:  agent.Namespace,
+			Cluster:    clusterName,
 		})
 	}
 
@@ -479,9 +496,16 @@ func (r *RegistryDeploymentReconciler) handleDeletion(ctx context.Context, deplo
 		return ctrl.Result{}, nil
 	}
 
+	// Resolve the target client for deletion
+	targetClient, _, err := r.getTargetClient(ctx, deployment)
+	if err != nil {
+		r.Logger.Error().Err(err).Msg("failed to resolve target client for deletion, falling back to local client")
+		targetClient = r.Client
+	}
+
 	// Delete managed resources
 	for _, res := range deployment.Status.ManagedResources {
-		if err := r.deleteResource(ctx, res); err != nil {
+		if err := r.deleteResource(ctx, targetClient, res); err != nil {
 			r.Logger.Error().Err(err).
 				Str("kind", res.Kind).
 				Str("name", res.Name).
@@ -499,13 +523,52 @@ func (r *RegistryDeploymentReconciler) handleDeletion(ctx context.Context, deplo
 	return ctrl.Result{}, nil
 }
 
-// applyResource applies a Kubernetes resource using server-side apply
-func (r *RegistryDeploymentReconciler) applyResource(ctx context.Context, obj client.Object) error {
-	return r.Patch(ctx, obj, client.Apply, client.FieldOwner("agentregistry"), client.ForceOwnership)
+// getTargetClient resolves the target client for a deployment.
+// If the deployment specifies an environment, it looks up the environment from DiscoveryConfig
+// resources and returns a remote client. Otherwise, it returns the local client.
+func (r *RegistryDeploymentReconciler) getTargetClient(ctx context.Context, deployment *agentregistryv1alpha1.RegistryDeployment) (client.Client, string, error) {
+	envName := deployment.Spec.Environment
+	if envName == "" {
+		return r.Client, "", nil
+	}
+
+	factory := r.RemoteClientFactory
+	if factory == nil {
+		factory = RemoteClientFactory
+	}
+	if factory == nil {
+		return nil, "", fmt.Errorf("remote client factory not configured, cannot deploy to environment %q", envName)
+	}
+
+	// List DiscoveryConfigs in the same namespace to find the environment
+	var dcList agentregistryv1alpha1.DiscoveryConfigList
+	if err := r.List(ctx, &dcList, client.InNamespace(deployment.Namespace)); err != nil {
+		return nil, "", fmt.Errorf("failed to list DiscoveryConfigs: %w", err)
+	}
+
+	for i := range dcList.Items {
+		for j := range dcList.Items[i].Spec.Environments {
+			env := &dcList.Items[i].Spec.Environments[j]
+			if env.Name == envName {
+				remoteClient, err := factory(env, r.Scheme)
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to create remote client for environment %q: %w", envName, err)
+				}
+				return remoteClient, env.Cluster.Name, nil
+			}
+		}
+	}
+
+	return nil, "", fmt.Errorf("environment %q not found in any DiscoveryConfig in namespace %q", envName, deployment.Namespace)
 }
 
-// deleteResource deletes a managed resource
-func (r *RegistryDeploymentReconciler) deleteResource(ctx context.Context, res agentregistryv1alpha1.ManagedResource) error {
+// applyResource applies a Kubernetes resource using server-side apply
+func (r *RegistryDeploymentReconciler) applyResource(ctx context.Context, targetClient client.Client, obj client.Object) error {
+	return targetClient.Patch(ctx, obj, client.Apply, client.FieldOwner("agentregistry"), client.ForceOwnership)
+}
+
+// deleteResource deletes a managed resource using the provided client
+func (r *RegistryDeploymentReconciler) deleteResource(ctx context.Context, targetClient client.Client, res agentregistryv1alpha1.ManagedResource) error {
 	var obj client.Object
 	switch res.Kind {
 	case "Agent":
@@ -523,7 +586,7 @@ func (r *RegistryDeploymentReconciler) deleteResource(ctx context.Context, res a
 	obj.SetName(res.Name)
 	obj.SetNamespace(res.Namespace)
 
-	if err := r.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
+	if err := targetClient.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -714,13 +777,19 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 		return false, "Pending"
 	}
 
+	// Resolve the target client for status checks
+	targetClient, _, err := r.getTargetClient(ctx, deployment)
+	if err != nil {
+		return false, fmt.Sprintf("Failed to resolve target client: %v", err)
+	}
+
 	// Check each managed resource status
 	for _, res := range deployment.Status.ManagedResources {
 		switch res.Kind {
 		case "MCPServer":
 			var mcp kmcpv1alpha1.MCPServer
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
-			if err := r.Get(ctx, key, &mcp); err != nil {
+			if err := targetClient.Get(ctx, key, &mcp); err != nil {
 				if apierrors.IsNotFound(err) {
 					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
 				}
@@ -746,7 +815,7 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 		case "RemoteMCPServer":
 			var remoteMCP kagentv1alpha2.RemoteMCPServer
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
-			if err := r.Get(ctx, key, &remoteMCP); err != nil {
+			if err := targetClient.Get(ctx, key, &remoteMCP); err != nil {
 				if apierrors.IsNotFound(err) {
 					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
 				}
@@ -772,7 +841,7 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 		case "Agent":
 			var agent kagentv1alpha2.Agent
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
-			if err := r.Get(ctx, key, &agent); err != nil {
+			if err := targetClient.Get(ctx, key, &agent); err != nil {
 				if apierrors.IsNotFound(err) {
 					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
 				}
@@ -798,7 +867,7 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 		case "ConfigMap":
 			var cm corev1.ConfigMap
 			key := client.ObjectKey{Namespace: res.Namespace, Name: res.Name}
-			if err := r.Get(ctx, key, &cm); err != nil {
+			if err := targetClient.Get(ctx, key, &cm); err != nil {
 				if apierrors.IsNotFound(err) {
 					return false, fmt.Sprintf("Managed %s %s/%s not found - will recreate", res.Kind, res.Namespace, res.Name)
 				}
