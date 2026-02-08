@@ -73,7 +73,7 @@ func NewMasterAgent(
 	}
 	updateStateTool, err := functiontool.New(functiontool.Config{
 		Name:        "update_world_state",
-		Description: "Update the world state summary with new information about infrastructure status",
+		Description: "Update the world state summary with new information about infrastructure status. REQUIRED parameter 'summary' (string): the updated state description.",
 	}, func(ctx tool.Context, args UpdateStateArgs) (map[string]any, error) {
 		worldState.SetSummary(args.Summary)
 		return map[string]any{"status": "updated"}, nil

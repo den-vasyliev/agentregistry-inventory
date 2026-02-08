@@ -37,7 +37,7 @@ func (r *MCPServerCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug().
+	logger.Trace().
 		Str("specName", server.Spec.Name).
 		Str("version", server.Spec.Version).
 		Msg("reconciling MCPServerCatalog")

@@ -8,7 +8,7 @@ spec:
 
   eventSources:
     kubernetes:
-      enabled: true
+      enabled: false
       namespaces: []
       watchPods: true
       watchNodes: true
@@ -17,9 +17,7 @@ spec:
       enabled: true
 
   models:
-    fast: "anthropic-sonnet"
-    thinking: "anthropic-opus"
-    default: "anthropic-sonnet"
+    default: "gemini"
 
   mcpServers:
     - name: "registry"

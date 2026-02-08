@@ -157,8 +157,6 @@ spec:
                     type: string
                 required:
                 - default
-                - fast
-                - thinking
                 type: object
               systemPrompt:
                 description: SystemPrompt overrides the default system prompt

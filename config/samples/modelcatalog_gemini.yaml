@@ -1,0 +1,11 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: ModelCatalog
+metadata:
+  name: gemini
+  namespace: agentregistry
+spec:
+  name: gemini
+  provider: "Gemini"
+  model: "gemini-2.0-flash"
+  description: "Google Gemini model via local gateway"
+  baseUrl: "http://localhost:6000"

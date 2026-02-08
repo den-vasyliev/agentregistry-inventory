@@ -29,11 +29,12 @@ type MasterAgentReconciler struct {
 	Scheme *runtime.Scheme
 	Logger zerolog.Logger
 
-	mu        sync.Mutex
-	agent     *masteragent.MasterAgent
-	hub       *masteragent.EventHub
-	cancelFn  context.CancelFunc
-	a2aCancel context.CancelFunc
+	mu           sync.Mutex
+	agent        *masteragent.MasterAgent
+	hub          *masteragent.EventHub
+	cancelFn     context.CancelFunc
+	a2aCancel    context.CancelFunc
+	currentModel string // tracks current model name to detect changes
 }
 
 // GetHub returns the event hub (used by HTTP handlers to push events)
@@ -77,7 +78,7 @@ func (r *MasterAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info().Msg("reconciling MasterAgentConfig")
+	logger.Trace().Msg("reconciling MasterAgentConfig")
 
 	// Resolve model from ModelCatalog
 	defaultModel, err := r.resolveModel(ctx, mac.Spec.Models.Default)
@@ -90,17 +91,32 @@ func (r *MasterAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	r.setCondition(ctx, &mac, "ModelResolved", metav1.ConditionTrue, "ModelResolved",
 		fmt.Sprintf("Using model %s at %s", defaultModel.Name(), mac.Spec.Models.Default))
 
-	// Initialize or reconfigure agent
+	// Check if agent needs restart (new agent or model changed)
 	r.mu.Lock()
-	needsRestart := r.agent == nil
+	needsRestart := r.agent == nil || r.currentModel != defaultModel.Name()
+	if needsRestart && r.agent != nil {
+		logger.Info().
+			Str("old_model", r.currentModel).
+			Str("new_model", defaultModel.Name()).
+			Msg("model changed, restarting agent")
+	}
 	r.mu.Unlock()
 
 	if needsRestart {
+		// Stop old agent if running
+		r.stopAgent()
+
 		if err := r.startAgent(ctx, &mac, defaultModel); err != nil {
 			logger.Error().Err(err).Msg("failed to start agent")
 			r.setCondition(ctx, &mac, "AgentReady", metav1.ConditionFalse, "StartFailed", err.Error())
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
+
+		// Track current model
+		r.mu.Lock()
+		r.currentModel = defaultModel.Name()
+		r.mu.Unlock()
+
 		r.setCondition(ctx, &mac, "AgentReady", metav1.ConditionTrue, "AgentRunning", "Agent is running")
 	}
 

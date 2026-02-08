@@ -44,9 +44,11 @@ type WebhookEventSource struct {
 // ModelRefs maps model roles to ModelCatalog spec.name values
 type ModelRefs struct {
 	// Fast is the ModelCatalog spec.name for fast/cheap operations
-	Fast string `json:"fast"`
+	// +optional
+	Fast string `json:"fast,omitempty"`
 	// Thinking is the ModelCatalog spec.name for complex reasoning
-	Thinking string `json:"thinking"`
+	// +optional
+	Thinking string `json:"thinking,omitempty"`
 	// Default is the ModelCatalog spec.name used when no specific role is needed
 	Default string `json:"default"`
 }

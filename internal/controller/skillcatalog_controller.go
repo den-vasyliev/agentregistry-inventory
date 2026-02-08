@@ -33,7 +33,7 @@ func (r *SkillCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug().
+	logger.Trace().
 		Str("specName", skill.Spec.Name).
 		Str("version", skill.Spec.Version).
 		Msg("reconciling SkillCatalog")

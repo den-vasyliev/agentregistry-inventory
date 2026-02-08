@@ -69,7 +69,7 @@ func (r *RegistryDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug().
+	logger.Trace().
 		Str("resourceName", deployment.Spec.ResourceName).
 		Str("version", deployment.Spec.Version).
 		Str("resourceType", string(deployment.Spec.ResourceType)).

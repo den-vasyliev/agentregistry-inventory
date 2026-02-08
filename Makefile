@@ -83,7 +83,7 @@ run: build ## Build and run controller and ui with your kubeconfig
 	@echo "Running controller..."
 	@cd ui && npm install && NEXT_PUBLIC_DISABLE_AUTH=true npm run dev&
 	@echo "Starting Next.js dev server..."
-	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller
+	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller --log-level=debug
 
 
 demo-stop: ## Stop demo environment
@@ -110,6 +110,7 @@ test: envtest ## Run all tests with coverage
 		./internal/controller \
 		./internal/httpapi \
 		./internal/httpapi/handlers \
+		./internal/masteragent \
 		./internal/runtime \
 		./internal/runtime/translation/kagent \
 		./internal/validation

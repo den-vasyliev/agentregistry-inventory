@@ -120,6 +120,24 @@ func (s *MCPServer) registerTools() {
 		mcp.WithString("type", mcp.Description("Resource type: servers, agents, skills, or models"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Resource name to delete"), mcp.Required()),
 	), s.handleDeleteCatalog)
+
+	// Master agent tools (if master agent is running)
+	s.mcpServer.AddTool(mcp.NewTool("get_master_agent_status",
+		mcp.WithDescription("Get master agent status including world state, active incidents, and queue depth"),
+	), s.handleGetMasterAgentStatus)
+
+	s.mcpServer.AddTool(mcp.NewTool("emit_event",
+		mcp.WithDescription("Emit an infrastructure event to the master agent for LLM analysis"),
+		mcp.WithString("type", mcp.Description("Event type (e.g., pod-crash, node-pressure, webhook)"), mcp.Required()),
+		mcp.WithString("message", mcp.Description("Human-readable event description"), mcp.Required()),
+		mcp.WithString("severity", mcp.Description("Severity: info, warning, or critical (default: info)")),
+		mcp.WithString("source", mcp.Description("Event source (e.g., k8s/pod/namespace/name)")),
+	), s.handleEmitEvent)
+
+	s.mcpServer.AddTool(mcp.NewTool("get_recent_events",
+		mcp.WithDescription("Get recent events processed by the master agent"),
+		mcp.WithNumber("limit", mcp.Description("Max events to return (default: 20, max: 100)")),
+	), s.handleGetRecentEvents)
 }
 
 // --- Helper functions ---

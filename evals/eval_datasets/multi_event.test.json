@@ -1,0 +1,84 @@
+{
+  "eval_set_id": "multi_event",
+  "name": "Multi-Event Incident Lifecycle",
+  "description": "Multi-turn eval: events arrive sequentially, agent should create then resolve incidents.",
+  "eval_cases": [
+    {
+      "eval_id": "oomkill_then_recover",
+      "session_input": {
+        "app_name": "master-agent",
+        "user_id": "eval_user",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_crash",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Infrastructure event: Pod api-server-xyz in namespace default is OOMKilled. Severity: critical. Source: k8s/pod/default/api-server-xyz."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "I've created a critical incident for the OOMKilled event on pod api-server-xyz and updated the world state."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {
+                  "Severity": "critical",
+                  "Source": "k8s/pod/default/api-server-xyz"
+                }
+              },
+              {
+                "name": "update_world_state",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2_recovery",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Infrastructure event: Pod api-server-xyz in namespace default has recovered and is now Running. Severity: info. Source: k8s/pod/default/api-server-xyz."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "The incident for api-server-xyz has been resolved and the world state has been updated to reflect the recovery."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "resolve_incident",
+                "args": {}
+              },
+              {
+                "name": "update_world_state",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    }
+  ]
+}

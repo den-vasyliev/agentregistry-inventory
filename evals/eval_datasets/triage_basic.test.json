@@ -1,0 +1,93 @@
+{
+  "eval_set_id": "triage_basic",
+  "name": "Basic Infrastructure Triage",
+  "description": "Single-turn evals: infrastructure events should trigger incident creation and world state updates.",
+  "eval_cases": [
+    {
+      "eval_id": "pod_crash_critical",
+      "session_input": {
+        "app_name": "master-agent",
+        "user_id": "eval_user",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Infrastructure event: Pod nginx-abc123 in namespace production is in CrashLoopBackOff. Severity: critical. Source: k8s/pod/production/nginx-abc123."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "I've created a critical incident for the CrashLoopBackOff event on pod nginx-abc123 in the production namespace and updated the world state."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {
+                  "Severity": "critical",
+                  "Source": "k8s/pod/production/nginx-abc123"
+                }
+              },
+              {
+                "name": "update_world_state",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "node_memory_pressure",
+      "session_input": {
+        "app_name": "master-agent",
+        "user_id": "eval_user",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Infrastructure event: Node worker-node-3 is experiencing memory pressure. Severity: warning. Source: k8s/node/worker-node-3."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "I've created a warning incident for memory pressure on worker-node-3."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {
+                  "Severity": "warning",
+                  "Source": "k8s/node/worker-node-3"
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    }
+  ]
+}

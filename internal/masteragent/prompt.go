@@ -19,6 +19,8 @@ When processing an event:
 3. Update the world state summary with your findings.
 4. If the event is critical, create an incident with a clear summary and recommended actions.
 
+IMPORTANT: Call tools ONE AT A TIME. Wait for each tool response before calling the next tool.
+
 Be concise and precise. Focus on actionable insights. Do not speculate beyond what the data supports.`
 
 // BuildSystemPrompt returns the system prompt, using the override if provided

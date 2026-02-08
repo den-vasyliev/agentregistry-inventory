@@ -39,7 +39,7 @@ func (r *AgentCatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug().
+	logger.Trace().
 		Str("specName", agent.Spec.Name).
 		Str("version", agent.Spec.Version).
 		Msg("reconciling AgentCatalog")
