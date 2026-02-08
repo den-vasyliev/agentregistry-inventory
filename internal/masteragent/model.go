@@ -112,10 +112,7 @@ func (m *GatewayModel) convertRequest(req *model.LLMRequest) *openAIChatCompleti
 
 	// Convert contents to messages
 	for _, content := range req.Contents {
-		msg := m.convertContentToMessage(content)
-		if msg != nil {
-			oaiReq.Messages = append(oaiReq.Messages, *msg)
-		}
+		oaiReq.Messages = append(oaiReq.Messages, m.convertContentToMessages(content)...)
 	}
 
 	// Convert tools
@@ -139,8 +136,10 @@ func (m *GatewayModel) convertRequest(req *model.LLMRequest) *openAIChatCompleti
 	return oaiReq
 }
 
-// convertContentToMessage converts a genai.Content to an OpenAI message
-func (m *GatewayModel) convertContentToMessage(content *genai.Content) *openAIMessage {
+// convertContentToMessages converts a genai.Content to one or more OpenAI messages.
+// A single Content may produce multiple messages, e.g. an assistant message with
+// tool_calls is followed by separate "tool" messages for each FunctionResponse.
+func (m *GatewayModel) convertContentToMessages(content *genai.Content) []openAIMessage {
 	if content == nil || len(content.Parts) == 0 {
 		return nil
 	}
@@ -152,15 +151,19 @@ func (m *GatewayModel) convertContentToMessage(content *genai.Content) *openAIMe
 		role = string(content.Role)
 	}
 
-	// Check for function calls (assistant message with tool_calls)
 	var toolCalls []openAIToolCall
+	var toolResponses []openAIMessage
 	var textParts []string
 
 	for _, part := range content.Parts {
 		if part.FunctionCall != nil {
 			argsJSON, _ := json.Marshal(part.FunctionCall.Args)
+			toolCallID := part.FunctionCall.ID
+			if toolCallID == "" {
+				toolCallID = part.FunctionCall.Name
+			}
 			toolCalls = append(toolCalls, openAIToolCall{
-				ID:   part.FunctionCall.Name,
+				ID:   toolCallID,
 				Type: "function",
 				Function: openAIFunctionCall{
 					Name:      part.FunctionCall.Name,
@@ -168,20 +171,25 @@ func (m *GatewayModel) convertContentToMessage(content *genai.Content) *openAIMe
 				},
 			})
 		} else if part.FunctionResponse != nil {
-			// Function responses become "tool" role messages
 			respJSON, _ := json.Marshal(part.FunctionResponse.Response)
-			return &openAIMessage{
+			toolCallID := part.FunctionResponse.ID
+			if toolCallID == "" {
+				toolCallID = part.FunctionResponse.Name
+			}
+			toolResponses = append(toolResponses, openAIMessage{
 				Role:       "tool",
 				Content:    string(respJSON),
-				ToolCallID: part.FunctionResponse.Name,
-			}
+				ToolCallID: toolCallID,
+			})
 		} else if part.Text != "" {
 			textParts = append(textParts, part.Text)
 		}
 	}
 
+	var messages []openAIMessage
+
 	if len(toolCalls) > 0 {
-		msg := &openAIMessage{
+		msg := openAIMessage{
 			Role:      "assistant",
 			ToolCalls: toolCalls,
 		}
@@ -192,17 +200,24 @@ func (m *GatewayModel) convertContentToMessage(content *genai.Content) *openAIMe
 			}
 			msg.Content = combined
 		}
-		return msg
+		messages = append(messages, msg)
+		// Tool responses follow the assistant message
+		messages = append(messages, toolResponses...)
+		return messages
+	}
+
+	if len(toolResponses) > 0 {
+		return toolResponses
 	}
 
 	combined := ""
 	for _, t := range textParts {
 		combined += t
 	}
-	return &openAIMessage{
+	return []openAIMessage{{
 		Role:    role,
 		Content: combined,
-	}
+	}}
 }
 
 // convertResponse converts an OpenAI chat completion response to ADK LLMResponse
@@ -224,11 +239,14 @@ func (m *GatewayModel) convertResponse(resp *openAIChatCompletionResponse) *mode
 		parts = append(parts, genai.NewPartFromText(choice.Message.Content))
 	}
 
-	// Convert tool calls
+	// Convert tool calls — store OpenAI tool call ID in FunctionCall.ID
+	// so ADK preserves it through tool execution into FunctionResponse.ID
 	for _, tc := range choice.Message.ToolCalls {
 		var args map[string]any
 		json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		parts = append(parts, genai.NewPartFromFunctionCall(tc.Function.Name, args))
+		part := genai.NewPartFromFunctionCall(tc.Function.Name, args)
+		part.FunctionCall.ID = tc.ID
+		parts = append(parts, part)
 	}
 
 	if len(parts) > 0 {
