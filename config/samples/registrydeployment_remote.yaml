@@ -1,0 +1,12 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: RegistryDeployment
+metadata:
+  name: my-server-staging
+  namespace: agentregistry
+spec:
+  resourceName: my-mcp-server
+  version: "1.0.0"
+  resourceType: mcp
+  runtime: kubernetes
+  environment: staging # references a DiscoveryConfig environment name
+  namespace: default

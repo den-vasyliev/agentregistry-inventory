@@ -196,11 +196,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize remote client factory for multi-cluster support (discovery + deployment)
+	clusterFactory := cluster.NewFactory(mgr.GetClient(), ctrlLogger)
+	remoteClientFactory := clusterFactory.CreateClientFunc()
+	controller.RemoteClientFactory = remoteClientFactory
+	log.Info().Msg("initialized remote client factory for multi-cluster support")
+
 	// Set up RegistryDeployment reconciler
 	if err := (&controller.RegistryDeploymentReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: ctrlLogger.With().Str("controller", "registrydeployment").Logger(),
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Logger:              ctrlLogger.With().Str("controller", "registrydeployment").Logger(),
+		RemoteClientFactory: remoteClientFactory,
 	}).SetupWithManager(mgr); err != nil {
 		log.Error().Err(err).Str("controller", "RegistryDeployment").Msg("unable to create controller")
 		os.Exit(1)
@@ -215,11 +222,6 @@ func main() {
 		log.Error().Err(err).Str("controller", "DiscoveryConfig").Msg("unable to create controller")
 		os.Exit(1)
 	}
-
-	// Initialize remote client factory for multi-cluster discovery
-	clusterFactory := cluster.NewFactory(mgr.GetClient(), ctrlLogger)
-	controller.RemoteClientFactory = clusterFactory.CreateClientFunc()
-	log.Info().Msg("initialized remote client factory for multi-cluster discovery")
 
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {

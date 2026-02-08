@@ -31,6 +31,11 @@ type Environment struct {
 	// +kubebuilder:default=true
 	DiscoveryEnabled bool `json:"discoveryEnabled,omitempty"`
 
+	// DeployEnabled allows deploying catalog items to this environment.
+	// When false (default), the environment is read-only for discovery.
+	// +optional
+	DeployEnabled bool `json:"deployEnabled,omitempty"`
+
 	// Namespaces is a list of namespaces to discover in. Empty means all namespaces.
 	// +optional
 	Namespaces []string `json:"namespaces,omitempty"`

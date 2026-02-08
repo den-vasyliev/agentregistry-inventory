@@ -53,6 +53,10 @@ type RegistryDeploymentSpec struct {
 	// Namespace is the target namespace for Kubernetes deployments
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// Environment is the target environment name (from DiscoveryConfig) for remote cluster deployment.
+	// If empty, deploys to the local cluster.
+	// +optional
+	Environment string `json:"environment,omitempty"`
 }
 
 // RegistryDeploymentStatus defines the observed state of RegistryDeployment
@@ -91,6 +95,9 @@ type ManagedResource struct {
 	// Namespace is the namespace of the resource
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// Cluster is the cluster name where this resource is deployed (empty = local)
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -100,6 +107,7 @@ type ManagedResource struct {
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.resourceType`
 // +kubebuilder:printcolumn:name="Runtime",type=string,JSONPath=`.spec.runtime`
+// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`,priority=1
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 

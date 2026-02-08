@@ -959,6 +959,7 @@ class AdminApiClient {
     preferRemote?: boolean
     resourceType?: 'mcp' | 'agent'
     namespace?: string
+    environment?: string
   }): Promise<void> {
     const response = await fetch(`${this.baseUrl}/admin/v0/deployments`, {
       method: 'POST',
@@ -971,6 +972,7 @@ class AdminApiClient {
         resourceType: params.resourceType || 'mcp',
         runtime: 'kubernetes',
         namespace: params.namespace,
+        environment: params.environment,
       }),
     })
     if (!response.ok) {
@@ -1027,7 +1029,11 @@ class AdminApiClient {
   // List available environments from DiscoveryConfig
   async listEnvironments(): Promise<Array<{
     name: string
+    cluster: string
+    provider?: string
+    region?: string
     namespace: string
+    deployEnabled: boolean
     labels?: Record<string, string>
   }>> {
     const response = await fetch(`${this.baseUrl}/v0/environments`)

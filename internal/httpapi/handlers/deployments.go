@@ -84,6 +84,7 @@ type CreateDeploymentInput struct {
 		PreferRemote bool              `json:"preferRemote,omitempty"`
 		Config       map[string]string `json:"config,omitempty"`
 		Namespace    string            `json:"namespace,omitempty"`
+		Environment  string            `json:"environment,omitempty"`
 	}
 }
 
@@ -303,6 +304,7 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 			PreferRemote: input.Body.PreferRemote,
 			Config:       input.Body.Config,
 			Namespace:    targetNamespace, // Target namespace for deployed resources
+			Environment:  input.Body.Environment,
 		},
 	}
 
@@ -422,14 +424,17 @@ func (h *DeploymentHandler) convertToDeploymentJSON(d *agentregistryv1alpha1.Reg
 		PreferRemote: d.Spec.PreferRemote,
 		Config:       d.Spec.Config,
 		Namespace:    d.Spec.Namespace,
+		Environment:  d.Spec.Environment,
 		Status:       string(d.Status.Phase),
 		Message:      d.Status.Message,
 		IsExternal:   false,
 	}
 
-	// Extract environment from labels
-	if env, ok := d.Labels["environment"]; ok {
-		deployment.Environment = env
+	// Fall back to label for environment if not set in spec
+	if deployment.Environment == "" {
+		if env, ok := d.Labels["environment"]; ok {
+			deployment.Environment = env
+		}
 	}
 
 	// Extract K8s resource type from managed resources
