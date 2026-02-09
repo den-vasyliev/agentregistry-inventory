@@ -21,4 +21,4 @@ asyncio_mode = "auto"
 markers = [
     "a2a: A2A protocol evals (experimental, run with: pytest -m a2a)",
 ]
-addopts = "-m 'not a2a'"
+addopts = ""

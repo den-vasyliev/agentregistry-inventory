@@ -16,21 +16,24 @@ import (
 )
 
 // GatewayModel implements model.LLM for AgentGateway's OpenAI-compatible endpoint.
-// It translates between ADK's genai types and OpenAI chat completion format,
-// calling ModelCatalog.Spec.BaseURL with no API key (AgentGateway handles auth).
+// It translates between ADK's genai types and OpenAI chat completion format.
+// When apiKey is set, it sends Authorization: Bearer header directly to the provider.
 type GatewayModel struct {
 	name    string // model identifier (e.g., "claude-sonnet-4-5-20250929")
-	baseURL string // AgentGateway endpoint (e.g., "http://agentgateway:8080/openai")
+	baseURL string // OpenAI-compatible endpoint (e.g., "http://agentgateway:8080/openai")
+	apiKey  string // optional API key for direct provider access
 	client  *http.Client
 }
 
 // NewGatewayModel creates a new GatewayModel.
 // name is the model identifier from ModelCatalog.Spec.Model.
-// baseURL is from ModelCatalog.Spec.BaseURL (e.g., "http://agentgateway:8080/openai").
-func NewGatewayModel(name, baseURL string) *GatewayModel {
+// baseURL is the OpenAI-compatible endpoint.
+// apiKey is optional; if non-empty, Authorization: Bearer header is sent.
+func NewGatewayModel(name, baseURL, apiKey string) *GatewayModel {
 	return &GatewayModel{
 		name:    name,
 		baseURL: baseURL,
+		apiKey:  apiKey,
 		client: &http.Client{
 			Timeout: 120 * time.Second,
 		},
@@ -67,6 +70,9 @@ func (m *GatewayModel) doRequest(ctx context.Context, req *model.LLMRequest) (*m
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if m.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+m.apiKey)
+	}
 
 	httpResp, err := m.client.Do(httpReq)
 	if err != nil {

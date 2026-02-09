@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -141,7 +142,7 @@ func (r *MasterAgentReconciler) resolveModel(ctx context.Context, modelName stri
 			if mc.Spec.BaseURL == "" {
 				return nil, fmt.Errorf("model %q has no baseUrl configured", modelName)
 			}
-			return masteragent.NewGatewayModel(mc.Spec.Model, mc.Spec.BaseURL), nil
+			return masteragent.NewGatewayModel(mc.Spec.Model, mc.Spec.BaseURL, os.Getenv("LLM_API_KEY")), nil
 		}
 	}
 

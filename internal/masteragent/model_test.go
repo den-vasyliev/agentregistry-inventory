@@ -16,7 +16,7 @@ import (
 )
 
 func TestGatewayModel_Name(t *testing.T) {
-	m := NewGatewayModel("claude-sonnet-4-5-20250929", "http://localhost:8080")
+	m := NewGatewayModel("claude-sonnet-4-5-20250929", "http://localhost:8080", "")
 	assert.Equal(t, "claude-sonnet-4-5-20250929", m.Name())
 }
 
@@ -39,7 +39,7 @@ func TestGatewayModel_GenerateContent_TextResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := NewGatewayModel("test-model", server.URL)
+	m := NewGatewayModel("test-model", server.URL, "")
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
 			genai.NewContentFromText("Hello", "user"),
@@ -94,7 +94,7 @@ func TestGatewayModel_GenerateContent_ToolCalls(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := NewGatewayModel("test-model", server.URL)
+	m := NewGatewayModel("test-model", server.URL, "")
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
 			genai.NewContentFromText("check state", "user"),
@@ -127,7 +127,7 @@ func TestGatewayModel_GenerateContent_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := NewGatewayModel("test-model", server.URL)
+	m := NewGatewayModel("test-model", server.URL, "")
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
 			genai.NewContentFromText("hello", "user"),
@@ -149,7 +149,7 @@ func TestGatewayModel_GenerateContent_EmptyChoices(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := NewGatewayModel("test-model", server.URL)
+	m := NewGatewayModel("test-model", server.URL, "")
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
 			genai.NewContentFromText("hello", "user"),
@@ -168,7 +168,7 @@ func TestGatewayModel_GenerateContent_EmptyChoices(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertRequest_SystemInstruction(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	req := &model.LLMRequest{
 		Config: &genai.GenerateContentConfig{
@@ -187,7 +187,7 @@ func TestGatewayModel_ConvertRequest_SystemInstruction(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertRequest_Tools(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	req := &model.LLMRequest{
 		Config: &genai.GenerateContentConfig{
@@ -222,7 +222,7 @@ func TestGatewayModel_ConvertRequest_Tools(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertRequest_FunctionCallContent(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	part := genai.NewPartFromFunctionCall("get_state", map[string]any{"key": "val"})
 	part.FunctionCall.ID = "call_abc123"
@@ -243,7 +243,7 @@ func TestGatewayModel_ConvertRequest_FunctionCallContent(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertRequest_FunctionResponseContent(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	part := genai.NewPartFromFunctionResponse("get_state", map[string]any{"status": "ok"})
 	part.FunctionResponse.ID = "call_abc123"
@@ -263,7 +263,7 @@ func TestGatewayModel_ConvertRequest_FunctionResponseContent(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertResponse_FinishReasons(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	tests := []struct {
 		name         string
@@ -295,7 +295,7 @@ func TestGatewayModel_ConvertResponse_FinishReasons(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertResponse_Usage(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	resp := &openAIChatCompletionResponse{
 		Choices: []openAIChoice{
@@ -314,7 +314,7 @@ func TestGatewayModel_ConvertResponse_Usage(t *testing.T) {
 func TestGatewayModel_ToolCallIDRoundTrip(t *testing.T) {
 	// Simulates: LLM returns tool_calls → ADK executes tools → history sent back to LLM
 	// This is the exact scenario that was failing with OpenAI's error about missing tool_call_id responses.
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	// Step 1: LLM returns a response with tool calls
 	resp := &openAIChatCompletionResponse{
@@ -377,7 +377,7 @@ func TestGatewayModel_ToolCallIDRoundTrip(t *testing.T) {
 func TestGatewayModel_ConvertRequest_MultipleFunctionResponses(t *testing.T) {
 	// A single Content with multiple FunctionResponse parts should produce
 	// multiple "tool" messages (one per response).
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
@@ -408,7 +408,7 @@ func TestGatewayModel_ConvertRequest_MultipleFunctionResponses(t *testing.T) {
 }
 
 func TestGatewayModel_ConvertResponse_NoUsage(t *testing.T) {
-	m := NewGatewayModel("test-model", "http://unused")
+	m := NewGatewayModel("test-model", "http://unused", "")
 
 	resp := &openAIChatCompletionResponse{
 		Choices: []openAIChoice{

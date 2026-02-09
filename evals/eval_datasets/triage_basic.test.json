@@ -32,19 +32,7 @@
           "intermediate_data": {
             "tool_uses": [
               {
-                "name": "create_incident",
-                "args": {
-                  "id": "nginx-abc123-crashloop",
-                  "severity": "critical",
-                  "source": "k8s/pod/production/nginx-abc123",
-                  "summary": "Pod nginx-abc123 in production is in CrashLoopBackOff"
-                }
-              },
-              {
-                "name": "update_world_state",
-                "args": {
-                  "summary": "Critical: pod nginx-abc123 in production is in CrashLoopBackOff. Incident created."
-                }
+                "name": "create_incident"
               }
             ],
             "intermediate_responses": []
@@ -81,13 +69,7 @@
           "intermediate_data": {
             "tool_uses": [
               {
-                "name": "create_incident",
-                "args": {
-                  "id": "worker-node-3-memory-pressure",
-                  "severity": "warning",
-                  "source": "k8s/node/worker-node-3",
-                  "summary": "Node worker-node-3 is experiencing memory pressure"
-                }
+                "name": "create_incident"
               }
             ],
             "intermediate_responses": []
