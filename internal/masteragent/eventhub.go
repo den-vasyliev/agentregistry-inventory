@@ -104,6 +104,19 @@ func (h *EventHub) TotalProcessed() int64 {
 	return h.total
 }
 
+// Drain non-blocking: returns all currently queued events, emptying the queue.
+func (h *EventHub) Drain() []InfraEvent {
+	var events []InfraEvent
+	for {
+		select {
+		case ev := <-h.queue:
+			events = append(events, ev)
+		default:
+			return events
+		}
+	}
+}
+
 // Recent returns the last n events (or all if n > available)
 func (h *EventHub) Recent(n int) []InfraEvent {
 	h.mu.RLock()

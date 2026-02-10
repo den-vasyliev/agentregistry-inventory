@@ -62,7 +62,10 @@ func (w *WorldState) AddOrUpdateIncident(id, severity, source, summary string, s
 		existing.LastSeen = now
 		existing.Summary = summary
 		existing.Status = status
-		existing.Severity = severity
+		// Never downgrade severity — keep the highest seen
+		if severityRank(severity) > severityRank(existing.Severity) {
+			existing.Severity = severity
+		}
 	} else {
 		w.incidents[id] = &agentregistryv1alpha1.Incident{
 			ID:        id,
@@ -135,6 +138,20 @@ func (w *WorldState) GetIncidents() []agentregistryv1alpha1.Incident {
 		incidents = append(incidents, *inc)
 	}
 	return incidents
+}
+
+// severityRank returns a numeric rank for severity comparison (higher = more severe)
+func severityRank(severity string) int {
+	switch severity {
+	case "critical":
+		return 3
+	case "warning":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
+	}
 }
 
 // GetActiveIncidentsSummary returns a formatted summary of active incidents

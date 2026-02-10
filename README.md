@@ -193,6 +193,26 @@ spec:
 
 The controller reconciles this → creates MCPServer/Agent CRs → tracks status.
 
+### 🔄 A2A Everywhere: Agent Delegation
+
+Agent Inventory is building the foundation for **A2A Everywhere** — replacing direct Kubernetes writes with MCP/Agent delegation. Instead of the master agent directly modifying remote clusters, it delegates actions to remote MCP/A2A agents (kagent instances running on local or remote clusters) to query state and perform actions.
+
+**How it works:**
+
+1. **Automatic A2A Exposure**: kagent automatically exposes an MCP/A2A endpoint for every tools server and agent at:
+   ```
+   {kagent-host}/api/a2a/{namespace}/{agent-name}/
+   ```
+
+2. **Discovery Integration**: The discovery system already finds agents across remote clusters via `DiscoveryConfig`.
+
+3. **What's Next**:
+   - [ ] Capture the kagent base URL per environment in `DiscoveryConfig`
+   - [ ] Build per-agent A2A URLs from discovered agent name/namespace
+   - [ ] Add a `call_a2a_agent` function tool using the [a2a-go](https://github.com/kagent-dev/kagent/tree/main/go/a2a) SDK client
+
+This enables secure, delegated operations across clusters without requiring direct K8s API access from the master agent.
+
 ### 🌍 Multi-Cluster Discovery
 
 ```yaml

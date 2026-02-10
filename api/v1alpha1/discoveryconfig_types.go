@@ -45,6 +45,17 @@ type Environment struct {
 	// +optional
 	ResourceTypes []string `json:"resourceTypes,omitempty"`
 
+	// A2AEndpoint is the kagent A2A base URL for this environment.
+	// Agent A2A URLs are derived as {a2aEndpoint}/api/a2a/{namespace}/{agent-name}/
+	// +optional
+	A2AEndpoint string `json:"a2aEndpoint,omitempty"`
+
+	// MCPToolServerURL is the kagent tool server MCP endpoint for this environment.
+	// When set, deployments use MCP tools (k8s_apply_manifest, k8s_delete_resource)
+	// instead of direct K8s client access.
+	// +optional
+	MCPToolServerURL string `json:"mcpToolServerURL,omitempty"`
+
 	// Labels are additional labels to apply to discovered resources
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`

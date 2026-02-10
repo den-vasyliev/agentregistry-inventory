@@ -3,7 +3,11 @@ package masteragent
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
+	"github.com/a2aproject/a2a-go/a2a"
+	"github.com/a2aproject/a2a-go/a2aclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog"
 	"google.golang.org/genai"
@@ -21,21 +25,24 @@ import (
 
 // MasterAgent wraps an ADK agent with event processing capabilities
 type MasterAgent struct {
-	agent      agent.Agent
-	runner     *runner.Runner
-	sessionSvc session.Service
-	hub        *EventHub
-	state      *WorldState
-	maxWorkers int
-	logger     zerolog.Logger
+	agent       agent.Agent
+	runner      *runner.Runner
+	sessionSvc  session.Service
+	hub         *EventHub
+	state       *WorldState
+	maxWorkers  int
+	batchConfig *agentregistryv1alpha1.BatchTriageConfig
+	logger      zerolog.Logger
 }
 
-// NewMasterAgent creates a MasterAgent with ADK agent, MCP toolsets, and function tools
+// NewMasterAgent creates a MasterAgent with ADK agent, MCP toolsets, and function tools.
+// getA2AAgents, if non-nil, provides discovered remote A2A agents for the call_a2a_agent tool.
 func NewMasterAgent(
 	ctx context.Context,
 	spec agentregistryv1alpha1.MasterAgentConfigSpec,
 	defaultModel *GatewayModel,
 	hub *EventHub,
+	getA2AAgents func() []A2AAgentInfo,
 	logger zerolog.Logger,
 ) (*MasterAgent, error) {
 	// Build MCP toolsets — auto-discover tools from each MCP server
@@ -116,18 +123,56 @@ func NewMasterAgent(
 		return nil, fmt.Errorf("create resolve_incident tool: %w", err)
 	}
 
+	// call_a2a_agent tool for delegating to remote A2A agents
+	type CallA2AAgentArgs struct {
+		AgentName string `json:"agent_name"`
+		Message   string `json:"message"`
+	}
+	callA2ATool, err := functiontool.New(functiontool.Config{
+		Name:        "call_a2a_agent",
+		Description: "Send a message to a remote A2A agent and return its response. Parameters: 'agent_name' (string, the agent name as shown in Available A2A Agents), 'message' (string, the request to send).",
+	}, func(ctx tool.Context, args CallA2AAgentArgs) (map[string]any, error) {
+		if getA2AAgents == nil {
+			return map[string]any{"error": "no A2A agents configured"}, nil
+		}
+		agents := getA2AAgents()
+		var target *A2AAgentInfo
+		for i := range agents {
+			if agents[i].Name == args.AgentName {
+				target = &agents[i]
+				break
+			}
+		}
+		if target == nil {
+			names := make([]string, len(agents))
+			for i, a := range agents {
+				names[i] = a.Name
+			}
+			return map[string]any{"error": fmt.Sprintf("agent %q not found, available: %s", args.AgentName, strings.Join(names, ", "))}, nil
+		}
+		result, err := callA2AAgent(ctx, target.Endpoint, args.Message)
+		if err != nil {
+			return map[string]any{"error": err.Error()}, nil
+		}
+		return result, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create call_a2a_agent tool: %w", err)
+	}
+
 	// Create the ADK LLM agent
 	ag, err := llmagent.New(llmagent.Config{
 		Name:        "master-agent",
 		Description: "Autonomous infrastructure observer and triage agent for Agent Registry",
 		Model:       defaultModel,
-		Instruction: BuildSystemPrompt(spec.SystemPrompt),
+		Instruction: BuildSystemPrompt(spec.SystemPrompt, getA2AAgents),
 		Toolsets:    toolsets,
 		Tools: []tool.Tool{
 			getStateTool,
 			updateStateTool,
 			createIncidentTool,
 			resolveIncidentTool,
+			callA2ATool,
 		},
 	})
 	if err != nil {
@@ -151,13 +196,14 @@ func NewMasterAgent(
 	}
 
 	return &MasterAgent{
-		agent:      ag,
-		runner:     r,
-		sessionSvc: sessionSvc,
-		hub:        hub,
-		state:      worldState,
-		maxWorkers: maxWorkers,
-		logger:     logger,
+		agent:       ag,
+		runner:      r,
+		sessionSvc:  sessionSvc,
+		hub:         hub,
+		state:       worldState,
+		maxWorkers:  maxWorkers,
+		batchConfig: spec.BatchTriage,
+		logger:      logger,
 	}, nil
 }
 
@@ -181,12 +227,21 @@ func (m *MasterAgent) SessionService() session.Service {
 	return m.sessionSvc
 }
 
-// Run starts the event processing loop with concurrent workers
+// Run starts the event processing loop. When batch triage is enabled, a single
+// batch collector goroutine accumulates events and sends them through LLM-driven
+// triage before processing. Otherwise, falls back to per-event concurrent workers.
 func (m *MasterAgent) Run(ctx context.Context) {
-	m.logger.Info().Int("workers", m.maxWorkers).Msg("starting master agent event processing")
-
-	for i := range m.maxWorkers {
-		go m.worker(ctx, i)
+	if m.batchConfig != nil && m.batchConfig.Enabled {
+		m.logger.Info().
+			Int("threshold", m.batchConfig.QueueThreshold).
+			Int("window_seconds", m.batchConfig.WindowSeconds).
+			Msg("starting master agent with batch triage")
+		go m.batchLoop(ctx)
+	} else {
+		m.logger.Info().Int("workers", m.maxWorkers).Msg("starting master agent event processing")
+		for i := range m.maxWorkers {
+			go m.worker(ctx, i)
+		}
 	}
 }
 
@@ -210,6 +265,150 @@ func (m *MasterAgent) worker(ctx context.Context, id int) {
 
 		m.processEvent(ctx, event, logger)
 		m.state.IncrementEvents()
+	}
+}
+
+// batchLoop accumulates events and processes them in prioritized groups.
+// It drains the queue when either the threshold is reached or the timer fires.
+func (m *MasterAgent) batchLoop(ctx context.Context) {
+	threshold := m.batchConfig.QueueThreshold
+	if threshold <= 0 {
+		threshold = 10
+	}
+	windowSec := m.batchConfig.WindowSeconds
+	if windowSec <= 0 {
+		windowSec = 30
+	}
+	window := time.Duration(windowSec) * time.Second
+
+	var pending []InfraEvent
+	timer := time.NewTimer(window)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			m.logger.Debug().Msg("batch loop stopping (context cancelled)")
+			return
+
+		case ev, ok := <-m.hub.queue:
+			if !ok {
+				return
+			}
+			pending = append(pending, ev)
+
+			// Check threshold
+			if len(pending) >= threshold {
+				// Also drain anything else available
+				pending = append(pending, m.hub.Drain()...)
+				m.processBatch(ctx, pending)
+				pending = nil
+				timer.Reset(window)
+			}
+
+		case <-timer.C:
+			// Timer fired — drain whatever is queued
+			pending = append(pending, m.hub.Drain()...)
+			if len(pending) > 0 {
+				m.processBatch(ctx, pending)
+				pending = nil
+			}
+			timer.Reset(window)
+		}
+	}
+}
+
+// processBatch handles a batch of accumulated events. Single events skip triage
+// and are processed directly. Multiple events go through LLM triage first.
+func (m *MasterAgent) processBatch(ctx context.Context, events []InfraEvent) {
+	logger := m.logger.With().Int("batch_size", len(events)).Logger()
+	logger.Info().Msg("processing event batch")
+
+	if len(events) == 1 {
+		// Fast path: single event, no triage needed
+		logger.Debug().Str("event_id", events[0].ID).Msg("single event, skipping triage")
+		m.processEvent(ctx, events[0], logger)
+		m.state.IncrementEvents()
+		return
+	}
+
+	// Triage the batch
+	groups, err := triageBatch(ctx, events, m.runner, m.sessionSvc, m.state, logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("batch triage failed, processing events individually")
+		for _, ev := range events {
+			m.processEvent(ctx, ev, logger)
+			m.state.IncrementEvents()
+		}
+		return
+	}
+
+	logger.Info().Int("groups", len(groups)).Msg("triage complete, processing groups sequentially")
+
+	// Process groups sequentially by priority
+	for _, group := range groups {
+		logger.Info().
+			Str("group_id", group.GroupID).
+			Int("priority", group.Priority).
+			Str("severity", group.Severity).
+			Int("events", len(group.Events)).
+			Msg("processing event group")
+
+		m.processEventGroup(ctx, group, logger)
+
+		// Count all constituent events
+		for range group.Events {
+			m.state.IncrementEvents()
+		}
+	}
+}
+
+// processEventGroup processes a triaged group of related events in a single LLM call.
+func (m *MasterAgent) processEventGroup(ctx context.Context, group EventGroup, logger zerolog.Logger) {
+	var eventsDetail strings.Builder
+	for i, ev := range group.Events {
+		eventsDetail.WriteString(fmt.Sprintf(
+			"%d. [id=%s] severity=%s source=%s type=%s time=%s: %s\n",
+			i+1, ev.ID, ev.Severity, ev.Source, ev.Type,
+			ev.Timestamp.Format("2006-01-02T15:04:05Z"), ev.Message,
+		))
+	}
+
+	prompt := fmt.Sprintf(
+		"Current world state:\n%s\n\n%s\n\n"+
+			"Event group: %s (priority %d, severity %s)\n"+
+			"Summary: %s\n\n"+
+			"Constituent events (%d):\n%s\n"+
+			"Triage this event group. Use available MCP tools to investigate if needed. "+
+			"Update the world state summary and create/update incidents as appropriate.",
+		m.state.GetSummary(),
+		m.state.GetActiveIncidentsSummary(),
+		group.GroupID, group.Priority, group.Severity,
+		group.Summary,
+		len(group.Events), eventsDetail.String(),
+	)
+
+	createResp, err := m.sessionSvc.Create(ctx, &session.CreateRequest{
+		AppName: "master-agent",
+		UserID:  "system",
+	})
+	if err != nil {
+		logger.Error().Err(err).Str("group_id", group.GroupID).Msg("failed to create session for group")
+		return
+	}
+
+	userContent := genai.NewContentFromText(prompt, "user")
+	for ev, err := range m.runner.Run(ctx, "system", createResp.Session.ID(), userContent, agent.RunConfig{}) {
+		if err != nil {
+			logger.Error().Err(err).Str("group_id", group.GroupID).Msg("agent run error for group")
+			break
+		}
+		if ev.IsFinalResponse() {
+			logger.Debug().
+				Str("group_id", group.GroupID).
+				Str("author", ev.Author).
+				Msg("agent completed group processing")
+		}
 	}
 }
 
@@ -247,4 +446,63 @@ func (m *MasterAgent) processEvent(ctx context.Context, event InfraEvent, logger
 				Msg("agent completed event processing")
 		}
 	}
+}
+
+// callA2AAgent sends a message to a remote A2A agent and extracts the text response
+func callA2AAgent(ctx context.Context, endpoint, message string) (map[string]any, error) {
+	client, err := a2aclient.NewFromEndpoints(ctx, []a2a.AgentInterface{
+		{URL: endpoint, Transport: a2a.TransportProtocolJSONRPC},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create A2A client: %w", err)
+	}
+	defer client.Destroy()
+
+	callCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	msg := a2a.NewMessage(a2a.MessageRoleUser, a2a.TextPart{Text: message})
+	result, err := client.SendMessage(callCtx, &a2a.MessageSendParams{Message: msg})
+	if err != nil {
+		return nil, fmt.Errorf("send A2A message: %w", err)
+	}
+
+	return extractA2AResult(result), nil
+}
+
+// extractA2AResult extracts text from a SendMessageResult (either *Message or *Task)
+func extractA2AResult(result a2a.SendMessageResult) map[string]any {
+	switch r := result.(type) {
+	case *a2a.Message:
+		return map[string]any{"text": extractPartsText(r.Parts)}
+	case *a2a.Task:
+		state := string(r.Status.State)
+		text := ""
+		if r.Status.Message != nil {
+			text = extractPartsText(r.Status.Message.Parts)
+		}
+		if text == "" {
+			for _, art := range r.Artifacts {
+				t := extractPartsText(art.Parts)
+				if t != "" {
+					text = t
+					break
+				}
+			}
+		}
+		return map[string]any{"state": state, "text": text}
+	default:
+		return map[string]any{"text": fmt.Sprintf("%+v", result)}
+	}
+}
+
+// extractPartsText concatenates text parts from A2A content parts
+func extractPartsText(parts a2a.ContentParts) string {
+	var texts []string
+	for _, p := range parts {
+		if tp, ok := p.(a2a.TextPart); ok {
+			texts = append(texts, tp.Text)
+		}
+	}
+	return strings.Join(texts, "\n")
 }

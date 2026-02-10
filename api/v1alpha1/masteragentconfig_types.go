@@ -72,6 +72,24 @@ type A2AConfig struct {
 	Port int `json:"port,omitempty"`
 }
 
+// BatchTriageConfig configures event batching and LLM-driven prioritization
+type BatchTriageConfig struct {
+	// Enabled activates batch triage mode. When enabled, events are accumulated
+	// and sent to the model in batches for grouping and prioritization instead of
+	// being processed individually.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled,omitempty"`
+	// QueueThreshold triggers triage when this many events accumulate in the queue
+	// +optional
+	// +kubebuilder:default=10
+	QueueThreshold int `json:"queueThreshold,omitempty"`
+	// WindowSeconds is the max seconds to wait before draining whatever is queued
+	// +optional
+	// +kubebuilder:default=30
+	WindowSeconds int `json:"windowSeconds,omitempty"`
+}
+
 // MasterAgentConfigSpec defines the desired state of MasterAgentConfig
 type MasterAgentConfigSpec struct {
 	// Enabled activates the master agent
@@ -98,6 +116,11 @@ type MasterAgentConfigSpec struct {
 	// SystemPrompt overrides the default system prompt
 	// +optional
 	SystemPrompt string `json:"systemPrompt,omitempty"`
+	// BatchTriage configures event batching and LLM-driven prioritization.
+	// When enabled, events are accumulated and triaged in batches instead of
+	// being processed individually, reducing LLM calls during incident storms.
+	// +optional
+	BatchTriage *BatchTriageConfig `json:"batchTriage,omitempty"`
 }
 
 // WorldState represents the agent's running picture of infrastructure

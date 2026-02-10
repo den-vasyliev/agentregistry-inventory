@@ -56,6 +56,11 @@ spec:
                   description: Environment represents a target cluster/namespace for
                     resource discovery
                   properties:
+                    a2aEndpoint:
+                      description: |-
+                        A2AEndpoint is the kagent A2A base URL for this environment.
+                        Agent A2A URLs are derived as {a2aEndpoint}/api/a2a/{namespace}/{agent-name}/
+                      type: string
                     cluster:
                       description: Cluster contains cluster connection information
                       properties:
@@ -115,6 +120,12 @@ spec:
                       description: Labels are additional labels to apply to discovered
                         resources
                       type: object
+                    mcpToolServerURL:
+                      description: |-
+                        MCPToolServerURL is the kagent tool server MCP endpoint for this environment.
+                        When set, deployments use MCP tools (k8s_apply_manifest, k8s_delete_resource)
+                        instead of direct K8s client access.
+                      type: string
                     name:
                       description: Name is a unique identifier for this environment
                       type: string

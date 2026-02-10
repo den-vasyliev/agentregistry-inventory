@@ -69,6 +69,30 @@ spec:
                     description: Port is the port to listen on
                     type: integer
                 type: object
+              batchTriage:
+                description: |-
+                  BatchTriage configures event batching and LLM-driven prioritization.
+                  When enabled, events are accumulated and triaged in batches instead of
+                  being processed individually, reducing LLM calls during incident storms.
+                properties:
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled activates batch triage mode. When enabled, events are accumulated
+                      and sent to the model in batches for grouping and prioritization instead of
+                      being processed individually.
+                    type: boolean
+                  queueThreshold:
+                    default: 10
+                    description: QueueThreshold triggers triage when this many events
+                      accumulate in the queue
+                    type: integer
+                  windowSeconds:
+                    default: 30
+                    description: WindowSeconds is the max seconds to wait before draining
+                      whatever is queued
+                    type: integer
+                type: object
               enabled:
                 description: Enabled activates the master agent
                 type: boolean

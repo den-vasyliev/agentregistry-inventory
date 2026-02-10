@@ -11,6 +11,7 @@ import (
 
 	kagentv1alpha2 "github.com/kagent-dev/kagent/go/api/v1alpha2"
 	kmcpv1alpha1 "github.com/kagent-dev/kmcp/api/v1alpha1"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -23,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	sigyaml "sigs.k8s.io/yaml"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 	"github.com/agentregistry-dev/agentregistry/internal/runtime/translation/api"
@@ -174,10 +176,14 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 		}
 	}
 
-	// Resolve the target client (remote or local)
-	targetClient, clusterName, err := r.getTargetClient(ctx, deployment)
+	// Resolve the target client and environment
+	env, targetClient, clusterName, err := r.getTargetClientAndEnv(ctx, deployment)
 	if err != nil {
-		return fmt.Errorf("failed to resolve target client: %w", err)
+		return fmt.Errorf("failed to resolve target: %w", err)
+	}
+	mcpURL := ""
+	if env != nil {
+		mcpURL = env.MCPToolServerURL
 	}
 
 	// Convert catalog to runtime format
@@ -203,7 +209,7 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 	// Apply MCPServers (local)
 	for _, mcpServer := range runtimeConfig.Kubernetes.MCPServers {
 		r.setOwnerLabels(mcpServer, deployment)
-		if err := r.applyResource(ctx, targetClient, mcpServer); err != nil {
+		if err := r.applyObj(ctx, mcpURL, targetClient, mcpServer); err != nil {
 			return fmt.Errorf("failed to apply MCPServer: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -218,7 +224,7 @@ func (r *RegistryDeploymentReconciler) reconcileMCPDeployment(ctx context.Contex
 	// Apply RemoteMCPServers
 	for _, remoteMCP := range runtimeConfig.Kubernetes.RemoteMCPServers {
 		r.setOwnerLabels(remoteMCP, deployment)
-		if err := r.applyResource(ctx, targetClient, remoteMCP); err != nil {
+		if err := r.applyObj(ctx, mcpURL, targetClient, remoteMCP); err != nil {
 			return fmt.Errorf("failed to apply RemoteMCPServer: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -271,10 +277,14 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 		}
 	}
 
-	// Resolve the target client (remote or local)
-	targetClient, clusterName, err := r.getTargetClient(ctx, deployment)
+	// Resolve the target client and environment
+	env, targetClient, clusterName, err := r.getTargetClientAndEnv(ctx, deployment)
 	if err != nil {
-		return fmt.Errorf("failed to resolve target client: %w", err)
+		return fmt.Errorf("failed to resolve target: %w", err)
+	}
+	mcpURL := ""
+	if env != nil {
+		mcpURL = env.MCPToolServerURL
 	}
 
 	// Convert catalog to runtime format
@@ -300,7 +310,7 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 	// Apply ConfigMaps
 	for _, cm := range runtimeConfig.Kubernetes.ConfigMaps {
 		r.setOwnerLabels(cm, deployment)
-		if err := r.applyResource(ctx, targetClient, cm); err != nil {
+		if err := r.applyObj(ctx, mcpURL, targetClient, cm); err != nil {
 			return fmt.Errorf("failed to apply ConfigMap: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -315,7 +325,7 @@ func (r *RegistryDeploymentReconciler) reconcileAgentDeployment(ctx context.Cont
 	// Apply Agents
 	for _, agent := range runtimeConfig.Kubernetes.Agents {
 		r.setOwnerLabels(agent, deployment)
-		if err := r.applyResource(ctx, targetClient, agent); err != nil {
+		if err := r.applyObj(ctx, mcpURL, targetClient, agent); err != nil {
 			return fmt.Errorf("failed to apply Agent: %w", err)
 		}
 		managedResources = append(managedResources, agentregistryv1alpha1.ManagedResource{
@@ -496,16 +506,20 @@ func (r *RegistryDeploymentReconciler) handleDeletion(ctx context.Context, deplo
 		return ctrl.Result{}, nil
 	}
 
-	// Resolve the target client for deletion
-	targetClient, _, err := r.getTargetClient(ctx, deployment)
+	// Resolve the target client and environment for deletion
+	env, targetClient, _, err := r.getTargetClientAndEnv(ctx, deployment)
 	if err != nil {
-		r.Logger.Error().Err(err).Msg("failed to resolve target client for deletion, falling back to local client")
+		r.Logger.Error().Err(err).Msg("failed to resolve target for deletion, falling back to local client")
 		targetClient = r.Client
+	}
+	mcpURL := ""
+	if env != nil {
+		mcpURL = env.MCPToolServerURL
 	}
 
 	// Delete managed resources
 	for _, res := range deployment.Status.ManagedResources {
-		if err := r.deleteResource(ctx, targetClient, res); err != nil {
+		if err := r.deleteObj(ctx, mcpURL, targetClient, res); err != nil {
 			r.Logger.Error().Err(err).
 				Str("kind", res.Kind).
 				Str("name", res.Name).
@@ -523,27 +537,20 @@ func (r *RegistryDeploymentReconciler) handleDeletion(ctx context.Context, deplo
 	return ctrl.Result{}, nil
 }
 
-// getTargetClient resolves the target client for a deployment.
+// getTargetClientAndEnv resolves the target client and environment for a deployment.
 // If the deployment specifies an environment, it looks up the environment from DiscoveryConfig
-// resources and returns a remote client. Otherwise, it returns the local client.
-func (r *RegistryDeploymentReconciler) getTargetClient(ctx context.Context, deployment *agentregistryv1alpha1.RegistryDeployment) (client.Client, string, error) {
+// resources and returns a remote client along with the environment. Otherwise, it returns
+// the local client and nil environment.
+func (r *RegistryDeploymentReconciler) getTargetClientAndEnv(ctx context.Context, deployment *agentregistryv1alpha1.RegistryDeployment) (*agentregistryv1alpha1.Environment, client.Client, string, error) {
 	envName := deployment.Spec.Environment
 	if envName == "" {
-		return r.Client, "", nil
-	}
-
-	factory := r.RemoteClientFactory
-	if factory == nil {
-		factory = RemoteClientFactory
-	}
-	if factory == nil {
-		return nil, "", fmt.Errorf("remote client factory not configured, cannot deploy to environment %q", envName)
+		return nil, r.Client, "", nil
 	}
 
 	// List DiscoveryConfigs in the same namespace to find the environment
 	var dcList agentregistryv1alpha1.DiscoveryConfigList
 	if err := r.List(ctx, &dcList, client.InNamespace(deployment.Namespace)); err != nil {
-		return nil, "", fmt.Errorf("failed to list DiscoveryConfigs: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to list DiscoveryConfigs: %w", err)
 	}
 
 	for i := range dcList.Items {
@@ -551,18 +558,131 @@ func (r *RegistryDeploymentReconciler) getTargetClient(ctx context.Context, depl
 			env := &dcList.Items[i].Spec.Environments[j]
 			if env.Name == envName {
 				if !env.DeployEnabled {
-					return nil, "", fmt.Errorf("deployment to environment %q is not allowed (deployEnabled is false)", envName)
+					return nil, nil, "", fmt.Errorf("deployment to environment %q is not allowed (deployEnabled is false)", envName)
+				}
+
+				// If MCP tool server is available, we don't need a K8s client
+				if env.MCPToolServerURL != "" {
+					return env, nil, env.Cluster.Name, nil
+				}
+
+				factory := r.RemoteClientFactory
+				if factory == nil {
+					factory = RemoteClientFactory
+				}
+				if factory == nil {
+					return nil, nil, "", fmt.Errorf("remote client factory not configured, cannot deploy to environment %q", envName)
 				}
 				remoteClient, err := factory(env, r.Scheme)
 				if err != nil {
-					return nil, "", fmt.Errorf("failed to create remote client for environment %q: %w", envName, err)
+					return nil, nil, "", fmt.Errorf("failed to create remote client for environment %q: %w", envName, err)
 				}
-				return remoteClient, env.Cluster.Name, nil
+				return env, remoteClient, env.Cluster.Name, nil
 			}
 		}
 	}
 
-	return nil, "", fmt.Errorf("environment %q not found in any DiscoveryConfig in namespace %q", envName, deployment.Namespace)
+	return nil, nil, "", fmt.Errorf("environment %q not found in any DiscoveryConfig in namespace %q", envName, deployment.Namespace)
+}
+
+// applyObj dispatches to MCP or direct K8s apply based on the mcpURL.
+func (r *RegistryDeploymentReconciler) applyObj(ctx context.Context, mcpURL string, targetClient client.Client, obj client.Object) error {
+	if mcpURL != "" {
+		return r.applyViaMCP(ctx, mcpURL, obj)
+	}
+	return r.applyResource(ctx, targetClient, obj)
+}
+
+// deleteObj dispatches to MCP or direct K8s delete based on the mcpURL.
+func (r *RegistryDeploymentReconciler) deleteObj(ctx context.Context, mcpURL string, targetClient client.Client, res agentregistryv1alpha1.ManagedResource) error {
+	if mcpURL != "" {
+		return r.deleteViaMCP(ctx, mcpURL, res)
+	}
+	return r.deleteResource(ctx, targetClient, res)
+}
+
+// applyViaMCP applies a Kubernetes resource via the MCP tool server's k8s_apply_manifest tool.
+func (r *RegistryDeploymentReconciler) applyViaMCP(ctx context.Context, mcpURL string, obj client.Object) error {
+	yamlBytes, err := sigyaml.Marshal(obj)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object to YAML: %w", err)
+	}
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{
+		Name:    "agentregistry",
+		Version: "1.0.0",
+	}, nil)
+
+	session, err := mcpClient.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: mcpURL,
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to MCP tool server at %s: %w", mcpURL, err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "k8s_apply_manifest",
+		Arguments: map[string]any{
+			"manifest": string(yamlBytes),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("MCP tool call failed: %w", err)
+	}
+	if result.IsError {
+		return fmt.Errorf("k8s_apply_manifest error: %v", result.Content)
+	}
+
+	r.Logger.Debug().
+		Str("kind", obj.GetObjectKind().GroupVersionKind().Kind).
+		Str("name", obj.GetName()).
+		Str("namespace", obj.GetNamespace()).
+		Str("mcpURL", mcpURL).
+		Msg("applied resource via MCP tool server")
+
+	return nil
+}
+
+// deleteViaMCP deletes a Kubernetes resource via the MCP tool server's k8s_delete_resource tool.
+func (r *RegistryDeploymentReconciler) deleteViaMCP(ctx context.Context, mcpURL string, res agentregistryv1alpha1.ManagedResource) error {
+	mcpClient := mcp.NewClient(&mcp.Implementation{
+		Name:    "agentregistry",
+		Version: "1.0.0",
+	}, nil)
+
+	session, err := mcpClient.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: mcpURL,
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to MCP tool server at %s: %w", mcpURL, err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "k8s_delete_resource",
+		Arguments: map[string]any{
+			"apiVersion": res.APIVersion,
+			"kind":       res.Kind,
+			"name":       res.Name,
+			"namespace":  res.Namespace,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("MCP tool call failed: %w", err)
+	}
+	if result.IsError {
+		return fmt.Errorf("k8s_delete_resource error: %v", result.Content)
+	}
+
+	r.Logger.Debug().
+		Str("kind", res.Kind).
+		Str("name", res.Name).
+		Str("namespace", res.Namespace).
+		Str("mcpURL", mcpURL).
+		Msg("deleted resource via MCP tool server")
+
+	return nil
 }
 
 // applyResource applies a Kubernetes resource using server-side apply
@@ -780,10 +900,16 @@ func (r *RegistryDeploymentReconciler) checkManagedResourcesReady(ctx context.Co
 		return false, "Pending"
 	}
 
-	// Resolve the target client for status checks
-	targetClient, _, err := r.getTargetClient(ctx, deployment)
+	// Resolve the target client and environment for status checks
+	env, targetClient, _, err := r.getTargetClientAndEnv(ctx, deployment)
 	if err != nil {
-		return false, fmt.Sprintf("Failed to resolve target client: %v", err)
+		return false, fmt.Sprintf("Failed to resolve target: %v", err)
+	}
+
+	// When MCP tool server is used, we can't query resource status directly.
+	// If apply succeeded, consider resources ready.
+	if env != nil && env.MCPToolServerURL != "" {
+		return true, ""
 	}
 
 	// Check each managed resource status

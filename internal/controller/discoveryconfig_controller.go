@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -871,6 +872,12 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 	labels["agentregistry.dev/environment"] = env.Name
 	labels["agentregistry.dev/cluster"] = env.Cluster.Name
 
+	// Build annotations
+	annotations := make(map[string]string)
+	if env.A2AEndpoint != "" {
+		annotations["agentregistry.dev/a2a-endpoint"] = fmt.Sprintf("%s/api/a2a/%s/%s/", strings.TrimRight(env.A2AEndpoint, "/"), agent.Namespace, agent.Name)
+	}
+
 	// Extract kagent-specific data
 	agentType := string(agent.Spec.Type)
 	systemMessage := ""
@@ -924,9 +931,10 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 
 	catalog := agentregistryv1alpha1.AgentCatalog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      catalogName,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        catalogName,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: agentregistryv1alpha1.AgentCatalogSpec{
 			Name:           fmt.Sprintf("%s/%s", agent.Namespace, agent.Name),
@@ -963,6 +971,7 @@ func (r *DiscoveryConfigReconciler) handleAgentAdd(
 
 	existing.Spec = catalog.Spec
 	existing.Labels = labels
+	existing.Annotations = annotations
 	if err := r.Update(ctx, existing); err != nil {
 		return err
 	}

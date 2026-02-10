@@ -155,7 +155,7 @@ func (r *MasterAgentReconciler) startAgent(ctx context.Context, mac *agentregist
 
 	agentCtx, cancel := context.WithCancel(ctx)
 
-	ag, err := masteragent.NewMasterAgent(agentCtx, mac.Spec, model, hub, r.Logger)
+	ag, err := masteragent.NewMasterAgent(agentCtx, mac.Spec, model, hub, r.getA2AAgents, r.Logger)
 	if err != nil {
 		cancel()
 		return fmt.Errorf("create master agent: %w", err)
@@ -291,6 +291,34 @@ func (r *MasterAgentReconciler) setCondition(ctx context.Context, mac *agentregi
 			r.Logger.Error().Err(err).Msg("failed to update condition")
 		}
 	}
+}
+
+// getA2AAgents lists AgentCatalogs with a2a-endpoint annotations and returns A2AAgentInfo slice
+func (r *MasterAgentReconciler) getA2AAgents() []masteragent.A2AAgentInfo {
+	namespace := config.GetNamespace()
+
+	var catalogs agentregistryv1alpha1.AgentCatalogList
+	if err := r.List(context.Background(), &catalogs, client.InNamespace(namespace)); err != nil {
+		r.Logger.Error().Err(err).Msg("failed to list AgentCatalogs for A2A agents")
+		return nil
+	}
+
+	var agents []masteragent.A2AAgentInfo
+	for _, cat := range catalogs.Items {
+		endpoint, ok := cat.Annotations["agentregistry.dev/a2a-endpoint"]
+		if !ok || endpoint == "" {
+			continue
+		}
+		agents = append(agents, masteragent.A2AAgentInfo{
+			Name:        cat.Spec.Name,
+			Description: cat.Spec.Description,
+			Endpoint:    endpoint,
+			Environment: cat.Labels["agentregistry.dev/environment"],
+			Cluster:     cat.Labels["agentregistry.dev/cluster"],
+		})
+	}
+
+	return agents
 }
 
 // SetupWithManager sets up the controller with the manager

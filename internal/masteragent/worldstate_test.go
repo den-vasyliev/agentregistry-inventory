@@ -86,6 +86,30 @@ func TestWorldState_UpdateExistingIncident(t *testing.T) {
 	assert.True(t, !inc.LastSeen.Before(&firstSeen), "lastSeen should be >= firstSeen")
 }
 
+func TestWorldState_SeverityNeverDowngrades(t *testing.T) {
+	ws := NewWorldState()
+
+	// Create as critical
+	ws.AddOrUpdateIncident("inc-1", "critical", "k8s/pod/default/nginx", "OOMKilled",
+		agentregistryv1alpha1.IncidentStatusInvestigating)
+
+	// Update with info severity — should NOT downgrade
+	ws.AddOrUpdateIncident("inc-1", "info", "k8s/pod/default/nginx", "Endpoint removed",
+		agentregistryv1alpha1.IncidentStatusInvestigating)
+
+	incidents := ws.GetIncidents()
+	require.Len(t, incidents, 1)
+	assert.Equal(t, "critical", incidents[0].Severity, "severity should not downgrade from critical to info")
+	assert.Equal(t, "Endpoint removed", incidents[0].Summary, "summary should still update")
+
+	// Update with warning — should NOT downgrade
+	ws.AddOrUpdateIncident("inc-1", "warning", "k8s/pod/default/nginx", "Back-off restarting",
+		agentregistryv1alpha1.IncidentStatusInvestigating)
+
+	incidents = ws.GetIncidents()
+	assert.Equal(t, "critical", incidents[0].Severity, "severity should not downgrade from critical to warning")
+}
+
 func TestWorldState_ResolveIncident(t *testing.T) {
 	ws := NewWorldState()
 
