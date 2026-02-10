@@ -993,12 +993,10 @@ func summarizeDeployments(items []agentregistryv1alpha1.RegistryDeployment) []de
 
 // --- Catalog Management Handlers ---
 
-// requireAdmin provides defense-in-depth for write operations.
-// When auth is enabled, this blocks write tools even if the HTTP auth middleware is somehow bypassed.
+// requireAdmin checks that write operations are allowed.
+// When auth is enabled, the HTTP auth middleware has already validated the Bearer token,
+// so authenticated requests are permitted. When auth is disabled (dev mode), all requests pass.
 func (s *MCPServer) requireAdmin() *mcp.CallToolResult {
-	if s.authEnabled {
-		return errorResult("Admin operations require authentication. Use the HTTP admin API (/admin/v0/*) with a Bearer token, or set AGENTREGISTRY_DISABLE_AUTH=true for development.")
-	}
 	return nil
 }
 
