@@ -403,7 +403,6 @@ make image        # Build container image (KO)
 
 ## 💬 Join the Community
 
-- 💬 [Discord](https://discord.gg/HTYNjF2y2t) — Chat with the team
 - 🐛 [Issues](https://github.com/den-vasyliev/agentregistry-inventory/issues) — Report bugs or request features
 - 🤝 [PRs Welcome](CONTRIBUTING.md) — We love contributions!
 
