@@ -1024,6 +1024,9 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 	labels["agentregistry.dev/environment"] = env.Name
 	labels["agentregistry.dev/cluster"] = env.Cluster.Name
 
+	// Extract BaseURL from provider-specific config
+	baseURL := extractModelConfigBaseURL(model)
+
 	catalog := agentregistryv1alpha1.ModelCatalog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      catalogName,
@@ -1034,6 +1037,7 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 			Name:     fmt.Sprintf("%s/%s", model.Namespace, model.Name),
 			Provider: string(model.Spec.Provider),
 			Model:    model.Spec.Model,
+			BaseURL:  baseURL,
 			SourceRef: &agentregistryv1alpha1.SourceReference{
 				Kind:      "ModelConfig",
 				Name:      model.Name,
@@ -1074,6 +1078,29 @@ func (r *DiscoveryConfigReconciler) handleModelConfigAdd(
 		return r.Status().Update(ctx, existing)
 	}
 	return nil
+}
+
+// extractModelConfigBaseURL extracts the BaseURL/Endpoint/Host from the provider-specific config
+func extractModelConfigBaseURL(model *kagentv1alpha2.ModelConfig) string {
+	switch model.Spec.Provider {
+	case kagentv1alpha2.ModelProviderOpenAI:
+		if model.Spec.OpenAI != nil {
+			return model.Spec.OpenAI.BaseURL
+		}
+	case kagentv1alpha2.ModelProviderAnthropic:
+		if model.Spec.Anthropic != nil {
+			return model.Spec.Anthropic.BaseURL
+		}
+	case kagentv1alpha2.ModelProviderAzureOpenAI:
+		if model.Spec.AzureOpenAI != nil {
+			return model.Spec.AzureOpenAI.Endpoint
+		}
+	case kagentv1alpha2.ModelProviderOllama:
+		if model.Spec.Ollama != nil {
+			return model.Spec.Ollama.Host
+		}
+	}
+	return ""
 }
 
 // getRemoteClient gets or creates a client for remote cluster

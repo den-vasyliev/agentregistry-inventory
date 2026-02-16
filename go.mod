@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/zerologr v1.2.3
 	github.com/kagent-dev/kagent/go v0.0.0-20251107200645-686008ea62ac
 	github.com/kagent-dev/kmcp v0.2.2
-	github.com/mark3labs/mcp-go v0.43.2
+	github.com/mark3labs/mcp-go v0.44.0-beta.2
 	github.com/modelcontextprotocol/go-sdk v0.7.0
 	github.com/modelcontextprotocol/registry v1.3.7
 	github.com/rs/cors v1.11.1
