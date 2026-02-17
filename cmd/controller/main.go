@@ -223,6 +223,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set up AutoDeployment reconciler (creates automatic deployments)
+	if err := (&controller.AutoDeploymentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Logger: ctrlLogger.With().Str("controller", "autodeployment").Logger(),
+	}).SetupWithManager(mgr); err != nil {
+		log.Error().Err(err).Str("controller", "AutoDeployment").Msg("unable to create controller")
+		os.Exit(1)
+	}
+
 	// Set up HTTP API server if enabled
 	if enableHTTPAPI {
 		// Set up embedded UI files

@@ -239,6 +239,16 @@ func (s *Server) registerRoutes() {
 	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
 	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
 
+	// Register webhook endpoint for CI/CD integration
+	webhookHandler := handlers.NewWebhookHandler(s.client, s.logger)
+	s.mux.HandleFunc("/webhooks/github", webhookHandler.HandleGitHubWebhook)
+
+	// Register OCI artifact endpoints
+	ociHandler := handlers.NewOCIHandler(s.client, s.logger, "ghcr.io/your-org/agent-registry", "")
+	s.mux.HandleFunc("/admin/v0/oci/artifacts", ociHandler.CreateOCIArtifact)
+	s.mux.HandleFunc("/v0/oci/artifacts", ociHandler.ListOCIArtifacts)
+	s.mux.HandleFunc("/v0/oci/artifacts/", ociHandler.GetOCIArtifact)
+
 	// Version endpoint (public)
 	s.mux.HandleFunc("/v0/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
