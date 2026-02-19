@@ -315,11 +315,11 @@ func TestServer_loadTokensFromSecret_NotFound(t *testing.T) {
 	assert.Equal(t, 0, len(server.allowedTokens))
 }
 
-func TestServer_AuthEnabled_ByDefault(t *testing.T) {
+func TestServer_AuthDisabled_ByDefault(t *testing.T) {
 	server, _ := setupTestServer(t)
 
-	// Auth should be enabled by default (unless DISABLE_AUTH is set)
-	assert.True(t, server.authEnabled)
+	// Auth is disabled by default — enable with AGENTREGISTRY_AUTH_ENABLED=true
+	assert.False(t, server.authEnabled)
 }
 
 

@@ -103,6 +103,9 @@ type SkillCatalogStatus struct {
 	// UsedBy lists the agents that reference this skill
 	// +optional
 	UsedBy []SkillUsageRef `json:"usedBy,omitempty"`
+	// Publisher holds trust/verification badges set by the verification controller
+	// +optional
+	Publisher *PublisherVerification `json:"publisher,omitempty"`
 	// Conditions represent the latest available observations of the skill's state
 	// +optional
 	Conditions []CatalogCondition `json:"conditions,omitempty"`

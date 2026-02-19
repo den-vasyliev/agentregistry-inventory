@@ -36,6 +36,16 @@ export function AgentCard({ agent, onDeploy, onUndeploy, showDeploy = true, show
   const publisherMetadata = (agentData as any)._meta?.['io.modelcontextprotocol.registry/publisher-provided']?.['aregistry.ai/metadata']
   const identityData = publisherMetadata?.identity
 
+  // Governance grade from verification controller
+  const publisher = _meta?.publisher
+  const gradeColors: Record<string, string> = {
+    A: 'bg-green-500/10 text-green-600 border-green-500/20',
+    B: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    C: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    D: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    F: 'bg-red-500/10 text-red-600 border-red-500/20',
+  }
+
   // Get owner from metadata or extract from repository URL
   const getOwner = () => {
     // Try to get email from metadata first
@@ -93,6 +103,21 @@ export function AgentCard({ agent, onDeploy, onUndeploy, showDeploy = true, show
                   External
                 </Badge>
               )}
+              {publisher?.grade && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-bold px-1.5 ${gradeColors[publisher.grade]}`}
+                    >
+                      {publisher.grade}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Governance grade{publisher.score !== undefined ? `: ${publisher.score}/100` : ''}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
               {agentData.framework && (
@@ -123,11 +148,11 @@ export function AgentCard({ agent, onDeploy, onUndeploy, showDeploy = true, show
                   }}
                 >
                   <Play className="h-3.5 w-3.5" />
-                  Deploy
+                  Sandbox
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Deploy this agent</p>
+                <p>Sandbox this agent</p>
               </TooltipContent>
             </Tooltip>
           )}

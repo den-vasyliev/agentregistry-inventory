@@ -14,6 +14,15 @@ type Response[T any] struct {
 	Body T
 }
 
+// PublisherInfoJSON holds governance trust data set by an external controller.
+type PublisherInfoJSON struct {
+	VerifiedPublisher    bool    `json:"verifiedPublisher,omitempty"`
+	VerifiedOrganization bool    `json:"verifiedOrganization,omitempty"`
+	Score                *int32  `json:"score,omitempty"`
+	Grade                string  `json:"grade,omitempty"`
+	GradedAt             *string `json:"gradedAt,omitempty"`
+}
+
 // DeploymentInfo contains runtime deployment information from the source resource
 type DeploymentInfo struct {
 	Namespace   string     `json:"namespace,omitempty"`
@@ -45,6 +54,25 @@ func GenerateCRName(name, version string) string {
 	sanitizedName := SanitizeK8sName(name)
 	sanitizedVersion := SanitizeK8sName(version)
 	return sanitizedName + "-" + sanitizedVersion
+}
+
+// convertPublisherVerification converts a CRD PublisherVerification to PublisherInfoJSON.
+// Returns nil if v is nil.
+func convertPublisherVerification(v *agentregistryv1alpha1.PublisherVerification) *PublisherInfoJSON {
+	if v == nil {
+		return nil
+	}
+	info := &PublisherInfoJSON{
+		VerifiedPublisher:    v.VerifiedPublisher,
+		VerifiedOrganization: v.VerifiedOrganization,
+		Score:                v.Score,
+		Grade:                string(v.Grade),
+	}
+	if v.GradedAt != nil {
+		t := v.GradedAt.UTC().Format(time.RFC3339)
+		info.GradedAt = &t
+	}
+	return info
 }
 
 // SetCatalogCondition sets or updates a condition in the status

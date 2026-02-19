@@ -61,6 +61,8 @@ interface GroupedServer extends ServerResponse {
 
 // Deployment status filter type
 type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
+const SANDBOX_ENVIRONMENT = "sandbox"
+const SANDBOX_NAMESPACE = "sandbox"
 
 // Helper function to get resource creation date (for sorting)
 const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
@@ -208,12 +210,6 @@ export default function AdminPage() {
   const [itemToUndeploy, setItemToUndeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [undeploying, setUndeploying] = useState(false)
-  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
-  const [deployEnvironment, setDeployEnvironment] = useState("")
-  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, provider?: string, region?: string, namespace: string, deployEnabled: boolean}>>([
-    { name: "local", cluster: "", namespace: "agentregistry", deployEnabled: true }
-  ])
-  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
 
   // Pagination state
   const [currentPageServers, setCurrentPageServers] = useState(1)
@@ -355,7 +351,6 @@ export default function AdminPage() {
     const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
     setItemToDeploy({ name, version, type })
     setDeployDialogOpen(true)
-    fetchEnvironments()
   }, [])
 
   const handleUndeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
@@ -364,27 +359,6 @@ export default function AdminPage() {
     setItemToUndeploy({ name, version, type })
     setUndeployDialogOpen(true)
   }, [])
-
-  const fetchEnvironments = async () => {
-    setLoadingEnvironments(true)
-    try {
-      const envs = await api.listEnvironments()
-      if (envs && envs.length > 0) {
-        const deployable = envs
-          .filter(env => env.deployEnabled)
-          .filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
-        setEnvironments(deployable)
-        if (deployable.length > 0) {
-          setDeployNamespace(deployable[0].namespace)
-          setDeployEnvironment(deployable[0].name)
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch environments:", err)
-    } finally {
-      setLoadingEnvironments(false)
-    }
-  }
 
   const confirmDeploy = async () => {
     if (!itemToDeploy) return
@@ -398,17 +372,17 @@ export default function AdminPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
-        namespace: deployNamespace,
-        environment: deployEnvironment || undefined,
+        namespace: SANDBOX_NAMESPACE,
+        environment: SANDBOX_ENVIRONMENT,
       })
 
       setDeployDialogOpen(false)
       setItemToDeploy(null)
-      const target = deployEnvironment ? `${deployEnvironment} (${deployNamespace})` : deployNamespace
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${target}!`)
+      const target = `${SANDBOX_ENVIRONMENT} (${SANDBOX_NAMESPACE})`
+      toast.success(`Successfully sandboxed ${itemToDeploy.name} to ${target}!`)
       await fetchData()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to deploy resource')
+      toast.error(err instanceof Error ? err.message : 'Failed to sandbox resource')
     } finally {
       setDeploying(false)
     }
@@ -595,14 +569,8 @@ export default function AdminPage() {
         itemType={itemToDeploy?.type}
         deploying={deploying}
         onConfirm={confirmDeploy}
-        environments={environments}
-        loadingEnvironments={loadingEnvironments}
-        deployNamespace={deployNamespace}
-        deployEnvironment={deployEnvironment}
-        onEnvironmentChange={(envName, ns) => {
-          setDeployEnvironment(envName)
-          setDeployNamespace(ns)
-        }}
+        deployNamespace={SANDBOX_NAMESPACE}
+        deployEnvironment={SANDBOX_ENVIRONMENT}
       />
 
       <UndeployDialog

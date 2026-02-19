@@ -77,6 +77,7 @@ type SkillMeta struct {
 	Official          *OfficialMeta          `json:"io.modelcontextprotocol.registry/official,omitempty"`
 	PublisherProvided map[string]interface{} `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
 	UsedBy            []SkillUsageRefJSON    `json:"usedBy,omitempty"`
+	Publisher         *PublisherInfoJSON     `json:"publisher,omitempty"`
 }
 
 type SkillResponse struct {
@@ -454,6 +455,9 @@ func (h *SkillHandler) convertToSkillResponse(s *agentregistryv1alpha1.SkillCata
 			}
 		}
 	}
+
+	// Map governance/publisher verification from status
+	resp.Meta.Publisher = convertPublisherVerification(s.Status.Publisher)
 
 	return resp
 }

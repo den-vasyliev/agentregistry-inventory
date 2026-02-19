@@ -135,6 +135,15 @@ export interface DeploymentInfo {
   lastChecked?: string
 }
 
+// Publisher trust badges and governance grade set by the verification/governance controller
+export interface PublisherInfo {
+  verifiedPublisher?: boolean
+  verifiedOrganization?: boolean
+  score?: number        // 0-100
+  grade?: 'A' | 'B' | 'C' | 'D' | 'F'
+  gradedAt?: string
+}
+
 export interface ServerResponse {
   server: ServerJSON
   _meta: {
@@ -147,6 +156,7 @@ export interface ServerResponse {
         }
       }
     }
+    publisher?: PublisherInfo
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean
@@ -291,6 +301,7 @@ export interface SkillResponse {
         }
       }
     }
+    publisher?: PublisherInfo
     deployment?: DeploymentInfo
     source?: string
     isDiscovered?: boolean
@@ -397,6 +408,7 @@ export interface AgentResponse {
         }
       }
     }
+    publisher?: PublisherInfo
     deployment?: DeploymentInfo
     source?: string // discovery, manual, deployment
     isDiscovered?: boolean

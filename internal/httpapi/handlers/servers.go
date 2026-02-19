@@ -112,6 +112,7 @@ type ServerMeta struct {
 	Source            string                 `json:"source,omitempty"` // discovery, manual, deployment
 	IsDiscovered      bool                   `json:"isDiscovered,omitempty"`
 	UsedBy            []ServerUsageRefJSON   `json:"usedBy,omitempty"`
+	Publisher         *PublisherInfoJSON     `json:"publisher,omitempty"`
 }
 
 type OfficialMeta struct {
@@ -676,6 +677,9 @@ func (h *ServerHandler) convertToServerResponse(s *agentregistryv1alpha1.MCPServ
 			ToolNames: ref.ToolNames,
 		})
 	}
+
+	// Map governance/publisher verification from status
+	resp.Meta.Publisher = convertPublisherVerification(s.Status.Publisher)
 
 	return resp
 }
