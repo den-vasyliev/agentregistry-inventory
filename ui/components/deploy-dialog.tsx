@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const AGENT_SANDBOX_ENVIRONMENT = "agent-sandbox"
 
 interface DeployDialogProps {
   open: boolean
@@ -18,8 +28,11 @@ interface DeployDialogProps {
   itemType?: 'server' | 'agent'
   deploying: boolean
   onConfirm: () => void
+  environments: Array<{ name: string; cluster: string; provider?: string; region?: string; namespace: string; deployEnabled: boolean }>
+  loadingEnvironments: boolean
   deployNamespace: string
   deployEnvironment: string
+  onEnvironmentChange: (envName: string, namespace: string) => void
 }
 
 export function DeployDialog({
@@ -30,8 +43,11 @@ export function DeployDialog({
   itemType,
   deploying,
   onConfirm,
+  environments,
+  loadingEnvironments,
   deployNamespace,
   deployEnvironment,
+  onEnvironmentChange,
 }: DeployDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -46,6 +62,43 @@ export function DeployDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="deploy-environment">Target environment</Label>
+            <Select
+              value={deployEnvironment}
+              onValueChange={(envName) => {
+                const env = environments.find(e => e.name === envName)
+                if (env) onEnvironmentChange(env.name, env.namespace)
+              }}
+              disabled={loadingEnvironments}
+            >
+              <SelectTrigger id="deploy-environment">
+                <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select environment"} />
+              </SelectTrigger>
+              <SelectContent>
+                {environments.map((env) => {
+                  const selectable = env.name === AGENT_SANDBOX_ENVIRONMENT && env.deployEnabled
+                  return (
+                    <SelectItem key={env.name} value={env.name} disabled={!selectable}>
+                      <span className="flex items-center gap-1.5">
+                        {env.provider && (
+                          <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                            {env.provider}
+                          </span>
+                        )}
+                        <span>{env.name}</span>
+                        {env.cluster && <span className="text-muted-foreground">· {env.cluster}</span>}
+                        {env.region && <span className="text-muted-foreground text-xs">({env.region})</span>}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Environments are loaded from DiscoveryConfig. Only <code>agent-sandbox</code> can be selected.
+            </p>
+          </div>
           <div className="rounded-md border px-3 py-2 text-sm space-y-1">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Environment</span>
@@ -68,7 +121,7 @@ export function DeployDialog({
           <Button
             variant="default"
             onClick={onConfirm}
-            disabled={deploying}
+            disabled={deploying || deployEnvironment !== AGENT_SANDBOX_ENVIRONMENT}
           >
             {deploying ? 'Sandboxing...' : 'Sandbox'}
           </Button>

@@ -61,8 +61,8 @@ interface GroupedServer extends ServerResponse {
 
 // Deployment status filter type
 type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
-const SANDBOX_ENVIRONMENT = "sandbox"
-const SANDBOX_NAMESPACE = "sandbox"
+const AGENT_SANDBOX_ENVIRONMENT = "agent-sandbox"
+const DEFAULT_SANDBOX_NAMESPACE = "sandbox"
 
 // Helper function to get resource creation date (for sorting)
 const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
@@ -210,6 +210,10 @@ export default function AdminPage() {
   const [itemToUndeploy, setItemToUndeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [undeploying, setUndeploying] = useState(false)
+  const [deployNamespace, setDeployNamespace] = useState(DEFAULT_SANDBOX_NAMESPACE)
+  const [deployEnvironment, setDeployEnvironment] = useState("")
+  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, provider?: string, region?: string, namespace: string, deployEnabled: boolean}>>([])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
 
   // Pagination state
   const [currentPageServers, setCurrentPageServers] = useState(1)
@@ -346,12 +350,38 @@ export default function AdminPage() {
     setSelectedServer(null)
   }, [])
 
+  const fetchEnvironments = useCallback(async () => {
+    setLoadingEnvironments(true)
+    try {
+      const envs = await api.listEnvironments()
+      const uniqueEnvs = envs.filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
+      setEnvironments(uniqueEnvs)
+
+      const sandboxEnv = uniqueEnvs.find(env => env.name === AGENT_SANDBOX_ENVIRONMENT)
+      if (sandboxEnv) {
+        setDeployEnvironment(sandboxEnv.name)
+        setDeployNamespace(sandboxEnv.namespace || DEFAULT_SANDBOX_NAMESPACE)
+      } else {
+        setDeployEnvironment("")
+        setDeployNamespace(DEFAULT_SANDBOX_NAMESPACE)
+      }
+    } catch (err) {
+      console.error("Failed to fetch environments:", err)
+      setEnvironments([])
+      setDeployEnvironment("")
+      setDeployNamespace(DEFAULT_SANDBOX_NAMESPACE)
+    } finally {
+      setLoadingEnvironments(false)
+    }
+  }, [api])
+
   const handleDeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
     const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
     setItemToDeploy({ name, version, type })
     setDeployDialogOpen(true)
-  }, [])
+    fetchEnvironments()
+  }, [fetchEnvironments])
 
   const handleUndeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
@@ -362,6 +392,10 @@ export default function AdminPage() {
 
   const confirmDeploy = async () => {
     if (!itemToDeploy) return
+    if (deployEnvironment !== AGENT_SANDBOX_ENVIRONMENT) {
+      toast.error("Only agent-sandbox environment can be selected")
+      return
+    }
 
     try {
       setDeploying(true)
@@ -372,13 +406,13 @@ export default function AdminPage() {
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
-        namespace: SANDBOX_NAMESPACE,
-        environment: SANDBOX_ENVIRONMENT,
+        namespace: deployNamespace,
+        environment: deployEnvironment,
       })
 
       setDeployDialogOpen(false)
       setItemToDeploy(null)
-      const target = `${SANDBOX_ENVIRONMENT} (${SANDBOX_NAMESPACE})`
+      const target = `${deployEnvironment} (${deployNamespace})`
       toast.success(`Successfully sandboxed ${itemToDeploy.name} to ${target}!`)
       await fetchData()
     } catch (err) {
@@ -569,8 +603,14 @@ export default function AdminPage() {
         itemType={itemToDeploy?.type}
         deploying={deploying}
         onConfirm={confirmDeploy}
-        deployNamespace={SANDBOX_NAMESPACE}
-        deployEnvironment={SANDBOX_ENVIRONMENT}
+        environments={environments}
+        loadingEnvironments={loadingEnvironments}
+        deployNamespace={deployNamespace}
+        deployEnvironment={deployEnvironment}
+        onEnvironmentChange={(envName, ns) => {
+          setDeployEnvironment(envName)
+          setDeployNamespace(ns)
+        }}
       />
 
       <UndeployDialog
