@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"testing"
-	"time"
 )
 
 func TestGetNamespace(t *testing.T) {
@@ -90,87 +89,11 @@ func TestGetEnv(t *testing.T) {
 	}
 }
 
-func TestGetOIDCIssuer(t *testing.T) {
-	original := os.Getenv("AGENTREGISTRY_OIDC_ISSUER")
-	defer os.Setenv("AGENTREGISTRY_OIDC_ISSUER", original)
-
-	os.Setenv("AGENTREGISTRY_OIDC_ISSUER", "https://auth.example.com")
-	assert(t, "https://auth.example.com", GetOIDCIssuer())
-
-	os.Unsetenv("AGENTREGISTRY_OIDC_ISSUER")
-	assert(t, "", GetOIDCIssuer())
-}
-
-func TestGetOIDCAudience(t *testing.T) {
-	original := os.Getenv("AGENTREGISTRY_OIDC_AUDIENCE")
-	defer os.Setenv("AGENTREGISTRY_OIDC_AUDIENCE", original)
-
-	os.Setenv("AGENTREGISTRY_OIDC_AUDIENCE", "my-client-id")
-	assert(t, "my-client-id", GetOIDCAudience())
-
-	os.Unsetenv("AGENTREGISTRY_OIDC_AUDIENCE")
-	assert(t, "", GetOIDCAudience())
-}
-
-func TestGetOIDCAdminGroup(t *testing.T) {
-	original := os.Getenv("AGENTREGISTRY_OIDC_ADMIN_GROUP")
-	defer os.Setenv("AGENTREGISTRY_OIDC_ADMIN_GROUP", original)
-
-	os.Setenv("AGENTREGISTRY_OIDC_ADMIN_GROUP", "registry-admins")
-	assert(t, "registry-admins", GetOIDCAdminGroup())
-
-	os.Unsetenv("AGENTREGISTRY_OIDC_ADMIN_GROUP")
-	assert(t, "", GetOIDCAdminGroup())
-}
-
-func TestGetOIDCGroupClaim(t *testing.T) {
-	original := os.Getenv("AGENTREGISTRY_OIDC_GROUP_CLAIM")
-	defer os.Setenv("AGENTREGISTRY_OIDC_GROUP_CLAIM", original)
-
-	// default when unset
-	os.Unsetenv("AGENTREGISTRY_OIDC_GROUP_CLAIM")
-	assert(t, "groups", GetOIDCGroupClaim())
-
-	// custom value
-	os.Setenv("AGENTREGISTRY_OIDC_GROUP_CLAIM", "cognito:groups")
-	assert(t, "cognito:groups", GetOIDCGroupClaim())
-}
-
-func TestGetOIDCCacheSafetyMargin(t *testing.T) {
-	original := os.Getenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS")
-	defer os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", original)
-
-	// default when unset
-	os.Unsetenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS")
-	if got := GetOIDCCacheSafetyMargin(); got != 5*time.Minute {
-		t.Errorf("GetOIDCCacheSafetyMargin() default = %v, want 5m0s", got)
-	}
-
-	// explicit value
-	os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", "30")
-	if got := GetOIDCCacheSafetyMargin(); got != 30*time.Second {
-		t.Errorf("GetOIDCCacheSafetyMargin() = %v, want 30s", got)
-	}
-
-	// non-numeric falls back to default
-	os.Setenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS", "not-a-number")
-	if got := GetOIDCCacheSafetyMargin(); got != 5*time.Minute {
-		t.Errorf("GetOIDCCacheSafetyMargin() non-numeric = %v, want 5m0s", got)
-	}
-}
-
-// assert is a tiny helper to avoid importing testify in this file.
-func assert(t *testing.T, want, got string) {
-	t.Helper()
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
 
 func TestIsAuthEnabled(t *testing.T) {
 	// Save original value
-	original := os.Getenv("AGENTREGISTRY_DISABLE_AUTH")
-	defer os.Setenv("AGENTREGISTRY_DISABLE_AUTH", original)
+	original := os.Getenv("AGENTREGISTRY_AUTH_ENABLED")
+	defer os.Setenv("AGENTREGISTRY_AUTH_ENABLED", original)
 
 	tests := []struct {
 		name     string
@@ -178,28 +101,28 @@ func TestIsAuthEnabled(t *testing.T) {
 		want     bool
 	}{
 		{
-			name:     "auth enabled by default",
+			name:     "auth disabled by default",
 			envValue: "",
-			want:     true,
-		},
-		{
-			name:     "auth disabled",
-			envValue: "true",
 			want:     false,
 		},
 		{
 			name:     "auth explicitly enabled",
-			envValue: "false",
+			envValue: "true",
 			want:     true,
+		},
+		{
+			name:     "auth explicitly disabled",
+			envValue: "false",
+			want:     false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envValue != "" {
-				os.Setenv("AGENTREGISTRY_DISABLE_AUTH", tt.envValue)
+				os.Setenv("AGENTREGISTRY_AUTH_ENABLED", tt.envValue)
 			} else {
-				os.Unsetenv("AGENTREGISTRY_DISABLE_AUTH")
+				os.Unsetenv("AGENTREGISTRY_AUTH_ENABLED")
 			}
 
 			got := IsAuthEnabled()

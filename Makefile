@@ -79,11 +79,9 @@ build-controller: prepare-ui-embed ## Build controller binary with embedded UI
 
 build: build-ui build-controller ## Build both UI and controller
 
-run: build ## Build and run controller and ui with your kubeconfig
-	@echo "Running controller..."
-	@cd ui && npm install && NEXT_PUBLIC_DISABLE_AUTH=true npm run dev&
-	@echo "Starting Next.js dev server..."
-	@AGENTREGISTRY_DISABLE_AUTH=true ./bin/controller --log-level=debug
+run: build ## Build and run controller (embedded UI at :8080). Reads AZURE_AD_TENANT_ID and AZURE_AD_CLIENT_ID from environment.
+	@echo "Running controller with embedded UI..."
+	@./bin/controller --log-level=debug
 
 
 demo-stop: ## Stop demo environment

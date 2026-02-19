@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useSession } from "@/components/session-provider"
-import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,7 +28,7 @@ import { StatsCards } from "@/components/stats-cards"
 import { ProductTour, useProductTour } from "@/components/product-tour"
 import { DiscoveryMapView } from "@/components/discovery-map-view"
 import { Pagination } from "@/components/pagination"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
+import { createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -127,9 +126,8 @@ const groupServersByName = (servers: ServerResponse[]): GroupedServer[] => {
 }
 
 export default function AdminPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH !== "false"
+  const { token, status } = useSession()
+  const api = useMemo(() => createAuthenticatedClient(token), [token])
   const [activeTab, setActiveTab] = useState("servers")
   const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<DeploymentStatus>("all")
   const [servers, setServers] = useState<ServerResponse[]>([])
@@ -161,11 +159,8 @@ export default function AdminPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
 
-  useEffect(() => {
-    if (!disableAuth && status === "unauthenticated") {
-      router.push("/auth/signin")
-    }
-  }, [status, router, disableAuth])
+  // Auth redirect is handled by SessionProvider (MSAL loginRedirect).
+  // Nothing to do here — if status is "loading" we wait; "authenticated" we proceed.
 
   // Debounce search query (300ms)
   useEffect(() => {
@@ -259,7 +254,7 @@ export default function AdminPage() {
       let serverCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listServers({
+        const response = await api.listServers({
           cursor: serverCursor,
           limit: 100,
         })
@@ -273,7 +268,7 @@ export default function AdminPage() {
       let skillCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listSkills({
+        const response = await api.listSkills({
           cursor: skillCursor,
           limit: 100,
         })
@@ -287,7 +282,7 @@ export default function AdminPage() {
       let agentCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listAgents({
+        const response = await api.listAgents({
           cursor: agentCursor,
           limit: 100,
         })
@@ -301,7 +296,7 @@ export default function AdminPage() {
       let modelCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listModels({
+        const response = await api.listModels({
           cursor: modelCursor,
           limit: 100,
         })
@@ -373,7 +368,7 @@ export default function AdminPage() {
   const fetchEnvironments = async () => {
     setLoadingEnvironments(true)
     try {
-      const envs = await adminApiClient.listEnvironments()
+      const envs = await api.listEnvironments()
       if (envs && envs.length > 0) {
         const deployable = envs
           .filter(env => env.deployEnabled)
@@ -397,7 +392,7 @@ export default function AdminPage() {
     try {
       setDeploying(true)
 
-      await adminApiClient.deployServer({
+      await api.deployServer({
         serverName: itemToDeploy.name,
         version: itemToDeploy.version,
         config: {},
@@ -425,7 +420,7 @@ export default function AdminPage() {
     try {
       setUndeploying(true)
 
-      await adminApiClient.removeDeployment(
+      await api.removeDeployment(
         itemToUndeploy.name,
         itemToUndeploy.version,
         itemToUndeploy.type === 'agent' ? 'agent' : 'mcp'

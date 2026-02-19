@@ -9,10 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogIn, LogOut, User } from "lucide-react"
+import { LogOut, User } from "lucide-react"
+import { signOut } from "@/lib/msal"
 
 export function Navigation() {
-  const { data: session, status } = useSession()
+  const { account, status } = useSession()
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -29,37 +30,29 @@ export function Navigation() {
           </Link>
 
           <div className="flex items-center gap-4">
-            {/* Auth Section */}
             {status === "loading" ? (
               <div className="w-24 h-10 bg-muted animate-pulse rounded-md" />
-            ) : session ? (
+            ) : account ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <User className="h-4 w-4" />
-                    <span className="hidden sm:inline">{session.user?.name || session.user?.email}</span>
+                    <span className="hidden sm:inline">
+                      {account.name || account.username}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                    {session.user?.email}
+                    {account.username}
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Link href="/api/auth/signout" className="cursor-pointer flex items-center">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </Link>
+                  <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
-              <Link href="/auth/signin">
-                <Button variant="default" size="sm" className="gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </Button>
-              </Link>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

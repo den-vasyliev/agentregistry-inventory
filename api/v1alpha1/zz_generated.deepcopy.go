@@ -413,6 +413,11 @@ func (in *Environment) DeepCopyInto(out *Environment) {
 	*out = *in
 	out.Cluster = in.Cluster
 	out.Registry = in.Registry
+	if in.AllowedGroups != nil {
+		in, out := &in.AllowedGroups, &out.AllowedGroups
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Namespaces != nil {
 		in, out := &in.Namespaces, &out.Namespaces
 		*out = make([]string, len(*in))

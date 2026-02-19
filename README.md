@@ -4,7 +4,7 @@
   </picture>
 
   <h2>The Control Plane for AI Infrastructure</h2>
-  
+
   <p>
     <h3>Kubernetes-native registry for MCP servers, agents, skills & models</h3>
   </p>
@@ -23,7 +23,6 @@
     <a href="#docs">📚 Docs</a> •
     <a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a">📝 Blog</a>
   </p>
-
 
   <p><a href="https://medium.com/@den.vasyliev/your-ai-infrastructure-is-sprawling-you-just-dont-know-it-yet-e5c85d32060a"><img src="https://img.shields.io/badge/Medium-Read%20the%20story-black?style=flat-square&logo=medium&logoColor=white" alt="Read on Medium"></a>  <a href="https://youtu.be/sCut0CEHRr0">
     <img src="https://img.shields.io/badge/▶_Watch_Demo-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube"/>
@@ -57,7 +56,7 @@ If it's running, it's in the catalog.</h3>
 
 ## 🚀 Quick Start
 
-### One command to run dev environmetn
+### One command to run dev environment
 
 ```bash
 git clone https://github.com/den-vasyliev/agentregistry-inventory.git
@@ -65,7 +64,7 @@ cd agentregistry-inventory && make dev
 ```
 
 > 🎯 **That's it.** UI opens at http://localhost:3000 with sample data pre-loaded.
-> 
+>
 > No Kubernetes cluster needed — uses envtest (embedded etcd + kube-apiserver).
 
 **☸️ Have a cluster?**
@@ -74,10 +73,6 @@ cd agentregistry-inventory && make dev
 kubectl apply -k https://github.com/den-vasyliev/agentregistry-inventory/config/crd
 helm install agentregistry-inventory ./charts/agentregistry -n agentregistry --create-namespace
 ```
-
----
-
-
 
 ---
 
@@ -98,19 +93,19 @@ helm install agentregistry-inventory ./charts/agentregistry -n agentregistry --c
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      WEB UI (Next.js)                       │
-│                    http://localhost:3000                    │
+│              embedded in controller at :8080                │
 └───────────────────────────┬─────────────────────────────────┘
                             │ REST
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    CONTROLLER (Go Controller Runtime)       │
 │  ┌─────────────┐ ┌────────────────┐ ┌─────────────────────┐ │
-│  │  HTTP API   │ │ 9 Reconcilers  │ │  Auto-Discovery     │ │
+│  │  HTTP API   │ │  Reconcilers   │ │  Auto-Discovery     │ │
 │  │   :8080     │ │                │ │                     │ │
 │  └─────────────┘ └────────────────┘ └─────────────────────┘ │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐    │
-│  │  Metrics    │ │   Health    │ │   Leader Election   │    │
-│  │   :8081     │ │   :8082     │ │                     │    │
+│  │  MCP Server │ │   Metrics   │ │   Health            │    │
+│  │   :8083     │ │   :8081     │ │   :8082             │    │
 │  └─────────────┘ └─────────────┘ └─────────────────────┘    │
 └───────────────────────────┬─────────────────────────────────┘
                             │ K8s API
@@ -136,7 +131,7 @@ helm install agentregistry-inventory ./charts/agentregistry -n agentregistry --c
 
 ## 📚 CRD Reference
 - [Kgateway](https://kgateway.dev) — Gateway API for AI traffic
-- [Kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime  
+- [Kagent](https://github.com/kagent-dev/kagent) — Kubernetes AI agent runtime
 - [KMCP](https://github.com/kagent-dev/kmcp) — MCP server operator
 
 ---
@@ -193,26 +188,6 @@ spec:
 
 The controller reconciles this → creates MCPServer/Agent CRs → tracks status.
 
-### 🔄 A2A Everywhere: Agent Delegation
-
-Agent Inventory is building the foundation for **A2A Everywhere** — replacing direct Kubernetes writes with MCP/Agent delegation. Instead of the master agent directly modifying remote clusters, it delegates actions to remote MCP/A2A agents (kagent instances running on local or remote clusters) to query state and perform actions.
-
-**How it works:**
-
-1. **Automatic A2A Exposure**: kagent automatically exposes an MCP/A2A endpoint for every tools server and agent at:
-   ```
-   {kagent-host}/api/a2a/{namespace}/{agent-name}/
-   ```
-
-2. **Discovery Integration**: The discovery system already finds agents across remote clusters via `DiscoveryConfig`.
-
-3. **What's Next**:
-   - [ ] Capture the kagent base URL per environment in `DiscoveryConfig`
-   - [ ] Build per-agent A2A URLs from discovered agent name/namespace
-   - [ ] Add a `call_a2a_agent` function tool using the [a2a-go](https://github.com/kagent-dev/kagent/tree/main/go/a2a) SDK client
-
-This enables secure, delegated operations across clusters without requiring direct K8s API access from the master agent.
-
 ### 🌍 Multi-Cluster Discovery
 
 ```yaml
@@ -228,21 +203,12 @@ spec:
         name: prod-gke
         projectId: my-gcp-project
         zone: us-central1
-        region: us-central1          # Alternative to zone
         useWorkloadIdentity: true
-        serviceAccount: ""           # SA for workload identity
-      provider: gcp                  # gcp | aws | azure
-      discoveryEnabled: true         # Enable/disable discovery (default: true)
-      deployEnabled: false           # Allow deploying to this environment
+      provider: gcp
+      discoveryEnabled: true
+      deployEnabled: false
       namespaces: [ai-workloads, agents]
       resourceTypes: [MCPServer, Agent, ModelConfig]
-      labels:
-        environment: production
-        tier: critical
-      registry:                      # Optional: container registry for this env
-        url: "us-docker.pkg.dev/my-project"
-        prefix: "ai-images"
-        useWorkloadIdentity: true
 ```
 
 [→ Full Autodiscovery Docs](docs/AUTODISCOVERY.md)
@@ -251,52 +217,59 @@ spec:
 
 ## 🔌 API Reference
 
-### Public API (Read-Only)
+### Public API (Read-Only, no auth required)
 
 ```bash
-# Browse catalog
 curl http://localhost:8080/v0/servers
-curl http://localhost:8080/v0/servers/filesystem/1.0.0
-
-# Search agents & skills
-curl http://localhost:8080/v0/agents?framework=langchain
-curl http://localhost:8080/v0/skills?category=code-generation
+curl http://localhost:8080/v0/agents
+curl http://localhost:8080/v0/skills
 ```
 
 ### Admin API (Write)
 
 ```bash
-# Create catalog entry
+# Auth disabled by default — just POST
 curl -X POST http://localhost:8080/admin/v0/servers \
   -H "Content-Type: application/json" \
   -d @server.json
 
-# Deploy to cluster
-curl -X POST http://localhost:8080/admin/v0/deploy \
+# With auth enabled (AGENTREGISTRY_AUTH_ENABLED=true)
+curl -X POST http://localhost:8080/admin/v0/servers \
+  -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
-  -d '{
-    "resourceName": "filesystem",
-    "version": "1.0.0",
-    "resourceType": "mcp",
-    "namespace": "default"
-  }'
+  -d @server.json
 ```
 
 ---
 
 ## 🤖 MCP Server
 
-The controller embeds an MCP (Model Context Protocol) server, so any MCP-compatible client (Claude Code, Cursor, etc.) can browse, deploy, and manage registry resources conversationally.
+The controller embeds an MCP server on `:8083`. Connect any MCP-compatible client (Claude Code, Cursor, etc.) to browse, deploy, and manage registry resources conversationally.
 
-### Connect
-
-Add to your MCP client config (e.g. `.claude/settings.json`):
+### Connect (auth disabled, default)
 
 ```json
 {
   "mcpServers": {
     "agentregistry": {
-      "url": "http://localhost:8080/mcp"
+      "type": "streamable-http",
+      "url": "http://localhost:8083/mcp"
+    }
+  }
+}
+```
+
+### Connect (auth enabled)
+
+```json
+{
+  "mcpServers": {
+    "agentregistry": {
+      "type": "streamable-http",
+      "url": "http://localhost:8083/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
     }
   }
 }
@@ -306,8 +279,8 @@ Add to your MCP client config (e.g. `.claude/settings.json`):
 
 | Tool | Description |
 |------|-------------|
-| `list_catalog` | List catalog entries — `type` (servers/agents/skills/models), `search?`, `version?`, `category?`, `provider?`, `limit?` |
-| `get_catalog` | Get entry details — `type`, `name`, `version?` |
+| `list_catalog` | List catalog entries (servers/agents/skills/models) |
+| `get_catalog` | Get entry details |
 | `get_registry_stats` | Counts of all resource types |
 | `list_deployments` | List active deployments |
 | `get_deployment` | Deployment details by name |
@@ -317,25 +290,18 @@ Add to your MCP client config (e.g. `.claude/settings.json`):
 | `list_environments` | Discovered environments from DiscoveryConfig |
 | `get_discovery_map` | Cluster topology and resource counts |
 | `trigger_discovery` | Force re-scan of discovery |
-| `recommend_servers` | AI-powered server recommendations (uses sampling) |
-| `analyze_agent_dependencies` | AI-powered dependency analysis (uses sampling) |
-| `generate_deployment_plan` | AI-powered deployment planning (uses sampling) |
+| `recommend_servers` | AI-powered server recommendations |
+| `analyze_agent_dependencies` | AI-powered dependency analysis |
+| `generate_deployment_plan` | AI-powered deployment planning |
 
-### Prompts
-
-| Prompt | Description |
-|--------|-------------|
-| `agentregistry_skill` | Complete guide to all tools and workflows |
-| `deploy_server` | Guided MCP server deployment workflow |
-| `find_agents` | Guided agent discovery workflow |
-| `registry_overview` | Comprehensive registry status overview |
+[→ Full MCP Docs](docs/MCP_SERVER.md) | [→ MCP Auth](docs/mcp-auth.md)
 
 ---
 
 ## ☸️ Production Deployment
 
 ```bash
-helm install agentregistry-inventory ./charts/agentregistry \
+helm install agentregistry ./charts/agentregistry \
   --namespace agentregistry \
   --create-namespace \
   --set replicaCount=2 \
@@ -344,64 +310,61 @@ helm install agentregistry-inventory ./charts/agentregistry \
 
 ### Key Configuration
 
-| Setting | Default | When to Change |
-|---------|---------|----------------|
-| `replicaCount` | 1 | Set to 2+ for HA |
-| `controller.leaderElection` | true | Required for multi-replica |
-| `controller.logLevel` | info | Use `debug` for troubleshooting |
-| `httpApi.serviceType` | ClusterIP | Use `LoadBalancer` for external access |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `replicaCount` | `1` | Set to 2+ for HA |
+| `controller.leaderElection` | `false` | Required for multi-replica |
+| `controller.logLevel` | `info` | Use `debug` for troubleshooting |
+| `httpApi.serviceType` | `ClusterIP` | Use `LoadBalancer` for external access |
+| `disableAuth` | `true` | Set to `false` to enable Bearer token auth |
 
 ---
 
-## 🔐 Authentication (OIDC)
+## 🔐 Authentication
 
-Agent Inventory supports OIDC-based authentication with group-based authorization.
+Auth is **disabled by default**. When enabled (`disableAuth: false`), the admin API and MCP server require a Bearer token from the `agentregistry-api-tokens` Kubernetes Secret.
 
-### Quick Setup
+For production deployments with a gateway, use [agentgateway](charts/agentgateway/) to handle Azure AD JWT validation in front of the controller — keep `disableAuth: true` on the backend and let the gateway enforce auth.
+
+### Enable Bearer Token Auth
 
 ```bash
-# Install with OIDC enabled
-helm install agentregistry-inventory ./charts/agentregistry \
+# Create token secret
+kubectl create secret generic agentregistry-api-tokens \
+  -n agentregistry \
+  --from-literal=admin-token=$(openssl rand -hex 32)
+
+# Install with auth enabled
+helm install agentregistry ./charts/agentregistry \
   --namespace agentregistry \
-  --create-namespace \
-  --set oidc.enabled=true \
-  --set oidc.issuer=https://your-oidc-provider.com \
-  --set oidc.audience=agentregistry \
-  --set oidc.adminGroup=agentregistry-admins
+  --set disableAuth=false
 ```
 
-### Configuration
+### Azure AD (MSAL Browser PKCE)
 
-| Setting | Description | Required |
-|---------|-------------|----------|
-| `oidc.enabled` | Enable OIDC authentication | Yes |
-| `oidc.issuer` | OIDC provider URL (e.g., `https://keycloak.example.com/realms/myrealm`) | Yes |
-| `oidc.audience` | Expected JWT audience (client ID) | Yes |
-| `oidc.adminGroup` | Group required for deployment operations | No |
-| `oidc.groupClaim` | Claim name containing user groups (default: `groups`) | No |
+The embedded UI supports Azure AD login via MSAL.js — no client secret required.
 
-### Supported Providers
+```yaml
+# charts/agentregistry/values.yaml
+azure:
+  tenantId: "your-tenant-id"
+  clientId: "your-client-id"
+```
 
-- **Generic OIDC** (Keycloak, Auth0, Okta)
-- **Google OAuth** (backward compatible)
-- **Azure AD** (backward compatible)
-
-[→ Full OIDC Setup Guide](docs/oidc-setup.md)
+[→ Full Azure AD Setup](docs/azure-ad-setup.md)
 
 ---
 
 ## 🧪 Development
 
 ```bash
-make dev          # Full stack: controller + UI + sample data
-make test         # Run test suite with coverage
-make lint         # gofmt + go vet + eslint
-make build        # Build controller binary
-make image        # Build container image (KO)
+make dev          # Full stack: controller + UI dev server
+make run          # Controller only with embedded UI at :8080
+make test         # Run test suite
+make lint         # gofmt + go vet
+make build        # Build UI + controller binary
+make generate     # Regenerate CRD manifests + deepcopy
 ```
-
-[→ Development Guide](DEVELOPMENT.md) | [→ Contributing](CONTRIBUTING.md)
-
 
 ---
 
@@ -411,7 +374,7 @@ make image        # Build container image (KO)
 
 | Project | Description | Link |
 |---------|-------------|------|
-| **KGateway** | AI Gateway | [kgateway.dev](https://kgateway.dev/) |
+| **Agentgateway** | MCP/HTTP auth gateway | [agentgateway.dev](https://agentgateway.dev/) |
 | **MCP** | Model Context Protocol specification | [modelcontextprotocol.io](https://modelcontextprotocol.io) |
 | **Kagent** | Kubernetes AI agent runtime | [github.com/kagent-dev/kagent](https://github.com/kagent-dev/kagent) |
 | **KMCP** | MCP server operator for Kubernetes | [github.com/kagent-dev/kmcp](https://github.com/kagent-dev/kmcp) |

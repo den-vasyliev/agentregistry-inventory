@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agentgateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentgateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentgateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "agentgateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "agentgateway.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: agentgateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - -f
+            - /etc/agentgateway/agentgateway-config.yaml
+          ports:
+            - name: http
+              containerPort: {{ .Values.httpPort }}
+              protocol: TCP
+            - name: mcp
+              containerPort: {{ .Values.mcpPort }}
+              protocol: TCP
+            - name: http-ui
+              containerPort: {{ .Values.uiPort }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/agentgateway
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "agentgateway.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

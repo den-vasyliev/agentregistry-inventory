@@ -1075,7 +1075,8 @@ class AdminApiClient {
 // Default client without auth (for public endpoints)
 export const adminApiClient = new AdminApiClient()
 
-// Create a client with authentication
-export function createAuthenticatedClient(accessToken: string | null | undefined): AdminApiClient {
-  return new AdminApiClient(API_BASE_URL, () => accessToken || null)
+// Create an authenticated client with the MSAL id_token from SessionProvider
+// Usage: const api = createAuthenticatedClient(token) where token comes from useSession()
+export function createAuthenticatedClient(token: string | null | undefined): AdminApiClient {
+  return new AdminApiClient(API_BASE_URL, () => token ?? null)
 }

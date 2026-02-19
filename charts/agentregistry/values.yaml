@@ -16,7 +16,7 @@ fullnameOverride: ""
 # Controller configuration
 controller:
   # Enable leader election for HA deployments
-  leaderElection: true
+  leaderElection: false
 
   # Log level (info, debug, warn, error)
   logLevel: info
@@ -85,33 +85,26 @@ podDisruptionBudget:
   minAvailable: 1
   # maxUnavailable: 1
 
-# OIDC Authentication Configuration
-oidc:
-  # Enable OIDC authentication for the controller API
-  enabled: false
+# Azure AD configuration for MSAL browser PKCE flow.
+# Injected as env vars so the Go binary can serve /ui/config.js at runtime.
+# No client secret required — PKCE is a public client flow.
+# Set to true to disable Bearer token auth on admin API and MCP endpoints.
+# Useful during initial setup or when auth is handled entirely by the gateway.
+disableAuth: true
 
-  # OIDC provider issuer URL (required when enabled)
-  # Example: https://keycloak.example.com/realms/myrealm
-  issuer: ""
-
-  # Expected JWT audience (client ID) (required when enabled)
-  audience: ""
-
-  # Group claim name in JWT token (default: groups)
-  groupClaim: "groups"
-
-  # Admin group required for deployment operations (optional)
-  # Users must be members of this group to create/update/delete deployments
-  adminGroup: ""
-
-  # Token cache safety margin in seconds (default: 300)
-  # Tokens are evicted from cache this many seconds before expiry
-  cacheMarginSeconds: 300
+azure:
+  tenantId: ""
+  clientId: ""
+  # redirectUri: override the MSAL redirect URI when it differs from window.location.origin.
+  # Required when the registered Azure AD SPA redirect URI doesn't match the app's origin
+  # (e.g. during migration from NextAuth where the old URI was /api/auth/callback/oidc).
+  # Leave empty to auto-detect from window.location.origin.
+  redirectUri: ""
 
 # HTTPRoute configuration (Gateway API)
 httpRoute:
   enabled: false
-  hostname: agentregistry.gfknewron.com
-  gatewayName: mcp-gateway-gfknewron-com
+  hostname: agentregistry.example.com
+  gatewayName: mcp-gateway
   gatewayNamespace: ""
   sectionName: https

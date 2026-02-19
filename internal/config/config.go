@@ -2,8 +2,6 @@ package config
 
 import (
 	"os"
-	"strconv"
-	"time"
 )
 
 const (
@@ -38,41 +36,8 @@ func GetEnv(key, defaultValue string) string {
 }
 
 // IsAuthEnabled returns whether authentication is enabled.
-// Auth is enabled by default. Set AGENTREGISTRY_DISABLE_AUTH=true to disable.
+// Auth is disabled by default. Set AGENTREGISTRY_AUTH_ENABLED=true to enable.
 func IsAuthEnabled() bool {
-	return os.Getenv("AGENTREGISTRY_DISABLE_AUTH") != "true"
+	return os.Getenv("AGENTREGISTRY_AUTH_ENABLED") == "true"
 }
 
-// GetOIDCIssuer returns the OIDC issuer URL for JWT validation.
-func GetOIDCIssuer() string {
-	return os.Getenv("AGENTREGISTRY_OIDC_ISSUER")
-}
-
-// GetOIDCAudience returns the expected audience/client ID for JWT validation.
-func GetOIDCAudience() string {
-	return os.Getenv("AGENTREGISTRY_OIDC_AUDIENCE")
-}
-
-// GetOIDCAdminGroup returns the required group for admin deploy actions.
-func GetOIDCAdminGroup() string {
-	return os.Getenv("AGENTREGISTRY_OIDC_ADMIN_GROUP")
-}
-
-// GetOIDCGroupClaim returns the claim name containing groups (default: groups).
-func GetOIDCGroupClaim() string {
-	if claim := os.Getenv("AGENTREGISTRY_OIDC_GROUP_CLAIM"); claim != "" {
-		return claim
-	}
-	return "groups"
-}
-
-// GetOIDCCacheSafetyMargin returns the safety margin before token expiry (default: 5 minutes).
-// Cache entries expire this duration before the actual token expires.
-func GetOIDCCacheSafetyMargin() time.Duration {
-	if val := os.Getenv("AGENTREGISTRY_OIDC_CACHE_MARGIN_SECONDS"); val != "" {
-		if seconds, err := strconv.Atoi(val); err == nil {
-			return time.Duration(seconds) * time.Second
-		}
-	}
-	return 5 * time.Minute
-}

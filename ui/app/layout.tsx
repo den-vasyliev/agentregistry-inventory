@@ -23,6 +23,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      {/* Load runtime MSAL config before app bundle. Served by Go binary at /ui/config.js.
+          The inline fallback ensures window.__APP_CONFIG__ always exists so MSAL
+          doesn't throw before the external script executes. */}
+      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: "window.__APP_CONFIG__ = window.__APP_CONFIG__ || {};" }} />
+        <script src="/config.js" />
+      </head>
       <body className={`${inter.variable} font-sans`}>
         <SessionProvider>
           <Navigation />

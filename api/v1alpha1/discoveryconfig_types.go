@@ -36,6 +36,12 @@ type Environment struct {
 	// +optional
 	DeployEnabled bool `json:"deployEnabled,omitempty"`
 
+	// AllowedGroups is a list of Azure AD/OIDC group names that are allowed
+	// to deploy to this environment. If empty, no group restrictions apply
+	// (only the global adminGroup is checked).
+	// +optional
+	AllowedGroups []string `json:"allowedGroups,omitempty"`
+
 	// Namespaces is a list of namespaces to discover in. Empty means all namespaces.
 	// +optional
 	Namespaces []string `json:"namespaces,omitempty"`

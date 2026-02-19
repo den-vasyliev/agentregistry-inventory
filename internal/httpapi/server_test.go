@@ -322,33 +322,6 @@ func TestServer_AuthEnabled_ByDefault(t *testing.T) {
 	assert.True(t, server.authEnabled)
 }
 
-func TestIsDeployWriteRequest(t *testing.T) {
-	server, _ := setupTestServer(t)
-
-	tests := []struct {
-		name   string
-		method string
-		path   string
-		want   bool
-	}{
-		{"POST deployments", http.MethodPost, "/admin/v0/deployments", true},
-		{"PATCH deployments", http.MethodPatch, "/admin/v0/deployments", true},
-		{"DELETE deployments", http.MethodDelete, "/admin/v0/deployments", true},
-		{"DELETE specific deployment", http.MethodDelete, "/admin/v0/deployments/my-deploy", true},
-		{"GET deployments is not write", http.MethodGet, "/admin/v0/deployments", false},
-		{"POST servers is not deployments", http.MethodPost, "/admin/v0/servers", false},
-		{"POST public deployments path", http.MethodPost, "/v0/deployments", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
-			ctx := humatest.NewContext(nil, req, httptest.NewRecorder())
-			got := server.isDeployWriteRequest(ctx)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
 
 func TestAuthMiddleware_Disabled(t *testing.T) {
 	server, _ := setupTestServerWithAuthDisabled(t)

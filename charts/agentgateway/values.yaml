@@ -1,0 +1,77 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/den-vasyliev/agentgateway
+  pullPolicy: IfNotPresent
+  tag: "e5258e7"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Ports the gateway listens on
+httpPort: 8080
+mcpPort: 8083
+
+# Admin UI port
+uiPort: 15000
+
+# Azure AD OIDC configuration
+oidc:
+  tenantId: ""
+  clientId: ""
+
+# Backend — the agentregistry service
+# Service name follows Helm fullname convention: <release>-agentregistry-api
+# Override if your release name differs
+backend:
+  # API backend (gateway strips /api prefix before forwarding)
+  httpHost: "agentregistry-gw.svc.cluster.local:8080"
+  # UI backend (static assets served by the same Go binary on same host)
+  uiHost: "agentregistry-gw.svc.cluster.local:8080"
+  mcpHost: "http://agentregistry-gw.svc.cluster.local:8083/mcp"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# HTTPRoute for the admin UI
+httproute:
+  enabled: false
+  hostname: agentregistry-gw.example.com
+  parentRef:
+    name: agentgateway-private
+    namespace: agentgateway-system
+    sectionName: https
