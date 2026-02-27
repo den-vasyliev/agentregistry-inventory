@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useSession } from "@/components/session-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,7 +21,7 @@ export function Navigation() {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="flex items-center">
-            <img
+            <Image
               src="/logo.svg"
               alt="AI Inventory"
               width={180}

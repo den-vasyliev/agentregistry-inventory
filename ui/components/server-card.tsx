@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { ServerResponse } from "@/lib/admin-api"
 import { getStatusBadgeStyles } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
@@ -89,9 +90,11 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-start gap-3 flex-1">
           {icon && (
-            <img 
-              src={icon.src} 
-              alt="Server icon" 
+            <Image
+              src={icon.src}
+              alt="Server icon"
+              width={40}
+              height={40}
               className="w-10 h-10 rounded flex-shrink-0 mt-1"
             />
           )}
