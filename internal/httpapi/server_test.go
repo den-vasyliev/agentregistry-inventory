@@ -322,7 +322,6 @@ func TestServer_AuthDisabled_ByDefault(t *testing.T) {
 	assert.False(t, server.authEnabled)
 }
 
-
 func TestAuthMiddleware_Disabled(t *testing.T) {
 	server, _ := setupTestServerWithAuthDisabled(t)
 	// Force authEnabled off (setupTestServerWithAuthDisabled sets env before NewServer, but

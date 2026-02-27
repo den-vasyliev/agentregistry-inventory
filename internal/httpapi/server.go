@@ -47,7 +47,6 @@ type Server struct {
 // ServerOption is a functional option for configuring the server
 type ServerOption func(*Server)
 
-
 // NewServer creates a new HTTP API server
 func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger, opts ...ServerOption) *Server {
 	mux := http.NewServeMux()
@@ -119,7 +118,6 @@ func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 	// Token valid, continue
 	next(ctx)
 }
-
 
 // loadTokensFromSecret loads API tokens from Kubernetes Secret
 // Reads from Secret "agentregistry-api-tokens" in the controller namespace

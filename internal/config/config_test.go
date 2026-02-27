@@ -89,7 +89,6 @@ func TestGetEnv(t *testing.T) {
 	}
 }
 
-
 func TestIsAuthEnabled(t *testing.T) {
 	// Save original value
 	original := os.Getenv("AGENTREGISTRY_AUTH_ENABLED")

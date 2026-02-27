@@ -40,4 +40,3 @@ func GetEnv(key, defaultValue string) string {
 func IsAuthEnabled() bool {
 	return os.Getenv("AGENTREGISTRY_AUTH_ENABLED") == "true"
 }
-
