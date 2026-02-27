@@ -17,16 +17,17 @@ const AuthContext = createContext<AuthState>({
 })
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    account: null,
-    token: null,
-    status: "loading",
+  const [state, setState] = useState<AuthState>(() => {
+    // Initialize state based on auth configuration to avoid sync setState in effect
+    if (!isAuthEnabled()) {
+      return { account: null, token: null, status: "unauthenticated" }
+    }
+    return { account: null, token: null, status: "loading" }
   })
 
   useEffect(() => {
     // Skip MSAL entirely when auth is disabled (AGENTREGISTRY_DISABLE_AUTH=true)
     if (!isAuthEnabled()) {
-      setState({ account: null, token: null, status: "unauthenticated" })
       return
     }
 
