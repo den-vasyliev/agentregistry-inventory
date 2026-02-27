@@ -1,117 +1,104 @@
-# Azure AD Authentication Setup
+# Azure AD Setup
 
-This guide explains how to configure Azure AD authentication for the Agent Registry web UI.
+Authentication uses **MSAL.js PKCE** — browser-side OAuth, no client secret required.
 
-## Prerequisites
+Auth is **disabled by default**. Enable it via Helm (`disableAuth: false`) or env var (`AGENTREGISTRY_AUTH_ENABLED=true`).
 
-- Azure AD tenant
-- Admin access to Azure Portal
+## Azure AD App Registration
 
-## Azure AD Configuration
-
-### 1. Register Application
-
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to **Azure Active Directory** → **App registrations**
-3. Click **New registration**
-4. Configure:
+1. Go to [Azure Portal](https://portal.azure.com) → **Azure Active Directory** → **App registrations** → **New registration**
+2. Configure:
    - **Name**: `Agent Registry`
    - **Supported account types**: Accounts in this organizational directory only
-   - **Redirect URI**:
-     - Platform: **Web**
-     - URL: `http://localhost:3000/api/auth/callback/azure-ad` (for dev)
-     - URL: `https://your-domain.com/api/auth/callback/azure-ad` (for prod)
-5. Click **Register**
+   - **Redirect URI**: Platform **Single-page application (SPA)**
+     - `http://localhost:8080/` (local dev)
+     - `https://your-domain.com/` (prod)
+3. Click **Register**
 
-### 2. Get Credentials
+> **Important**: Use **Single-page application** platform type, not Web. This enables PKCE and removes the client secret requirement.
 
-After registration, note these values:
+## Get Values
 
-- **Application (client) ID** → `AZURE_AD_CLIENT_ID`
-- **Directory (tenant) ID** → `AZURE_AD_TENANT_ID`
+After registration note:
+- **Application (client) ID** → `clientId`
+- **Directory (tenant) ID** → `tenantId`
 
-### 3. Create Client Secret
+No client secret needed.
 
-1. Go to **Certificates & secrets**
-2. Click **New client secret**
-3. Add description: `Agent Registry Auth`
-4. Choose expiration (recommended: 12-24 months)
-5. Click **Add**
-6. **Copy the secret value immediately** → `AZURE_AD_CLIENT_SECRET`
-   - ⚠️ This value won't be shown again!
+## API Permissions
 
-### 4. Configure API Permissions (Optional)
+1. Go to **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated**
+2. Add: `openid`, `profile`, `email`
+3. Click **Grant admin consent**
 
-If you need to read user groups/roles:
+## Auth Flow
 
-1. Go to **API permissions**
-2. Click **Add a permission**
-3. Select **Microsoft Graph**
-4. Select **Delegated permissions**
-5. Add: `User.Read`, `email`, `profile`, `openid`
-6. Click **Add permissions**
-7. Click **Grant admin consent** (if you have admin rights)
+```
+Browser → /             (no auth, loads UI + config.js)
+Browser → Azure AD      (PKCE loginRedirect, auto-triggered)
+Azure AD → /?code=…     (redirect back with auth code)
+MSAL → exchanges code   (PKCE verifier, returns id_token)
+Browser → /api/*        (Authorization: Bearer <id_token>)
+Gateway → validates JWT (Azure AD JWKS, no secret)
+Go backend ← request    (passthrough, auth handled by gateway)
+```
 
-## Environment Configuration
+## Helm Configuration
 
-### Local Development
+```yaml
+# charts/agentregistry/values.yaml
+disableAuth: false   # enable backend token checks
 
-1. Copy the example env file:
-   ```bash
-   cd ui
-   cp .env.example .env.local
-   ```
+azure:
+  tenantId: "your-tenant-id"
+  clientId: "your-client-id"
+  # redirectUri: override if window.location.origin doesn't match registered URI
+  # redirectUri: "https://your-domain.com/"
+```
 
-2. Fill in your Azure AD values in `.env.local`:
-   ```bash
-   AUTH_SECRET=$(openssl rand -base64 32)
-   AUTH_URL=http://localhost:3000
+The Go binary reads these at startup and serves them via `/config.js`. MSAL loads the config on page load and redirects to Azure AD if no session exists.
 
-   AZURE_AD_CLIENT_ID=your-client-id-here
-   AZURE_AD_CLIENT_SECRET=your-client-secret-here
-   AZURE_AD_TENANT_ID=your-tenant-id-here
+## Gateway (agentgateway)
 
-   NEXT_PUBLIC_API_URL=http://localhost:8080
-   ```
+For production, deploy [agentgateway](../charts/agentgateway/) in front of the controller to handle JWT validation. The controller backend runs with `disableAuth: true` and trusts the gateway to enforce auth.
 
-### Production
+See [config/agentgateway/config.yaml](../config/agentgateway/config.yaml) for the full gateway config with JWT rules.
 
-Set environment variables in your deployment platform:
+## Local Development
 
-- Vercel: Project Settings → Environment Variables
-- Docker: Pass via `-e` flags or docker-compose
-- Kubernetes: ConfigMap/Secret
+```bash
+export AZURE_AD_TENANT_ID=your-tenant-id
+export AZURE_AD_CLIENT_ID=your-client-id
+make run
+```
 
-## Security Notes
+Open `http://localhost:8080` — the browser redirects to Azure AD automatically.
 
-- **Never commit** `.env.local` or `.env` files
-- Client secrets should be rotated periodically
-- Use separate Azure AD apps for dev/staging/prod
-- Consider using managed identities in production
+Add `http://localhost:8080/` as a SPA redirect URI in your Azure AD app registration.
 
-## Testing
+## Redirect URI Override
 
-1. Start the UI: `npm run dev`
-2. Visit http://localhost:3000
-3. Click **Sign In** in the navigation
-4. Sign in with your Azure AD credentials
-5. You should be redirected back with authentication
+If the registered redirect URI doesn't match `window.location.origin` (e.g. during migration from an old NextAuth setup), set an override:
+
+```bash
+export AZURE_AD_REDIRECT_URI=https://your-domain.com/old/callback/path
+make run
+```
+
+Or via Helm:
+```yaml
+azure:
+  redirectUri: "https://your-domain.com/old/callback/path"
+```
 
 ## Troubleshooting
 
-### "Redirect URI mismatch"
-- Verify the redirect URI in Azure AD matches exactly
-- Check that you're using the correct environment
+**`AADSTS900971: No reply address provided`** — The redirect URI sent to Azure AD is empty or not registered. Check that the URI listed in **Authentication → Single-page application** exactly matches your app's origin (including trailing slash).
 
-### "Invalid client secret"
-- Generate a new client secret
-- Update `AZURE_AD_CLIENT_SECRET` in your env
+**`redirect_uri_mismatch`** — Add the URI with trailing slash as a SPA redirect URI in Azure AD.
 
-### "AADSTS50011: The reply URL is not configured"
-- Add all callback URLs to Azure AD redirect URIs
-- Include both `http://localhost:3000` and production URL
+**`AADSTS700054: response_type 'token' is not enabled`** — Ensure the app is registered as SPA, not Web.
 
-### User can't deploy/remove
-- Check that the session is being set correctly
-- Verify middleware is protecting the routes
-- Check browser console for errors
+**No redirect to Azure AD** — Check browser console for `[MSAL]` errors. Verify `/config.js` returns the correct config: `curl http://localhost:8080/config.js`
+
+**Token not sent to backend** — Check Network tab; `Authorization: Bearer` header should appear on `/api/admin/v0/` requests.

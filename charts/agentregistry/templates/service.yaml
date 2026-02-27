@@ -13,6 +13,10 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    - port: {{ .Values.httpApi.mcpPort }}
+      targetPort: mcp
+      protocol: TCP
+      name: mcp
   selector:
     {{- include "agentregistry.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: controller

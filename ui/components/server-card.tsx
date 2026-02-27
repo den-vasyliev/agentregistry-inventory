@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { ServerResponse } from "@/lib/admin-api"
 import { getStatusBadgeStyles } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
@@ -37,6 +38,16 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
   const githubStars = publisherMetadata?.stars
   const identityData = publisherMetadata?.identity
   const isVerified = identityData?.org_is_verified === true && identityData?.publisher_identity_verified_by_jwt === true
+
+  // Governance grade from verification controller
+  const publisher = _meta?.publisher
+  const gradeColors: Record<string, string> = {
+    A: 'bg-green-500/10 text-green-600 border-green-500/20',
+    B: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    C: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    D: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    F: 'bg-red-500/10 text-red-600 border-red-500/20',
+  }
 
   // Get owner from metadata or extract from repository URL
   const getOwner = () => {
@@ -79,9 +90,11 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-start gap-3 flex-1">
           {icon && (
-            <img 
-              src={icon.src} 
-              alt="Server icon" 
+            <Image
+              src={icon.src}
+              alt="Server icon"
+              width={40}
+              height={40}
               className="w-10 h-10 rounded flex-shrink-0 mt-1"
             />
           )}
@@ -134,6 +147,21 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
                   <p>{identityData?.publisher_identity_verified_by_jwt ? 'Verified Publisher' : 'Publisher Not Verified'}</p>
                 </TooltipContent>
               </Tooltip>
+              {publisher?.grade && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-bold px-1.5 ${gradeColors[publisher.grade]}`}
+                    >
+                      {publisher.grade}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Governance grade{publisher.score !== undefined ? `: ${publisher.score}/100` : ''}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{serverData.name}</p>
           </div>
@@ -153,11 +181,11 @@ export function ServerCard({ server, onDeploy, onUndeploy, showDeploy = true, sh
                   }}
                 >
                   <Play className="h-3.5 w-3.5" />
-                  Deploy
+                  Sandbox
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Deploy this server</p>
+                <p>Sandbox this server</p>
               </TooltipContent>
             </Tooltip>
           )}

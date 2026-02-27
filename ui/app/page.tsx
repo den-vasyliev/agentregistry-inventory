@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useSession } from "@/components/session-provider"
-import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,7 +28,7 @@ import { StatsCards } from "@/components/stats-cards"
 import { ProductTour, useProductTour } from "@/components/product-tour"
 import { DiscoveryMapView } from "@/components/discovery-map-view"
 import { Pagination } from "@/components/pagination"
-import { adminApiClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
+import { createAuthenticatedClient, ServerResponse, SkillResponse, AgentResponse, ModelResponse, ServerStats } from "@/lib/admin-api"
 import MCPIcon from "@/components/icons/mcp"
 import { toast } from "sonner"
 import {
@@ -62,6 +61,8 @@ interface GroupedServer extends ServerResponse {
 
 // Deployment status filter type
 type DeploymentStatus = "all" | "external" | "running" | "not_deployed" | "failed"
+const AGENT_SANDBOX_ENVIRONMENT = "agent-sandbox"
+const DEFAULT_SANDBOX_NAMESPACE = "sandbox"
 
 // Helper function to get resource creation date (for sorting)
 const getResourceDate = (item: ServerResponse | AgentResponse | SkillResponse | ModelResponse): Date | null => {
@@ -127,9 +128,8 @@ const groupServersByName = (servers: ServerResponse[]): GroupedServer[] => {
 }
 
 export default function AdminPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH !== "false"
+  const { token, status } = useSession()
+  const api = useMemo(() => createAuthenticatedClient(token), [token])
   const [activeTab, setActiveTab] = useState("servers")
   const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<DeploymentStatus>("all")
   const [servers, setServers] = useState<ServerResponse[]>([])
@@ -161,11 +161,8 @@ export default function AdminPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentResponse | null>(null)
   const [selectedModel, setSelectedModel] = useState<ModelResponse | null>(null)
 
-  useEffect(() => {
-    if (!disableAuth && status === "unauthenticated") {
-      router.push("/auth/signin")
-    }
-  }, [status, router, disableAuth])
+  // Auth redirect is handled by SessionProvider (MSAL loginRedirect).
+  // Nothing to do here — if status is "loading" we wait; "authenticated" we proceed.
 
   // Debounce search query (300ms)
   useEffect(() => {
@@ -213,11 +210,9 @@ export default function AdminPage() {
   const [itemToUndeploy, setItemToUndeploy] = useState<{ name: string, version: string, type: 'server' | 'agent' } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [undeploying, setUndeploying] = useState(false)
-  const [deployNamespace, setDeployNamespace] = useState("agentregistry")
+  const [deployNamespace, setDeployNamespace] = useState(DEFAULT_SANDBOX_NAMESPACE)
   const [deployEnvironment, setDeployEnvironment] = useState("")
-  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, provider?: string, region?: string, namespace: string, deployEnabled: boolean}>>([
-    { name: "local", cluster: "", namespace: "agentregistry", deployEnabled: true }
-  ])
+  const [environments, setEnvironments] = useState<Array<{name: string, cluster: string, provider?: string, region?: string, namespace: string, deployEnabled: boolean}>>([])
   const [loadingEnvironments, setLoadingEnvironments] = useState(false)
 
   // Pagination state
@@ -259,7 +254,7 @@ export default function AdminPage() {
       let serverCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listServers({
+        const response = await api.listServers({
           cursor: serverCursor,
           limit: 100,
         })
@@ -273,7 +268,7 @@ export default function AdminPage() {
       let skillCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listSkills({
+        const response = await api.listSkills({
           cursor: skillCursor,
           limit: 100,
         })
@@ -287,7 +282,7 @@ export default function AdminPage() {
       let agentCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listAgents({
+        const response = await api.listAgents({
           cursor: agentCursor,
           limit: 100,
         })
@@ -301,7 +296,7 @@ export default function AdminPage() {
       let modelCursor: string | undefined
 
       do {
-        const response = await adminApiClient.listModels({
+        const response = await api.listModels({
           cursor: modelCursor,
           limit: 100,
         })
@@ -326,7 +321,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [api])
 
   useEffect(() => {
     fetchData()
@@ -355,13 +350,38 @@ export default function AdminPage() {
     setSelectedServer(null)
   }, [])
 
+  const fetchEnvironments = useCallback(async () => {
+    setLoadingEnvironments(true)
+    try {
+      const envs = await api.listEnvironments()
+      const uniqueEnvs = envs.filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
+      setEnvironments(uniqueEnvs)
+
+      const sandboxEnv = uniqueEnvs.find(env => env.name === AGENT_SANDBOX_ENVIRONMENT)
+      if (sandboxEnv) {
+        setDeployEnvironment(sandboxEnv.name)
+        setDeployNamespace(sandboxEnv.namespace || DEFAULT_SANDBOX_NAMESPACE)
+      } else {
+        setDeployEnvironment("")
+        setDeployNamespace(DEFAULT_SANDBOX_NAMESPACE)
+      }
+    } catch (err) {
+      console.error("Failed to fetch environments:", err)
+      setEnvironments([])
+      setDeployEnvironment("")
+      setDeployNamespace(DEFAULT_SANDBOX_NAMESPACE)
+    } finally {
+      setLoadingEnvironments(false)
+    }
+  }, [api])
+
   const handleDeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
     const version = type === 'server' ? (item as ServerResponse).server.version : (item as AgentResponse).agent.version
     setItemToDeploy({ name, version, type })
     setDeployDialogOpen(true)
     fetchEnvironments()
-  }, [])
+  }, [fetchEnvironments])
 
   const handleUndeploy = useCallback((item: ServerResponse | AgentResponse, type: 'server' | 'agent') => {
     const name = type === 'server' ? (item as ServerResponse).server.name : (item as AgentResponse).agent.name
@@ -370,50 +390,33 @@ export default function AdminPage() {
     setUndeployDialogOpen(true)
   }, [])
 
-  const fetchEnvironments = async () => {
-    setLoadingEnvironments(true)
-    try {
-      const envs = await adminApiClient.listEnvironments()
-      if (envs && envs.length > 0) {
-        const deployable = envs
-          .filter(env => env.deployEnabled)
-          .filter((env, idx, arr) => arr.findIndex(e => e.name === env.name) === idx)
-        setEnvironments(deployable)
-        if (deployable.length > 0) {
-          setDeployNamespace(deployable[0].namespace)
-          setDeployEnvironment(deployable[0].name)
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch environments:", err)
-    } finally {
-      setLoadingEnvironments(false)
-    }
-  }
-
   const confirmDeploy = async () => {
     if (!itemToDeploy) return
+    if (deployEnvironment !== AGENT_SANDBOX_ENVIRONMENT) {
+      toast.error("Only agent-sandbox environment can be selected")
+      return
+    }
 
     try {
       setDeploying(true)
 
-      await adminApiClient.deployServer({
+      await api.deployServer({
         serverName: itemToDeploy.name,
         version: itemToDeploy.version,
         config: {},
         preferRemote: false,
         resourceType: itemToDeploy.type === 'agent' ? 'agent' : 'mcp',
         namespace: deployNamespace,
-        environment: deployEnvironment || undefined,
+        environment: deployEnvironment,
       })
 
       setDeployDialogOpen(false)
       setItemToDeploy(null)
-      const target = deployEnvironment ? `${deployEnvironment} (${deployNamespace})` : deployNamespace
-      toast.success(`Successfully deployed ${itemToDeploy.name} to ${target}!`)
+      const target = `${deployEnvironment} (${deployNamespace})`
+      toast.success(`Successfully sandboxed ${itemToDeploy.name} to ${target}!`)
       await fetchData()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to deploy resource')
+      toast.error(err instanceof Error ? err.message : 'Failed to sandbox resource')
     } finally {
       setDeploying(false)
     }
@@ -425,7 +428,7 @@ export default function AdminPage() {
     try {
       setUndeploying(true)
 
-      await adminApiClient.removeDeployment(
+      await api.removeDeployment(
         itemToUndeploy.name,
         itemToUndeploy.version,
         itemToUndeploy.type === 'agent' ? 'agent' : 'mcp'

@@ -32,9 +32,6 @@ import (
 // UIFiles is the embedded filesystem for UI files, set by main package
 var UIFiles fs.FS
 
-// ServerOption is a functional option for configuring the server
-type ServerOption func(*Server)
-
 // Server is the HTTP API server that reads from the informer cache
 type Server struct {
 	client         client.Client
@@ -44,9 +41,11 @@ type Server struct {
 	api            huma.API
 	authEnabled    bool
 	allowedTokens  map[string]bool // Simple token allowlist for now
-	oidcVerifier   *OIDCVerifier
-	wrappedHandler http.Handler // Wrapped handler with UI serving
+	wrappedHandler http.Handler    // Wrapped handler with UI serving
 }
+
+// ServerOption is a functional option for configuring the server
+type ServerOption func(*Server)
 
 // NewServer creates a new HTTP API server
 func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger, opts ...ServerOption) *Server {
@@ -120,54 +119,6 @@ func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 	next(ctx)
 }
 
-// deployAuthMiddleware enforces OIDC auth for deploy write endpoints.
-func (s *Server) deployAuthMiddleware(ctx huma.Context, next func(huma.Context)) {
-	if !s.authEnabled {
-		next(ctx)
-		return
-	}
-
-	if s.oidcVerifier == nil {
-		ctx.SetStatus(http.StatusUnauthorized)
-		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "OIDC not configured")
-		return
-	}
-
-	if !s.isDeployWriteRequest(ctx) {
-		next(ctx)
-		return
-	}
-
-	if !s.oidcVerifier.RequireAdminGroup(ctx) {
-		return
-	}
-
-	next(ctx)
-}
-
-func (s *Server) isDeployWriteRequest(ctx huma.Context) bool {
-	path := ctx.URL().Path
-	if !strings.HasPrefix(path, "/admin/v0/deployments") {
-		return false
-	}
-
-	switch ctx.Method() {
-	case http.MethodPost, http.MethodPatch, http.MethodDelete:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *Server) initOIDCVerifier() {
-	verifier, err := NewOIDCVerifier(context.Background(), s.api, s.logger)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("OIDC verifier not enabled")
-		return
-	}
-	s.oidcVerifier = verifier
-}
-
 // loadTokensFromSecret loads API tokens from Kubernetes Secret
 // Reads from Secret "agentregistry-api-tokens" in the controller namespace
 // Each key in the secret data is treated as a valid token
@@ -221,10 +172,6 @@ func (s *Server) registerRoutes() {
 	deploymentHandler.RegisterRoutes(s.api, "/v0", false)
 	environmentHandler.RegisterRoutes(s.api, "/v0", false)
 
-	// Register admin API endpoints with auth middleware
-	if s.authEnabled {
-		s.api.UseMiddleware(s.deployAuthMiddleware)
-	}
 	serverHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	agentHandler.RegisterRoutes(s.api, "/admin/v0", true)
 	skillHandler.RegisterRoutes(s.api, "/admin/v0", true)
@@ -268,6 +215,13 @@ func (s *Server) registerRoutes() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	// Runtime config for MSAL — served at both paths:
+	//   /config.js     direct access (make run, no gateway)
+	//   /ui/config.js  via gateway (gateway strips /ui prefix → Go sees /config.js,
+	//                  but also registered here for cases where stripping doesn't apply)
+	s.mux.HandleFunc("/config.js", s.serveUIConfig)
+	s.mux.HandleFunc("/ui/config.js", s.serveUIConfig)
 
 	// Serve static UI files (if embedded)
 	s.registerStaticFiles()
@@ -684,6 +638,33 @@ type serverRunnable struct {
 	addr   string
 }
 
+// serveUIConfig serves runtime MSAL configuration as a JS file.
+// Values come from environment variables set by the Helm chart.
+// This endpoint requires no auth — browser needs it before login.
+func (s *Server) serveUIConfig(w http.ResponseWriter, r *http.Request) {
+	cfg := map[string]any{
+		"tenantId":    os.Getenv("AZURE_AD_TENANT_ID"),
+		"clientId":    os.Getenv("AZURE_AD_CLIENT_ID"),
+		"authEnabled": s.authEnabled,
+	}
+	// Optional: override redirect URI for environments where window.location.origin
+	// doesn't match the registered Azure AD redirect URI (e.g. behind a gateway).
+	if redirectURI := os.Getenv("AZURE_AD_REDIRECT_URI"); redirectURI != "" {
+		cfg["redirectUri"] = redirectURI
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	fmt.Fprintf(w, "window.__APP_CONFIG__ = %s;\n", mustJSON(cfg))
+}
+
+func mustJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
 // registerStaticFiles creates a wrapper handler that serves UI files for non-API routes
 func (s *Server) registerStaticFiles() {
 	if UIFiles == nil {
@@ -696,11 +677,13 @@ func (s *Server) registerStaticFiles() {
 	s.wrappedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		// Let API and health endpoints go through the mux
+		// Let API, health, and dynamic endpoints go through the mux
 		if strings.HasPrefix(path, "/v0/") ||
 			strings.HasPrefix(path, "/admin/") ||
-			strings.HasPrefix(path, "/healthz") ||
-			strings.HasPrefix(path, "/readyz") {
+			path == "/healthz" ||
+			path == "/readyz" ||
+			path == "/config.js" ||
+			path == "/ui/config.js" {
 			s.mux.ServeHTTP(w, r)
 			return
 		}
@@ -747,9 +730,8 @@ func (s *Server) registerStaticFiles() {
 }
 
 func (r *serverRunnable) Start(ctx context.Context) error {
-	// Load tokens and OIDC now that the cache is started
+	// Load API tokens now that the cache is started
 	r.server.loadTokensFromSecret()
-	r.server.initOIDCVerifier()
 
 	// Set up CORS - allow configurable origins, default to same-origin only
 	allowedOrigins := []string{}

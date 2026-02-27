@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentgateway.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentgateway.labels" . | nindent 4 }}
+data:
+  agentgateway-config.yaml: |
+    config:
+      adminAddr: "0.0.0.0:{{ .Values.uiPort }}"
+
+    binds:
+
+      # ── HTTP (:{{ .Values.httpPort }}) ──────────────────────────────────────────
+      # Path-based routing:
+      #   /ui/*  → static UI assets   (no auth — browser needs to load app first)
+      #   /api/* → backend API        (JWT required — strip /api prefix)
+      - port: {{ .Values.httpPort }}
+        listeners:
+        - protocol: HTTP
+          name: http
+          routes:
+
+          # UI static assets — no auth required
+          # Browser loads HTML/JS/CSS, then does PKCE login with Azure AD
+          - name: ui
+            matches:
+            - path:
+                pathPrefix: /ui/
+            backends:
+            - host: {{ .Values.backend.uiHost }}
+              rewrite:
+                pathPrefixRewrite: /
+
+          # Health probes — no auth required (for K8s liveness/readiness via gateway)
+          - name: healthz
+            matches:
+            - path:
+                exact: /healthz
+            - path:
+                exact: /readyz
+            backends:
+            - host: {{ .Values.backend.httpHost }}
+
+          # Public read-only API — no auth required
+          # Strip /api prefix before forwarding to backend
+          - name: api-public
+            matches:
+            - path:
+                pathPrefix: /api/v0/
+            backends:
+            - host: {{ .Values.backend.httpHost }}
+              rewrite:
+                pathPrefixRewrite: /v0/
+
+          # Admin write endpoints — JWT required
+          # POST/PATCH/DELETE on /api/admin/v0/deployments*
+          - name: api-admin-deploy-write
+            matches:
+            - path:
+                pathPrefix: /api/admin/v0/deployments
+              method: POST
+            - path:
+                pathPrefix: /api/admin/v0/deployments
+              method: PATCH
+            - path:
+                pathPrefix: /api/admin/v0/deployments
+              method: DELETE
+            policies:
+              jwtAuth:
+                issuer: {{ include "agentgateway.issuer" . }}
+                audiences:
+                - {{ .Values.oidc.clientId }}
+                jwks:
+                  url: {{ include "agentgateway.jwksUrl" . }}
+              backendAuth:
+                passthrough: {}
+            backends:
+            - host: {{ .Values.backend.httpHost }}
+              rewrite:
+                pathPrefixRewrite: /admin/v0/deployments
+
+          # All other admin API endpoints — JWT required
+          - name: api-admin
+            matches:
+            - path:
+                pathPrefix: /api/admin/v0/
+            policies:
+              jwtAuth:
+                issuer: {{ include "agentgateway.issuer" . }}
+                audiences:
+                - {{ .Values.oidc.clientId }}
+                jwks:
+                  url: {{ include "agentgateway.jwksUrl" . }}
+              backendAuth:
+                passthrough: {}
+            backends:
+            - host: {{ .Values.backend.httpHost }}
+              rewrite:
+                pathPrefixRewrite: /admin/v0/
+
+      # ── MCP (:{{ .Values.mcpPort }}) ────────────────────────────────────────────
+      - port: {{ .Values.mcpPort }}
+        listeners:
+        - name: mcp
+          routes:
+          - name: mcp
+            policies:
+              mcpAuthentication:
+                issuer: {{ include "agentgateway.issuer" . }}
+                audiences:
+                - {{ .Values.oidc.clientId }}
+                jwks:
+                  url: {{ include "agentgateway.jwksUrl" . }}
+              mcpAuthorization:
+                rules:
+                # Read tools — any authenticated user
+                - >
+                  mcp.tool.name in [
+                    "list_catalog",
+                    "get_catalog",
+                    "get_registry_stats",
+                    "list_deployments",
+                    "get_deployment",
+                    "list_environments",
+                    "get_discovery_map",
+                    "recommend_servers",
+                    "analyze_agent_dependencies",
+                    "generate_deployment_plan"
+                  ]
+                # Write/deploy tools — any authenticated user
+                # To restrict by email, add: && jwt.email in ["alice@company.com"]
+                - >
+                  mcp.tool.name in [
+                    "deploy_catalog_item",
+                    "delete_deployment",
+                    "update_deployment_config",
+                    "create_catalog",
+                    "delete_catalog",
+                    "trigger_discovery"
+                  ]
+              backendAuth:
+                passthrough: {}
+            backends:
+            - mcp:
+                targets:
+                - name: agentregistry-mcp
+                  mcp:
+                    host: {{ .Values.backend.mcpHost }}

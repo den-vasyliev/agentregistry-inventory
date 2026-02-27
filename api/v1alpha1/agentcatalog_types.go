@@ -163,6 +163,9 @@ type AgentCatalogStatus struct {
 	// For managed resources: set by RegistryDeployment
 	// +optional
 	Deployment *DeploymentRef `json:"deployment,omitempty"`
+	// Publisher holds trust/verification badges set by the verification controller
+	// +optional
+	Publisher *PublisherVerification `json:"publisher,omitempty"`
 	// Conditions represent the latest available observations of the agent's state
 	// +optional
 	Conditions []CatalogCondition `json:"conditions,omitempty"`

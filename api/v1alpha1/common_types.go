@@ -178,6 +178,41 @@ func GenerateResourceUID(name, environment, version string) string {
 	return strings.Trim(uid, "-")
 }
 
+// GovernanceGrade is a letter grade assigned by the governance controller (A, B, C, D, F)
+// +kubebuilder:validation:Enum=A;B;C;D;F
+type GovernanceGrade string
+
+const (
+	GovernanceGradeA GovernanceGrade = "A"
+	GovernanceGradeB GovernanceGrade = "B"
+	GovernanceGradeC GovernanceGrade = "C"
+	GovernanceGradeD GovernanceGrade = "D"
+	GovernanceGradeF GovernanceGrade = "F"
+)
+
+// PublisherVerification holds trust badges and governance score set by an external controller.
+// Displayed in the UI as badges and a grade indicator per catalog entry.
+type PublisherVerification struct {
+	// VerifiedPublisher indicates the publisher identity has been verified
+	// (e.g. domain ownership or organisation membership confirmed)
+	// +optional
+	VerifiedPublisher bool `json:"verifiedPublisher,omitempty"`
+	// VerifiedOrganization indicates the owning organisation has been verified
+	// +optional
+	VerifiedOrganization bool `json:"verifiedOrganization,omitempty"`
+	// Score is a governance/quality score in the range 0–100
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	Score *int32 `json:"score,omitempty"`
+	// Grade is the letter grade derived from Score (A=90-100, B=80-89, C=70-79, D=60-69, F=0-59)
+	// +optional
+	Grade GovernanceGrade `json:"grade,omitempty"`
+	// GradedAt is when the score and grade were last updated
+	// +optional
+	GradedAt *metav1.Time `json:"gradedAt,omitempty"`
+}
+
 // CatalogCondition contains details for the current condition of this resource
 type CatalogCondition struct {
 	// Type is the type of condition

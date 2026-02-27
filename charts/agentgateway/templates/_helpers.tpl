@@ -1,0 +1,74 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "agentgateway.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+*/}}
+{{- define "agentgateway.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Chart label
+*/}}
+{{- define "agentgateway.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "agentgateway.labels" -}}
+helm.sh/chart: {{ include "agentgateway.chart" . }}
+{{ include "agentgateway.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "agentgateway.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "agentgateway.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Service account name
+*/}}
+{{- define "agentgateway.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "agentgateway.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Azure AD JWKS URL
+*/}}
+{{- define "agentgateway.jwksUrl" -}}
+{{- printf "https://login.microsoftonline.com/%s/discovery/v2.0/keys" .Values.oidc.tenantId }}
+{{- end }}
+
+{{/*
+Azure AD issuer URL
+*/}}
+{{- define "agentgateway.issuer" -}}
+{{- printf "https://login.microsoftonline.com/%s/v2.0" .Values.oidc.tenantId }}
+{{- end }}

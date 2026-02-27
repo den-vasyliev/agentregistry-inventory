@@ -46,6 +46,16 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
 
   const owner = getOwner()
 
+  // Governance grade from verification controller
+  const publisher = _meta?.publisher
+  const gradeColors: Record<string, string> = {
+    A: 'bg-green-500/10 text-green-600 border-green-500/20',
+    B: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    C: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    D: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    F: 'bg-red-500/10 text-red-600 border-red-500/20',
+  }
+
   // Derive package type badges and usedBy
   const packageTypes = [...new Set(skillData.packages?.map(p => p.registryType).filter(Boolean) || [])]
   const usedBy = _meta?.usedBy || []
@@ -134,6 +144,21 @@ export function SkillCard({ skill, showExternalLinks = true, onClick }: SkillCar
                   <p>{identityData?.publisher_identity_verified_by_jwt ? 'Verified Publisher' : 'Publisher Not Verified'}</p>
                 </TooltipContent>
               </Tooltip>
+              {publisher?.grade && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-bold px-1.5 ${gradeColors[publisher.grade]}`}
+                    >
+                      {publisher.grade}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Governance grade{publisher.score !== undefined ? `: ${publisher.score}/100` : ''}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{skillData.name}</p>
           </div>

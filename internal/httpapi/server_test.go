@@ -315,39 +315,11 @@ func TestServer_loadTokensFromSecret_NotFound(t *testing.T) {
 	assert.Equal(t, 0, len(server.allowedTokens))
 }
 
-func TestServer_AuthEnabled_ByDefault(t *testing.T) {
+func TestServer_AuthDisabled_ByDefault(t *testing.T) {
 	server, _ := setupTestServer(t)
 
-	// Auth should be enabled by default (unless DISABLE_AUTH is set)
-	assert.True(t, server.authEnabled)
-}
-
-func TestIsDeployWriteRequest(t *testing.T) {
-	server, _ := setupTestServer(t)
-
-	tests := []struct {
-		name   string
-		method string
-		path   string
-		want   bool
-	}{
-		{"POST deployments", http.MethodPost, "/admin/v0/deployments", true},
-		{"PATCH deployments", http.MethodPatch, "/admin/v0/deployments", true},
-		{"DELETE deployments", http.MethodDelete, "/admin/v0/deployments", true},
-		{"DELETE specific deployment", http.MethodDelete, "/admin/v0/deployments/my-deploy", true},
-		{"GET deployments is not write", http.MethodGet, "/admin/v0/deployments", false},
-		{"POST servers is not deployments", http.MethodPost, "/admin/v0/servers", false},
-		{"POST public deployments path", http.MethodPost, "/v0/deployments", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
-			ctx := humatest.NewContext(nil, req, httptest.NewRecorder())
-			got := server.isDeployWriteRequest(ctx)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+	// Auth is disabled by default — enable with AGENTREGISTRY_AUTH_ENABLED=true
+	assert.False(t, server.authEnabled)
 }
 
 func TestAuthMiddleware_Disabled(t *testing.T) {

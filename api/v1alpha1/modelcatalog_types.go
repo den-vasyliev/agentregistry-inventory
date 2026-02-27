@@ -70,6 +70,9 @@ type ModelCatalogStatus struct {
 	// Message provides additional status information
 	// +optional
 	Message string `json:"message,omitempty"`
+	// Publisher holds trust/verification badges set by the verification controller
+	// +optional
+	Publisher *PublisherVerification `json:"publisher,omitempty"`
 	// Conditions represent the latest available observations
 	// +optional
 	Conditions []CatalogCondition `json:"conditions,omitempty"`

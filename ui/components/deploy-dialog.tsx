@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const AGENT_SANDBOX_ENVIRONMENT = "agent-sandbox"
+
 interface DeployDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -51,12 +53,12 @@ export function DeployDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Deploy Resource</DialogTitle>
+          <DialogTitle>Sandbox Resource</DialogTitle>
           <DialogDescription>
-            Deploy <strong>{itemName}</strong> (version {itemVersion})?
+            Sandbox <strong>{itemName}</strong> (version {itemVersion})?
             <br />
             <br />
-            This will start the {itemType === 'server' ? 'MCP server' : 'agent'} on your system.
+            This will start the {itemType === 'server' ? 'MCP server' : 'agent'} in the sandbox environment.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -74,59 +76,39 @@ export function DeployDialog({
                 <SelectValue placeholder={loadingEnvironments ? "Loading..." : "Select environment"} />
               </SelectTrigger>
               <SelectContent>
-                {environments.map((env) => (
-                  <SelectItem key={env.name} value={env.name}>
-                    <span className="flex items-center gap-1.5">
-                      {env.provider && (
-                        <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
-                          {env.provider}
-                        </span>
-                      )}
-                      <span>{env.name}</span>
-                      {env.cluster && <span className="text-muted-foreground">· {env.cluster}</span>}
-                      {env.region && <span className="text-muted-foreground text-xs">({env.region})</span>}
-                    </span>
-                  </SelectItem>
-                ))}
+                {environments.map((env) => {
+                  const selectable = env.name === AGENT_SANDBOX_ENVIRONMENT && env.deployEnabled
+                  return (
+                    <SelectItem key={env.name} value={env.name} disabled={!selectable}>
+                      <span className="flex items-center gap-1.5">
+                        {env.provider && (
+                          <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                            {env.provider}
+                          </span>
+                        )}
+                        <span>{env.name}</span>
+                        {env.cluster && <span className="text-muted-foreground">· {env.cluster}</span>}
+                        {env.region && <span className="text-muted-foreground text-xs">({env.region})</span>}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Cluster and namespace where the resource will be deployed
+              Environments are loaded from DiscoveryConfig. Only <code>agent-sandbox</code> can be selected.
             </p>
           </div>
-          {deployEnvironment && (
-            <div className="rounded-md border px-3 py-2 text-sm space-y-1">
-              {(() => {
-                const env = environments.find(e => e.name === deployEnvironment)
-                return env ? (
-                  <>
-                    {env.provider && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Provider</span>
-                        <span className="font-mono uppercase">{env.provider}</span>
-                      </div>
-                    )}
-                    {env.cluster && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cluster</span>
-                        <span className="font-mono">{env.cluster}</span>
-                      </div>
-                    )}
-                    {env.region && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Region</span>
-                        <span className="font-mono">{env.region}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Namespace</span>
-                      <span className="font-mono">{deployNamespace}</span>
-                    </div>
-                  </>
-                ) : null
-              })()}
+          <div className="rounded-md border px-3 py-2 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Environment</span>
+              <span className="font-mono">{deployEnvironment}</span>
             </div>
-          )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Namespace</span>
+              <span className="font-mono">{deployNamespace}</span>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -139,9 +121,9 @@ export function DeployDialog({
           <Button
             variant="default"
             onClick={onConfirm}
-            disabled={deploying}
+            disabled={deploying || deployEnvironment !== AGENT_SANDBOX_ENVIRONMENT}
           >
-            {deploying ? 'Deploying...' : 'Deploy'}
+            {deploying ? 'Sandboxing...' : 'Sandbox'}
           </Button>
         </DialogFooter>
       </DialogContent>

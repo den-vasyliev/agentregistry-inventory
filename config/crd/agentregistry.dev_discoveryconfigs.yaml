@@ -61,6 +61,14 @@ spec:
                         A2AEndpoint is the kagent A2A base URL for this environment.
                         Agent A2A URLs are derived as {a2aEndpoint}/api/a2a/{namespace}/{agent-name}/
                       type: string
+                    allowedGroups:
+                      description: |-
+                        AllowedGroups is a list of Azure AD/OIDC group names that are allowed
+                        to deploy to this environment. If empty, no group restrictions apply
+                        (only the global adminGroup is checked).
+                      items:
+                        type: string
+                      type: array
                     cluster:
                       description: Cluster contains cluster connection information
                       properties:

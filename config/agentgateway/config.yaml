@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+#
+# agentgateway config for agentregistry
+#
+# Azure AD tenant:   <your-tenant-id>
+# Azure AD client:   <your-client-id>
+#
+# Backends (separate pod deployment):
+#   HTTP API → <release-name>-agentregistry-api.agentregistry.svc.cluster.local:8080
+#   MCP      → <release-name>-agentregistry-api.agentregistry.svc.cluster.local:8083
+#
+# Replace <release-name> with your Helm release name (e.g. "agentregistry").
+# If release name equals chart name the service is: agentregistry-agentregistry-api
+
+binds:
+
+  # ── HTTP API (:8080) ────────────────────────────────────────────────────
+  - port: 8080
+    listeners:
+    - routes:
+
+      # Public endpoints — no auth, read-only, v0 prefix
+      - name: public
+        matches:
+        - path:
+            pathPrefix: /v0/
+        backends:
+        - host: <release-name>-agentregistry-api.agentregistry.svc.cluster.local:8080
+
+      # Admin deploy write endpoints — JWT required
+      # POST/PATCH/DELETE on /admin/v0/deployments*
+      - name: admin-deploy-write
+        matches:
+        - path:
+            pathPrefix: /admin/v0/deployments
+          method: POST
+        - path:
+            pathPrefix: /admin/v0/deployments
+          method: PATCH
+        - path:
+            pathPrefix: /admin/v0/deployments
+          method: DELETE
+        policies:
+          jwtAuth:
+            issuer: https://login.microsoftonline.com/<your-tenant-id>/v2.0
+            audiences:
+            - <your-client-id>
+            jwks:
+              url: https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys
+          backendAuth:
+            passthrough: {}
+        backends:
+        - host: <release-name>-agentregistry-api.agentregistry.svc.cluster.local:8080
+
+      # Admin read + other write endpoints — JWT required
+      - name: admin
+        matches:
+        - path:
+            pathPrefix: /admin/v0/
+        policies:
+          jwtAuth:
+            issuer: https://login.microsoftonline.com/<your-tenant-id>/v2.0
+            audiences:
+            - <your-client-id>
+            jwks:
+              url: https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys
+          backendAuth:
+            passthrough: {}
+        backends:
+        - host: <release-name>-agentregistry-api.agentregistry.svc.cluster.local:8080
+
+  # ── MCP (:8083) ─────────────────────────────────────────────────────────
+  - port: 8083
+    listeners:
+    - routes:
+      - name: mcp
+        policies:
+          mcpAuthentication:
+            issuer: https://login.microsoftonline.com/<your-tenant-id>/v2.0
+            audiences:
+            - <your-client-id>
+            jwks:
+              url: https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys
+          mcpAuthorization:
+            rules:
+            # Read tools — any authenticated user
+            - >
+              mcp.tool.name in [
+                "list_catalog",
+                "get_catalog",
+                "get_registry_stats",
+                "list_deployments",
+                "get_deployment",
+                "list_environments",
+                "get_discovery_map",
+                "recommend_servers",
+                "analyze_agent_dependencies",
+                "generate_deployment_plan"
+              ]
+            # Deploy/write tools — any authenticated user (add email filter here when needed)
+            - >
+              mcp.tool.name in [
+                "deploy_catalog_item",
+                "delete_deployment",
+                "update_deployment_config",
+                "create_catalog",
+                "delete_catalog",
+                "trigger_discovery"
+              ]
+          backendAuth:
+            passthrough: {}
+        backends:
+        - mcp:
+            targets:
+            - name: agentregistry-mcp
+              mcp:
+                host: http://<release-name>-agentregistry-api.agentregistry.svc.cluster.local:8083/mcp

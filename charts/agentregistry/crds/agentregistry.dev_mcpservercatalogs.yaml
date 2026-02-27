@@ -392,6 +392,41 @@ spec:
                 description: PublishedAt is the timestamp when this version was published
                 format: date-time
                 type: string
+              publisher:
+                description: Publisher holds trust/verification badges set by the
+                  verification controller
+                properties:
+                  grade:
+                    description: Grade is the letter grade derived from Score (A=90-100,
+                      B=80-89, C=70-79, D=60-69, F=0-59)
+                    enum:
+                    - A
+                    - B
+                    - C
+                    - D
+                    - F
+                    type: string
+                  gradedAt:
+                    description: GradedAt is when the score and grade were last updated
+                    format: date-time
+                    type: string
+                  score:
+                    description: Score is a governance/quality score in the range
+                      0–100
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  verifiedOrganization:
+                    description: VerifiedOrganization indicates the owning organisation
+                      has been verified
+                    type: boolean
+                  verifiedPublisher:
+                    description: |-
+                      VerifiedPublisher indicates the publisher identity has been verified
+                      (e.g. domain ownership or organisation membership confirmed)
+                    type: boolean
+                type: object
               status:
                 description: Status is the lifecycle status (active, deprecated, deleted)
                 type: string

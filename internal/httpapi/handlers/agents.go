@@ -106,6 +106,7 @@ type AgentMeta struct {
 	Deployment        *DeploymentInfo        `json:"deployment,omitempty"`
 	Source            string                 `json:"source,omitempty"` // discovery, manual, deployment
 	IsDiscovered      bool                   `json:"isDiscovered,omitempty"`
+	Publisher         *PublisherInfoJSON     `json:"publisher,omitempty"`
 }
 
 type AgentResponse struct {
@@ -661,6 +662,9 @@ func (h *AgentHandler) convertToAgentResponse(a *agentregistryv1alpha1.AgentCata
 			resp.Meta.Deployment.LastChecked = &t
 		}
 	}
+
+	// Map governance/publisher verification from status
+	resp.Meta.Publisher = convertPublisherVerification(a.Status.Publisher)
 
 	return resp
 }

@@ -1,0 +1,29 @@
+{{- if .Values.httproute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "agentgateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentgateway.labels" . | nindent 4 }}
+spec:
+  hostnames:
+  - {{ .Values.httproute.hostname }}
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ .Values.httproute.parentRef.name }}
+    namespace: {{ .Values.httproute.parentRef.namespace }}
+    sectionName: {{ .Values.httproute.parentRef.sectionName }}
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: {{ include "agentgateway.fullname" . }}
+      port: {{ .Values.uiPort }}
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+{{- end }}
