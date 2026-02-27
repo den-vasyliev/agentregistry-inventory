@@ -43,6 +43,7 @@ spec:
             {{- end }}
             - --enable-http-api=true
             - --http-api-address=:{{ .Values.httpApi.port }}
+            - --mcp-address=:{{ .Values.httpApi.mcpPort }}
             - --log-level={{ .Values.controller.logLevel }}
           env:
             {{- if not .Values.disableAuth }}
@@ -62,6 +63,9 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.httpApi.port }}
+              protocol: TCP
+            - name: mcp
+              containerPort: {{ .Values.httpApi.mcpPort }}
               protocol: TCP
             - name: metrics
               containerPort: 8081

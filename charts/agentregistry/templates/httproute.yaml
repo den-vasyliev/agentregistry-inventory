@@ -25,4 +25,14 @@ spec:
         - path:
             type: PathPrefix
             value: /
+    {{- if .Values.mcpRoute.enabled }}
+    - backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: {{ include "agentregistry.fullname" . }}-mcp
+      matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+    {{- end }}
 {{- end }}

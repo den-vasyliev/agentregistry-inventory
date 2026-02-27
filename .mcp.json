@@ -2,7 +2,11 @@
   "mcpServers": {
     "agentregistry": {
       "type": "http",
-      "url": "http://localhost:8083/mcp"
+      "url": "https://agentregistry.gfknewron.com/mcp"
+    },
+    "triageagent": {
+      "type": "http",
+      "url": "https://triageagent.gfknewron.com/mcp"
     }
   }
 }

@@ -1,0 +1,22 @@
+{{- if and .Values.httpRoute.enabled .Values.mcpRoute.enabled }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: {{ include "agentregistry.fullname" . }}-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+spec:
+  mcp:
+    targets:
+      - name: {{ include "agentregistry.fullname" . }}-mcp
+        static:
+          host: {{ include "agentregistry.fullname" . }}-api.{{ .Release.Namespace }}.svc.cluster.local
+          path: /mcp
+          port: {{ .Values.httpApi.mcpPort }}
+          protocol: StreamableHTTP
+  policies:
+    auth:
+      secretRef:
+        name: {{ .Values.mcpRoute.authSecretName }}
+{{- end }}

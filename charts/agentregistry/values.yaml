@@ -32,6 +32,9 @@ httpApi:
   # HTTP API bind address
   port: 8080
 
+  # MCP server bind port
+  mcpPort: 8083
+
   # Service type for the HTTP API
   serviceType: ClusterIP
 
@@ -108,3 +111,9 @@ httpRoute:
   gatewayName: mcp-gateway
   gatewayNamespace: ""
   sectionName: https
+
+# MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
+mcpRoute:
+  enabled: false
+  # Name of the token secret for agentgateway auth
+  authSecretName: agentregistry-mcp-token

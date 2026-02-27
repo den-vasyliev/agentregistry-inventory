@@ -21,8 +21,8 @@ export function Navigation() {
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="flex items-center">
             <img
-              src="/arlogo.png"
-              alt="Agent Inventory"
+              src="/logo.svg"
+              alt="AI Inventory"
               width={180}
               height={60}
               className="h-12 w-auto"
