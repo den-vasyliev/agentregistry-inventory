@@ -28,5 +28,6 @@
   <!-- I -->
   <path class="mark-stroke" fill="url(#markGradient)" d="M292 46h70v166h-70z"/>
 
-
+  <!-- Inventory text -->
+  <text x="395" y="195" class="inventory outline" fill="#ffffff" font-size="164" filter="url(#textShadow)">Inventory</text>
 </svg>
