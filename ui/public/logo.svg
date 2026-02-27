@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1318" height="262" viewBox="0 0 1318 262" role="img" aria-labelledby="title desc">
-  <title id="title">AI Inventory Logo</title>
-  <desc id="desc">Stylized AI mark with gradient and bold Inventory text.</desc>
+  <title id="title">AIi Logo</title>
+  <desc id="desc">Stylized AIi mark with gradient.</desc>
   <defs>
     <linearGradient id="markGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#7b2cff"/>
@@ -28,6 +28,5 @@
   <!-- I -->
   <path class="mark-stroke" fill="url(#markGradient)" d="M292 46h70v166h-70z"/>
 
-  <!-- Inventory text -->
-  <text x="395" y="195" class="inventory outline" fill="#ffffff" font-size="164" filter="url(#textShadow)">Inventory</text>
+
 </svg>
