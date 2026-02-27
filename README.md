@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="Agent Inventory" src="docs/img/arlogo.png" height="90"/>
+    <img alt="Agent Inventory" src="ui/public/logo.svg" height="90"/>
   </picture>
 
   <h2>The Control Plane for AI Infrastructure</h2>
