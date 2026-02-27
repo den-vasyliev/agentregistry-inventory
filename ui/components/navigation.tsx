@@ -23,7 +23,7 @@ export function Navigation() {
           <Link href="/" className="flex items-center">
             <Image
               src="/logo.svg"
-              alt="AI Inventory"
+              alt="AIi"
               width={180}
               height={60}
               className="h-12 w-auto"
