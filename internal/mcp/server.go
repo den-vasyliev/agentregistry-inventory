@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -181,7 +182,22 @@ func (s *MCPServer) authMiddleware(next http.Handler) http.Handler {
 }
 
 // requestSampling is a helper to call sampling on the MCP server from tool handlers.
+// Returns an error if the client does not support sampling, avoiding a blocking call
+// that would hang until the request context is cancelled (causing a 500 on the client).
 func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, userMessage string) (string, error) {
+	// Check client capability before attempting — clients that don't declare sampling
+	// (e.g. stateless HTTP clients like LiveKit) have no SSE channel to receive the
+	// sampling request, so the call would block until ctx is cancelled and return 500.
+	session := server.ClientSessionFromContext(ctx)
+	if session == nil {
+		return "", fmt.Errorf("no active session")
+	}
+	if clientInfo, ok := session.(server.SessionWithClientInfo); ok {
+		if clientInfo.GetClientCapabilities().Sampling == nil {
+			return "", fmt.Errorf("client does not support sampling")
+		}
+	}
+
 	result, err := s.mcpServer.RequestSampling(ctx, mcp.CreateMessageRequest{
 		CreateMessageParams: mcp.CreateMessageParams{
 			Messages: []mcp.SamplingMessage{
