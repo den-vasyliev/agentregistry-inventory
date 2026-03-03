@@ -199,6 +199,11 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 	if session == nil {
 		return "", fmt.Errorf("no active session")
 	}
+	s.logger.Debug().
+		Str("session_id", session.SessionID()).
+		Str("session_type", fmt.Sprintf("%T", session)).
+		Bool("initialized", session.Initialized()).
+		Msg("attempting sampling")
 
 	// Use a detached context with a generous timeout for the sampling call.
 	// The tools/call POST connection may be cancelled or time out on the client side

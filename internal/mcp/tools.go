@@ -768,7 +768,8 @@ func (s *MCPServer) handleRecommendServers(ctx context.Context, request mcp.Call
 	result, err := s.requestSampling(ctx, "You are an Agent Registry advisor. Analyze the MCP server catalog and recommend the best matches for the user's needs. Be concise and specific.", userMsg)
 	if err != nil {
 		// Graceful degradation: return raw data
-		return textResult(fmt.Sprintf("Sampling unavailable (client may not support it). Here are all %d servers:\n%s", len(servers), string(catalogJSON))), nil
+		s.logger.Warn().Err(err).Msg("sampling unavailable for recommend_servers")
+		return textResult(fmt.Sprintf("Sampling unavailable (%v). Here are all %d servers:\n%s", err, len(servers), string(catalogJSON))), nil
 	}
 
 	return textResult(result), nil
