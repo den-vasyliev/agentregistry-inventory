@@ -19,7 +19,7 @@ import (
 func (s *MCPServer) registerTools() {
 	// Catalog read tools
 	s.mcpServer.AddTool(mcp.NewTool("list_catalog",
-		mcp.WithDescription("List catalog entries by type (servers, agents, skills, or models)"),
+		mcp.WithDescription("List catalog entries by type. Use type='servers' for MCP servers, 'agents' for AI agents, 'skills' for reusable skills, 'models' for model configs. Supports search, version filtering, and pagination."),
 		mcp.WithString("type", mcp.Description("Resource type: servers, agents, skills, or models"), mcp.Required()),
 		mcp.WithString("search", mcp.Description("Filter by name substring")),
 		mcp.WithString("version", mcp.Description("Filter by version or 'latest' (servers/agents/skills)")),
@@ -29,82 +29,82 @@ func (s *MCPServer) registerTools() {
 	), s.handleListCatalog)
 
 	s.mcpServer.AddTool(mcp.NewTool("get_catalog",
-		mcp.WithDescription("Get catalog entry details by type and name"),
+		mcp.WithDescription("Get full details for a specific catalog entry by name. Returns spec, status, deployment info, endpoint URLs, and package configurations. Use version='latest' or omit for the current version."),
 		mcp.WithString("type", mcp.Description("Resource type: servers, agents, skills, or models"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Resource name"), mcp.Required()),
 		mcp.WithString("version", mcp.Description("Specific version (default: latest)")),
 	), s.handleGetCatalog)
 
 	s.mcpServer.AddTool(mcp.NewTool("get_registry_stats",
-		mcp.WithDescription("Get registry statistics (counts of servers, agents, skills, models)"),
+		mcp.WithDescription("Get total counts of all resources in the registry (servers, agents, skills, models). Use this for a quick overview of registry contents."),
 	), s.handleGetRegistryStats)
 
 	// Deployment tools
 	s.mcpServer.AddTool(mcp.NewTool("list_deployments",
-		mcp.WithDescription("List deployments"),
+		mcp.WithDescription("List active RegistryDeployments - catalog items that have been deployed to Kubernetes. Shows deployment status, namespace, environment, and resource type. Filter by resourceType='mcp' or 'agent'."),
 		mcp.WithString("resourceType", mcp.Description("Filter by resource type (mcp, agent)")),
 		mcp.WithNumber("limit", mcp.Description("Max results (default 30)")),
 	), s.handleListDeployments)
 
 	s.mcpServer.AddTool(mcp.NewTool("get_deployment",
-		mcp.WithDescription("Get deployment details by name"),
+		mcp.WithDescription("Get details for a specific deployment by name, including managed Kubernetes resources, status, config, and target environment."),
 		mcp.WithString("name", mcp.Description("Deployment name"), mcp.Required()),
 	), s.handleGetDeployment)
 
 	s.mcpServer.AddTool(mcp.NewTool("deploy_catalog_item",
-		mcp.WithDescription("Deploy a catalog item to Kubernetes"),
+		mcp.WithDescription("Deploy a catalog item to Kubernetes by creating a RegistryDeployment. First use list_catalog/get_catalog to find the resource name and version. Use resourceType='mcp' for MCP servers and 'agent' for agents."),
 		mcp.WithString("resourceName", mcp.Description("Name of the catalog resource to deploy"), mcp.Required()),
 		mcp.WithString("version", mcp.Description("Version to deploy"), mcp.Required()),
 		mcp.WithString("resourceType", mcp.Description("Resource type: mcp or agent"), mcp.Required()),
 		mcp.WithString("namespace", mcp.Description("Target namespace (default: agentregistry)")),
-		mcp.WithObject("config", mcp.Description("Key-value deployment configuration")),
+		mcp.WithObject("config", mcp.Description("Key-value deployment configuration (e.g. env vars, image overrides)"), mcp.AdditionalProperties(false)),
 	), s.handleDeployCatalogItem)
 
 	s.mcpServer.AddTool(mcp.NewTool("delete_deployment",
-		mcp.WithDescription("Delete a deployment"),
+		mcp.WithDescription("Delete a RegistryDeployment and remove all Kubernetes resources it manages. Use list_deployments to find the deployment name."),
 		mcp.WithString("name", mcp.Description("Deployment name"), mcp.Required()),
 	), s.handleDeleteDeployment)
 
 	s.mcpServer.AddTool(mcp.NewTool("update_deployment_config",
-		mcp.WithDescription("Update deployment configuration"),
+		mcp.WithDescription("Merge new key-value pairs into an existing deployment's config. Only specified keys are updated; others are preserved. Use get_deployment first to see current config."),
 		mcp.WithString("name", mcp.Description("Deployment name"), mcp.Required()),
-		mcp.WithObject("config", mcp.Description("Key-value configuration to merge"), mcp.Required()),
+		mcp.WithObject("config", mcp.Description("Key-value configuration to merge into the deployment"), mcp.Required(), mcp.AdditionalProperties(false)),
 	), s.handleUpdateDeploymentConfig)
 
 	// Discovery tools
 	s.mcpServer.AddTool(mcp.NewTool("list_environments",
-		mcp.WithDescription("List discovered environments from DiscoveryConfig"),
+		mcp.WithDescription("List remote environments configured for discovery and deployment. Each environment represents a Kubernetes cluster or namespace where resources can be discovered or deployed."),
 	), s.handleListEnvironments)
 
 	s.mcpServer.AddTool(mcp.NewTool("get_discovery_map",
-		mcp.WithDescription("Get the discovery topology map showing clusters, environments, and resource counts"),
+		mcp.WithDescription("Get the full topology map of all clusters, environments, and discovered resource counts. Use this to understand what is running across your infrastructure before deploying or querying catalog."),
 	), s.handleGetDiscoveryMap)
 
 	s.mcpServer.AddTool(mcp.NewTool("trigger_discovery",
-		mcp.WithDescription("Force re-scan of discovery by adding a trigger annotation to DiscoveryConfig"),
+		mcp.WithDescription("Force an immediate re-scan of remote clusters to refresh the catalog with newly deployed or removed resources. Useful after deploying something outside the registry."),
 		mcp.WithString("configName", mcp.Description("DiscoveryConfig name (default: discovers all)")),
 	), s.handleTriggerDiscovery)
 
 	// Sampling-powered tools
 	s.mcpServer.AddTool(mcp.NewTool("recommend_servers",
-		mcp.WithDescription("Recommend MCP servers for a use case (uses LLM sampling to analyze the catalog)"),
+		mcp.WithDescription("Recommend MCP servers from the catalog for a specific use case (uses LLM sampling to analyze the catalog)"),
 		mcp.WithString("description", mcp.Description("Describe what you need the MCP server(s) for"), mcp.Required()),
 	), s.handleRecommendServers)
 
 	s.mcpServer.AddTool(mcp.NewTool("analyze_agent_dependencies",
-		mcp.WithDescription("Analyze an agent's dependency tree including MCP servers, models, and skills (uses LLM sampling)"),
+		mcp.WithDescription("Analyze an agent's full dependency tree including MCP servers, models, and skills (uses LLM sampling)"),
 		mcp.WithString("name", mcp.Description("Agent name to analyze"), mcp.Required()),
 	), s.handleAnalyzeAgentDependencies)
 
 	s.mcpServer.AddTool(mcp.NewTool("generate_deployment_plan",
-		mcp.WithDescription("Generate a deployment plan for catalog resources (uses LLM sampling)"),
+		mcp.WithDescription("Generate a step-by-step deployment plan for one or more catalog resources, including dependencies and ordering (uses LLM sampling)"),
 		mcp.WithString("resources", mcp.Description("Comma-separated list of resource names to deploy"), mcp.Required()),
 		mcp.WithString("namespace", mcp.Description("Target namespace")),
 	), s.handleGenerateDeploymentPlan)
 
 	// Catalog management tools (auth-gated)
 	s.mcpServer.AddTool(mcp.NewTool("create_catalog",
-		mcp.WithDescription("Create a new catalog entry (requires auth disabled or dev mode)"),
+		mcp.WithDescription("Create a new catalog entry. For servers use type='servers', agents use type='agents', etc. Note: only basic fields are supported via MCP; use the HTTP API for full spec including packages, transports, and tool configs."),
 		mcp.WithString("type", mcp.Description("Resource type: servers, agents, skills, or models"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Canonical name for the resource"), mcp.Required()),
 		mcp.WithString("version", mcp.Description("Semantic version (e.g., 1.0.0)"), mcp.Required()),
@@ -116,7 +116,7 @@ func (s *MCPServer) registerTools() {
 	), s.handleCreateCatalog)
 
 	s.mcpServer.AddTool(mcp.NewTool("delete_catalog",
-		mcp.WithDescription("Delete a catalog entry (requires auth disabled or dev mode)"),
+		mcp.WithDescription("Delete a catalog entry and all its versions. This is irreversible. Use list_catalog to confirm the resource name before deleting."),
 		mcp.WithString("type", mcp.Description("Resource type: servers, agents, skills, or models"), mcp.Required()),
 		mcp.WithString("name", mcp.Description("Resource name to delete"), mcp.Required()),
 	), s.handleDeleteCatalog)
