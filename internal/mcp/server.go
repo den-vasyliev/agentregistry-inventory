@@ -182,23 +182,34 @@ func (s *MCPServer) authMiddleware(next http.Handler) http.Handler {
 }
 
 // requestSampling is a helper to call sampling on the MCP server from tool handlers.
-// Returns an error if the client does not support sampling, avoiding a blocking call
-// that would hang until the request context is cancelled (causing a 500 on the client).
+// Returns an error if the client does not support sampling.
 func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, userMessage string) (string, error) {
-	// Check client capability before attempting — clients that don't declare sampling
-	// (e.g. stateless HTTP clients like LiveKit) have no SSE channel to receive the
-	// sampling request, so the call would block until ctx is cancelled and return 500.
+	// NOTE: We intentionally do NOT check GetClientCapabilities().Sampling here.
+	//
+	// mcp-go has a race condition: a concurrent GET request can register a new session
+	// object before the initialize POST stores the one that received SetClientCapabilities,
+	// so the session found during tools/call may show Sampling==nil even for clients that
+	// correctly declared sampling during initialize. Checking here would incorrectly reject
+	// those clients.
+	//
+	// Instead we rely on the detached context timeout below as the safety net: if no GET
+	// stream is open to deliver the sampling request, RequestSampling will fail fast or
+	// time out after 5 minutes rather than hanging indefinitely.
 	session := server.ClientSessionFromContext(ctx)
 	if session == nil {
 		return "", fmt.Errorf("no active session")
 	}
-	if clientInfo, ok := session.(server.SessionWithClientInfo); ok {
-		if clientInfo.GetClientCapabilities().Sampling == nil {
-			return "", fmt.Errorf("client does not support sampling")
-		}
-	}
 
-	result, err := s.mcpServer.RequestSampling(ctx, mcp.CreateMessageRequest{
+	// Use a detached context with a generous timeout for the sampling call.
+	// The tools/call POST connection may be cancelled or time out on the client side
+	// before the sampling round-trip (LLM inference) completes. Using the request ctx
+	// directly would cause the pending sampling request to be cleaned up, resulting in
+	// a 500 when the client POSTs the sampling response back. A detached context keeps
+	// the pending request alive independently of the calling HTTP request's lifecycle.
+	samplingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	result, err := s.mcpServer.RequestSampling(samplingCtx, mcp.CreateMessageRequest{
 		CreateMessageParams: mcp.CreateMessageParams{
 			Messages: []mcp.SamplingMessage{
 				{
