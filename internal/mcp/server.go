@@ -66,7 +66,9 @@ func NewMCPServer(c client.Client, cache cache.Cache, logger zerolog.Logger, aut
 	s.registerResources()
 	s.registerPrompts()
 
-	s.httpServer = server.NewStreamableHTTPServer(mcpServer)
+	s.httpServer = server.NewStreamableHTTPServer(mcpServer,
+		server.WithLogger(&zerologAdapter{s.logger}),
+	)
 
 	return s
 }
@@ -237,4 +239,18 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 		return textContent.Text, nil
 	}
 	return "Sampling returned non-text content", nil
+}
+
+// zerologAdapter bridges mcp-go's util.Logger interface to our zerolog.Logger,
+// so mcp-go errors (e.g. failed sampling delivery) appear in structured logs.
+type zerologAdapter struct {
+	l zerolog.Logger
+}
+
+func (z *zerologAdapter) Infof(format string, v ...any) {
+	z.l.Info().Msgf(format, v...)
+}
+
+func (z *zerologAdapter) Errorf(format string, v ...any) {
+	z.l.Error().Msgf(format, v...)
 }
