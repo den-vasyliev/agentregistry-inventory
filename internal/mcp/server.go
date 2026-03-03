@@ -209,9 +209,12 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 	// The tools/call POST connection may be cancelled or time out on the client side
 	// before the sampling round-trip (LLM inference) completes. Using the request ctx
 	// directly would cause the pending sampling request to be cleaned up, resulting in
-	// a 500 when the client POSTs the sampling response back. A detached context keeps
-	// the pending request alive independently of the calling HTTP request's lifecycle.
-	samplingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// a 500 when the client POSTs the sampling response back.
+	//
+	// We detach from the request lifecycle but carry the session value forward —
+	// mcp-go's RequestSampling reads the session from context to call RequestSampling
+	// on the session object, so it must be present.
+	samplingCtx, cancel := context.WithTimeout(s.mcpServer.WithContext(context.Background(), session), 5*time.Minute)
 	defer cancel()
 
 	result, err := s.mcpServer.RequestSampling(samplingCtx, mcp.CreateMessageRequest{
