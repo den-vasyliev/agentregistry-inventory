@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -65,7 +66,9 @@ func NewMCPServer(c client.Client, cache cache.Cache, logger zerolog.Logger, aut
 	s.registerResources()
 	s.registerPrompts()
 
-	s.httpServer = server.NewStreamableHTTPServer(mcpServer)
+	s.httpServer = server.NewStreamableHTTPServer(mcpServer,
+		server.WithLogger(&zerologAdapter{s.logger}),
+	)
 
 	return s
 }
@@ -181,8 +184,42 @@ func (s *MCPServer) authMiddleware(next http.Handler) http.Handler {
 }
 
 // requestSampling is a helper to call sampling on the MCP server from tool handlers.
+// Returns an error if the client does not support sampling.
 func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, userMessage string) (string, error) {
-	result, err := s.mcpServer.RequestSampling(ctx, mcp.CreateMessageRequest{
+	// NOTE: We intentionally do NOT check GetClientCapabilities().Sampling here.
+	//
+	// mcp-go has a race condition: a concurrent GET request can register a new session
+	// object before the initialize POST stores the one that received SetClientCapabilities,
+	// so the session found during tools/call may show Sampling==nil even for clients that
+	// correctly declared sampling during initialize. Checking here would incorrectly reject
+	// those clients.
+	//
+	// Instead we rely on the detached context timeout below as the safety net: if no GET
+	// stream is open to deliver the sampling request, RequestSampling will fail fast or
+	// time out after 5 minutes rather than hanging indefinitely.
+	session := server.ClientSessionFromContext(ctx)
+	if session == nil {
+		return "", fmt.Errorf("no active session")
+	}
+	s.logger.Debug().
+		Str("session_id", session.SessionID()).
+		Str("session_type", fmt.Sprintf("%T", session)).
+		Bool("initialized", session.Initialized()).
+		Msg("attempting sampling")
+
+	// Use a detached context with a generous timeout for the sampling call.
+	// The tools/call POST connection may be cancelled or time out on the client side
+	// before the sampling round-trip (LLM inference) completes. Using the request ctx
+	// directly would cause the pending sampling request to be cleaned up, resulting in
+	// a 500 when the client POSTs the sampling response back.
+	//
+	// We detach from the request lifecycle but carry the session value forward —
+	// mcp-go's RequestSampling reads the session from context to call RequestSampling
+	// on the session object, so it must be present.
+	samplingCtx, cancel := context.WithTimeout(s.mcpServer.WithContext(context.Background(), session), 5*time.Minute)
+	defer cancel()
+
+	result, err := s.mcpServer.RequestSampling(samplingCtx, mcp.CreateMessageRequest{
 		CreateMessageParams: mcp.CreateMessageParams{
 			Messages: []mcp.SamplingMessage{
 				{
@@ -202,4 +239,18 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 		return textContent.Text, nil
 	}
 	return "Sampling returned non-text content", nil
+}
+
+// zerologAdapter bridges mcp-go's util.Logger interface to our zerolog.Logger,
+// so mcp-go errors (e.g. failed sampling delivery) appear in structured logs.
+type zerologAdapter struct {
+	l zerolog.Logger
+}
+
+func (z *zerologAdapter) Infof(format string, v ...any) {
+	z.l.Info().Msgf(format, v...)
+}
+
+func (z *zerologAdapter) Errorf(format string, v ...any) {
+	z.l.Error().Msgf(format, v...)
 }
