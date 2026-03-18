@@ -92,15 +92,20 @@ func (s *MCPServer) registerTools() {
 	), s.handleRecommendServers)
 
 	s.mcpServer.AddTool(mcp.NewTool("analyze_agent_dependencies",
-		mcp.WithDescription("Analyze an agent's full dependency tree including MCP servers, models, and skills (uses LLM sampling)"),
+		mcp.WithDescription("Analyze an agent's full dependency tree including MCP servers and models. Returns structured data showing what the agent needs and what is available in the registry."),
 		mcp.WithString("name", mcp.Description("Agent name to analyze"), mcp.Required()),
 	), s.handleAnalyzeAgentDependencies)
 
 	s.mcpServer.AddTool(mcp.NewTool("generate_deployment_plan",
-		mcp.WithDescription("Generate a step-by-step deployment plan for one or more catalog resources, including dependencies and ordering (uses LLM sampling)"),
+		mcp.WithDescription("Return catalog and deployment data for one or more resources to support planning their deployment, including available servers, agents, and existing deployments."),
 		mcp.WithString("resources", mcp.Description("Comma-separated list of resource names to deploy"), mcp.Required()),
 		mcp.WithString("namespace", mcp.Description("Target namespace")),
 	), s.handleGenerateDeploymentPlan)
+
+	s.mcpServer.AddTool(mcp.NewTool("recommend_agents",
+		mcp.WithDescription("Recommend AI agents from the catalog for a specific use case (uses LLM sampling to analyze the catalog)"),
+		mcp.WithString("description", mcp.Description("Describe what you need the agent(s) for"), mcp.Required()),
+	), s.handleRecommendAgents)
 
 	// Catalog management tools (auth-gated)
 	s.mcpServer.AddTool(mcp.NewTool("create_catalog",
@@ -775,6 +780,47 @@ func (s *MCPServer) handleRecommendServers(ctx context.Context, request mcp.Call
 	return textResult(result), nil
 }
 
+func (s *MCPServer) handleRecommendAgents(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	description := getStringArg(request.GetArguments(), "description")
+
+	var list agentregistryv1alpha1.AgentCatalogList
+	if err := s.cache.List(ctx, &list, client.MatchingFields{
+		controller.IndexAgentIsLatest: "true",
+	}); err != nil {
+		return errorResult(fmt.Sprintf("Failed to list agents: %v", err)), nil
+	}
+
+	type agentInfo struct {
+		Name        string `json:"name"`
+		Version     string `json:"version"`
+		Description string `json:"description,omitempty"`
+		Title       string `json:"title,omitempty"`
+		AgentType   string `json:"agentType,omitempty"`
+	}
+
+	agents := make([]agentInfo, 0, len(list.Items))
+	for _, item := range list.Items {
+		agents = append(agents, agentInfo{
+			Name:        item.Spec.Name,
+			Version:     item.Spec.Version,
+			Description: item.Spec.Description,
+			Title:       item.Spec.Title,
+			AgentType:   item.Spec.AgentType,
+		})
+	}
+
+	catalogJSON, _ := json.MarshalIndent(agents, "", "  ")
+	userMsg := fmt.Sprintf("User needs: %s\n\nAvailable agents in the registry:\n%s\n\nRecommend the best matching agents and explain why each is relevant. If none match, say so.", description, string(catalogJSON))
+
+	result, err := s.requestSampling(ctx, "You are an Agent Registry advisor. Analyze the agent catalog and recommend the best matches for the user's needs. Be concise and specific.", userMsg)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("sampling unavailable for recommend_agents")
+		return textResult(fmt.Sprintf("Sampling unavailable (%v). Here are all %d agents:\n%s", err, len(agents), string(catalogJSON))), nil
+	}
+
+	return textResult(result), nil
+}
+
 func (s *MCPServer) handleAnalyzeAgentDependencies(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	name := getStringArg(request.GetArguments(), "name")
 
@@ -791,26 +837,21 @@ func (s *MCPServer) handleAnalyzeAgentDependencies(ctx context.Context, request 
 	}
 
 	agent := agentList.Items[0]
-	agentJSON, _ := json.MarshalIndent(agent.Spec, "", "  ")
 
 	// Gather related resources
 	var serverList agentregistryv1alpha1.MCPServerCatalogList
 	_ = s.cache.List(ctx, &serverList)
-	serversJSON, _ := json.MarshalIndent(summarizeServers(serverList.Items), "", "  ")
 
 	var modelList agentregistryv1alpha1.ModelCatalogList
 	_ = s.cache.List(ctx, &modelList)
-	modelsJSON, _ := json.MarshalIndent(summarizeModels(modelList.Items), "", "  ")
 
-	userMsg := fmt.Sprintf("Analyze the dependency tree for this agent:\n\nAgent:\n%s\n\nAvailable MCP Servers:\n%s\n\nAvailable Models:\n%s\n\nProduce a dependency analysis: what MCP servers does this agent need, what model does it use, are all dependencies available, and is there anything missing?",
-		string(agentJSON), string(serversJSON), string(modelsJSON))
-
-	result, err := s.requestSampling(ctx, "You are an Agent Registry dependency analyzer. Analyze an agent's dependencies and produce a health report.", userMsg)
-	if err != nil {
-		return textResult(fmt.Sprintf("Sampling unavailable. Agent spec:\n%s", string(agentJSON))), nil
+	result := map[string]interface{}{
+		"agent":   agent.Spec,
+		"servers": summarizeServers(serverList.Items),
+		"models":  summarizeModels(modelList.Items),
 	}
-
-	return textResult(result), nil
+	resultJSON, _ := json.MarshalIndent(result, "", "  ")
+	return textResult(string(resultJSON)), nil
 }
 
 func (s *MCPServer) handleGenerateDeploymentPlan(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -847,16 +888,7 @@ func (s *MCPServer) handleGenerateDeploymentPlan(ctx context.Context, request mc
 		"existingDeployments": summarizeDeployments(deploymentList.Items),
 	}
 	catalogJSON, _ := json.MarshalIndent(catalogData, "", "  ")
-
-	userMsg := fmt.Sprintf("Generate a deployment plan for the following resources:\n%s\n\nProduce a step-by-step plan including: order of deployment, configuration recommendations, namespace strategy, and any dependencies to resolve first.",
-		string(catalogJSON))
-
-	result, err := s.requestSampling(ctx, "You are an Agent Registry deployment planner. Generate a step-by-step deployment plan for the requested resources.", userMsg)
-	if err != nil {
-		return textResult(fmt.Sprintf("Sampling unavailable. Requested resources: %s\nTarget namespace: %s", resourcesStr, namespace)), nil
-	}
-
-	return textResult(result), nil
+	return textResult(string(catalogJSON)), nil
 }
 
 // --- Shared helpers ---
