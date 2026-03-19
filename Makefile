@@ -51,6 +51,32 @@ version: ## Show version information
 
 ##@ Development
 
+test: ## Run all tests (unit, integration, linting)
+	@./test/run_tests.sh
+
+test-unit: ## Run only unit tests
+	@./test/run_tests.sh --unit-tests
+
+test-ui: ## Run only UI tests
+	@./test/run_tests.sh --ui-tests
+
+test-integration: ## Run only integration tests
+	@./test/run_tests.sh --integration
+
+test-security: ## Run security checks
+	@./test/run_tests.sh --security
+
+test-benchmarks: ## Run performance benchmarks
+	@./test/run_tests.sh --bench
+
+lint: ## Run linting checks
+	@./test/run_tests.sh --lint
+
+coverage: ## Generate test coverage report
+	@go test -coverprofile=coverage.out -covermode=atomic ./internal/...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
 generate: ## Generate CRD manifests and deepcopy code
 	@echo "Generating CRD manifests and code..."
 	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
