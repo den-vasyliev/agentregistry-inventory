@@ -126,9 +126,7 @@ discoveryConfig:
       - Agent
       - ModelConfig
       - RemoteMCPServer
-    cluster:
-      name: abox
-      namespace: kagent
+    provider: local
 
 # MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
 mcpRoute:
