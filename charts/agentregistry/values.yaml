@@ -126,6 +126,9 @@ discoveryConfig:
       - Agent
       - ModelConfig
       - RemoteMCPServer
+    cluster:
+      name: local
+      useWorkloadIdentity: false
 
 # MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
 mcpRoute:
