@@ -17,6 +17,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	sigs_client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -197,7 +198,12 @@ func main() {
 	}
 
 	// Initialize remote client factory for multi-cluster support (discovery + deployment)
-	clusterFactory := cluster.NewFactory(mgr.GetClient(), ctrlLogger)
+	localClientWithWatch, err := sigs_client.NewWithWatch(mgr.GetConfig(), sigs_client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		log.Error().Err(err).Msg("unable to create local WithWatch client")
+		os.Exit(1)
+	}
+	clusterFactory := cluster.NewFactory(localClientWithWatch, ctrlLogger)
 	remoteClientFactory := clusterFactory.CreateClientFunc()
 	controller.RemoteClientFactory = remoteClientFactory
 	log.Info().Msg("initialized remote client factory for multi-cluster support")

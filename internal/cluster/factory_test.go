@@ -251,6 +251,7 @@ func TestCreateStaticConfig_ValidConfig(t *testing.T) {
 	assert.Equal(t, 100, cfg.Burst)
 }
 
+
 func TestCreateStaticConfig_ExistingHttpsPrefix(t *testing.T) {
 	logger := zerolog.Nop()
 	factory := NewFactory(nil, logger)
