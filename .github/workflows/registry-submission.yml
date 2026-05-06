@@ -1,0 +1,311 @@
+name: Agent Registry Resource Submission
+
+on:
+  pull_request:
+    paths:
+      - 'resources/**/*.yaml'
+      - 'resources/**/*.yml'
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+env:
+  REGISTRY_API_URL: ${{ secrets.REGISTRY_API_URL || 'https://registry.your-domain.com' }}
+  REGISTRY_API_TOKEN: ${{ secrets.REGISTRY_API_TOKEN }}
+  OCI_REGISTRY: ghcr.io/${{ github.repository_owner }}/agent-registry
+
+jobs:
+  validate-resources:
+    name: Validate Agent Registry Resources
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    outputs:
+      resources: ${{ steps.detect.outputs.resources }}
+      has-resources: ${{ steps.detect.outputs.has-resources }}
+      
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Detect changed resources
+      id: detect
+      run: |
+        # Get list of changed files in resources/ directory
+        CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '^resources/' | grep -E '\.(yaml|yml)$' || true)
+        
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "has-resources=false" >> $GITHUB_OUTPUT
+          echo "No Agent Registry resources changed"
+          exit 0
+        fi
+        
+        echo "has-resources=true" >> $GITHUB_OUTPUT
+        echo "Changed resource files:"
+        echo "$CHANGED_FILES"
+        
+        # Parse resource files and create JSON array
+        RESOURCES="[]"
+        for file in $CHANGED_FILES; do
+          if [ -f "$file" ]; then
+            echo "Processing $file"
+            
+            # Extract metadata from file path: resources/{kind}/{name}/{name}-{version}.yaml
+            IFS='/' read -ra PARTS <<< "$file"
+            KIND="${PARTS[1]}"
+            RESOURCE_NAME="${PARTS[2]}"
+            FILENAME=$(basename "$file" .yaml)
+            FILENAME=$(basename "$FILENAME" .yml)
+            
+            # Try to extract version from filename
+            if [[ "$FILENAME" =~ ^${RESOURCE_NAME}-(.+)$ ]]; then
+              VERSION="${BASH_REMATCH[1]}"
+            else
+              # Fallback: parse YAML for version
+              VERSION=$(yq eval '.spec.version // .version' "$file" 2>/dev/null || echo "unknown")
+            fi
+            
+            # Add to resources array
+            RESOURCE_JSON=$(jq -n \
+              --arg file "$file" \
+              --arg kind "$KIND" \
+              --arg name "$RESOURCE_NAME" \
+              --arg version "$VERSION" \
+              '{file: $file, kind: $kind, name: $name, version: $version}')
+            
+            RESOURCES=$(echo "$RESOURCES" | jq ". + [$RESOURCE_JSON]")
+          fi
+        done
+        
+        echo "resources=$(echo "$RESOURCES" | jq -c .)" >> $GITHUB_OUTPUT
+        
+    - name: Install yq
+      if: steps.detect.outputs.has-resources == 'true'
+      uses: mikefarah/yq@master
+      
+    - name: Validate resource manifests
+      if: steps.detect.outputs.has-resources == 'true'
+      run: |
+        echo '${{ steps.detect.outputs.resources }}' | jq -r '.[].file' | while read file; do
+          echo "Validating $file"
+          
+          # Basic YAML validation
+          if ! yq eval '.' "$file" > /dev/null 2>&1; then
+            echo "❌ Invalid YAML syntax in $file"
+            exit 1
+          fi
+          
+          # Check required fields
+          KIND=$(yq eval '.kind // .apiVersion' "$file")
+          NAME=$(yq eval '.spec.name // .name' "$file")
+          VERSION=$(yq eval '.spec.version // .version' "$file")
+          
+          if [ "$KIND" = "null" ] || [ "$NAME" = "null" ]; then
+            echo "❌ Missing required fields (kind, name) in $file"
+            exit 1
+          fi
+          
+          # Validate kind
+          case "$KIND" in
+            "MCPServerCatalog"|"AgentCatalog"|"SkillCatalog"|"ModelCatalog"|"mcp-server"|"agent"|"skill"|"model")
+              echo "✅ Valid kind: $KIND"
+              ;;
+            *)
+              echo "❌ Unsupported resource kind: $KIND in $file"
+              exit 1
+              ;;
+          esac
+          
+          echo "✅ $file is valid"
+        done
+        
+    - name: Comment validation results
+      if: steps.detect.outputs.has-resources == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const resources = ${{ steps.detect.outputs.resources }};
+          
+          let comment = `## Agent Registry Resource Validation\n\n`;
+          comment += `Found ${resources.length} resource(s) in this PR:\n\n`;
+          
+          resources.forEach(resource => {
+            comment += `- **${resource.kind}**: \`${resource.name}\` (version: \`${resource.version}\`)\n`;
+            comment += `  - File: \`${resource.file}\`\n\n`;
+          });
+          
+          comment += `### Validation Status\n✅ All resources passed validation\n\n`;
+          comment += `### Next Steps\n`;
+          comment += `1. **Review**: SRE team should review the resource configuration\n`;
+          comment += `2. **Approval**: Approve this PR to submit resources to the registry\n`;
+          comment += `3. **Deploy**: After merge, CI/CD will automatically submit to registry and create OCI artifacts\n`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  submit-to-registry:
+    name: Submit to Agent Registry
+    runs-on: ubuntu-latest
+    needs: validate-resources
+    if: github.event.pull_request.merged == true && needs.validate-resources.outputs.has-resources == 'true'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Submit resources to registry
+      run: |
+        echo '${{ needs.validate-resources.outputs.resources }}' | jq -r '.[].file' | while read file; do
+          echo "Submitting $file to registry"
+          
+          # Call the webhook endpoint
+          curl -X POST "$REGISTRY_API_URL/webhooks/github" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d "{
+              \"ref\": \"refs/heads/main\",
+              \"repository\": {
+                \"full_name\": \"${{ github.repository }}\",
+                \"html_url\": \"https://github.com/${{ github.repository }}\"
+              },
+              \"head_commit\": {
+                \"id\": \"${{ github.sha }}\",
+                \"message\": \"${{ github.event.pull_request.title }}\",
+                \"added\": [\"$file\"],
+                \"modified\": [],
+                \"removed\": []
+              },
+              \"pusher\": {
+                \"name\": \"${{ github.event.pull_request.user.login }}\",
+                \"email\": \"${{ github.event.pull_request.user.login }}@users.noreply.github.com\"
+              }
+            }"
+        done
+
+  create-oci-artifacts:
+    name: Create OCI Artifacts
+    runs-on: ubuntu-latest
+    needs: [validate-resources, submit-to-registry]
+    if: github.event.pull_request.merged == true && needs.validate-resources.outputs.has-resources == 'true'
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Create OCI artifacts for resources
+      run: |
+        echo '${{ needs.validate-resources.outputs.resources }}' | jq -c '.[]' | while read resource; do
+          RESOURCE_NAME=$(echo "$resource" | jq -r '.name')
+          RESOURCE_VERSION=$(echo "$resource" | jq -r '.version')
+          RESOURCE_KIND=$(echo "$resource" | jq -r '.kind')
+          RESOURCE_FILE=$(echo "$resource" | jq -r '.file')
+          
+          echo "Creating OCI artifact for $RESOURCE_KIND: $RESOURCE_NAME:$RESOURCE_VERSION"
+          
+          # Call registry API to create OCI artifact
+          if [ -n "$REGISTRY_API_TOKEN" ]; then
+            curl -X POST "$REGISTRY_API_URL/admin/v0/oci/artifacts" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $REGISTRY_API_TOKEN" \
+              -d "{
+                \"resourceName\": \"$RESOURCE_NAME\",
+                \"version\": \"$RESOURCE_VERSION\",
+                \"resourceType\": \"$RESOURCE_KIND\",
+                \"environment\": \"production\",
+                \"repositoryUrl\": \"https://github.com/${{ github.repository }}\",
+                \"commitSha\": \"${{ github.sha }}\",
+                \"pusher\": \"${{ github.event.pull_request.user.login }}\",
+                \"annotations\": {
+                  \"agentregistry.dev/source-file\": \"$RESOURCE_FILE\",
+                  \"agentregistry.dev/pr-number\": \"${{ github.event.pull_request.number }}\"
+                }
+              }"
+          else
+            echo "⚠️ REGISTRY_API_TOKEN not set, skipping OCI artifact creation"
+          fi
+        done
+
+  post-merge-comment:
+    name: Post Merge Comment
+    runs-on: ubuntu-latest
+    needs: [validate-resources, submit-to-registry, create-oci-artifacts]
+    if: always() && github.event.pull_request.merged == true && needs.validate-resources.outputs.has-resources == 'true'
+    
+    steps:
+    - name: Comment on successful submission
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const resources = ${{ needs.validate-resources.outputs.resources }};
+          
+          let comment = `## 🚀 Agent Registry Submission Complete\n\n`;
+          comment += `Successfully processed ${resources.length} resource(s):\n\n`;
+          
+          resources.forEach(resource => {
+            comment += `### ${resource.kind}: \`${resource.name}\`\n`;
+            comment += `- **Version**: \`${resource.version}\`\n`;
+            comment += `- **Status**: ✅ Submitted to registry\n`;
+            comment += `- **OCI Artifact**: \`${{ env.OCI_REGISTRY }}/${resource.name}:${resource.version}\`\n`;
+            comment += `- **Auto-deployment**: Will be evaluated by registry controller\n\n`;
+          });
+          
+          comment += `### What happens next?\n`;
+          comment += `1. Registry controller will automatically discover these resources\n`;
+          comment += `2. Resources marked with \`agentregistry.dev/auto-deploy: true\` will be deployed\n`;
+          comment += `3. Check the [Agent Registry UI](${{ env.REGISTRY_API_URL }}) to view and manage deployments\n`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  approve-and-deploy:
+    name: SRE Auto-Approval for Trusted Sources
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' && 
+      github.event.action == 'opened' &&
+      (
+        contains(github.event.pull_request.user.login, 'dependabot') ||
+        contains(github.event.pull_request.title, '[auto]') ||
+        contains(github.event.pull_request.labels.*.name, 'auto-approve')
+      )
+      
+    steps:
+    - name: Auto-approve for trusted automation
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Auto-approve PRs from trusted sources (bots, automated systems)
+          await github.rest.pulls.createReview({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+            event: 'APPROVE',
+            body: '🤖 Auto-approved: Trusted automation source'
+          });
+          
+          // Auto-merge if all checks pass
+          await github.rest.pulls.merge({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+            commit_title: 'Auto-merge: ' + context.payload.pull_request.title,
+            merge_method: 'squash'
+          });

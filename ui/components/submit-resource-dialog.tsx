@@ -318,9 +318,12 @@ ${formatAsYaml(manifest)}`
     const repoName = repo.replace(/\.git$/, "")
     const manifest = generateManifest()
     const encodedManifest = encodeURIComponent(manifest)
-    const filename = "agentregistry.yaml"
+    
+    // Generate path for monorepo structure: resources/{kind}/{name}/{name}-{version}.yaml
+    const resourceName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+    const filename = `resources/${formData.kind}/${resourceName}/${resourceName}-${formData.version}.yaml`
 
-    // GitHub new file URL with pre-filled content
+    // GitHub new file URL with pre-filled content for monorepo structure
     // Using the new file creation URL pattern
     const prUrl = `https://github.com/${owner}/${repoName}/new/main?filename=${filename}&value=${encodedManifest}&message=feat:%20add%20Agent%20Registry%20manifest&description=This%20PR%20adds%20the%20.agentregistry.yaml%20manifest%20to%20register%20this%20resource%20in%20Agent%20Registry.`
 
