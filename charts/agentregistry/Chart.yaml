@@ -2,8 +2,8 @@ apiVersion: v2
 name: agentregistry
 description: Kubernetes-native agent and MCP server registry
 type: application
-version: 0.1.0
-appVersion: "latest"
+version: 0.5.16
+appVersion: "0.5.16"
 keywords:
   - agent
   - mcp

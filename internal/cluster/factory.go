@@ -41,7 +41,7 @@ type cachedClient struct {
 
 // Factory implements ClientFactory with caching and support for multiple auth methods.
 type Factory struct {
-	localClient client.Client
+	localClient client.WithWatch
 	logger      zerolog.Logger
 	cacheTTL    time.Duration
 
@@ -51,7 +51,7 @@ type Factory struct {
 }
 
 // NewFactory creates a new Factory with the given local client.
-func NewFactory(localClient client.Client, logger zerolog.Logger) *Factory {
+func NewFactory(localClient client.WithWatch, logger zerolog.Logger) *Factory {
 	return &Factory{
 		localClient: localClient,
 		logger:      logger.With().Str("component", "cluster-factory").Logger(),
@@ -146,15 +146,12 @@ func (f *Factory) isLocalCluster(env *agentregistryv1alpha1.Environment) bool {
 	return false
 }
 
-// wrapLocalClient wraps the local client to implement client.WithWatch.
+// wrapLocalClient returns the local client.
 func (f *Factory) wrapLocalClient() (client.WithWatch, error) {
-	// The local client from manager already implements WithWatch
-	if withWatch, ok := f.localClient.(client.WithWatch); ok {
-		return withWatch, nil
+	if f.localClient == nil {
+		return nil, fmt.Errorf("local client does not implement client.WithWatch")
 	}
-
-	// This shouldn't happen with controller-runtime's client
-	return nil, fmt.Errorf("local client does not implement client.WithWatch")
+	return f.localClient, nil
 }
 
 // createClient creates a new client for the environment based on its configuration.

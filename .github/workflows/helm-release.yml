@@ -1,0 +1,32 @@
+name: Helm Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package and push agentregistry
+        run: |
+          helm package charts/agentregistry
+          helm push agentregistry-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+
+      - name: Package and push agentgateway
+        run: |
+          helm package charts/agentgateway
+          helm push agentgateway-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts

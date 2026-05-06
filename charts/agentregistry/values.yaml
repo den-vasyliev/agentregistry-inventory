@@ -112,6 +112,24 @@ httpRoute:
   gatewayNamespace: ""
   sectionName: https
 
+# DiscoveryConfig for multi-cluster agent discovery
+discoveryConfig:
+  enabled: true
+  environments:
+  - name: local
+    discoveryEnabled: true
+    deployEnabled: false
+    namespaces:
+      - kagent
+    resourceTypes:
+      - MCPServer
+      - Agent
+      - ModelConfig
+      - RemoteMCPServer
+    cluster:
+      name: local
+      useWorkloadIdentity: false
+
 # MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
 mcpRoute:
   enabled: false

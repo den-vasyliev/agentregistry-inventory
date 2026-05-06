@@ -1,0 +1,42 @@
+{{- if .Values.discoveryConfig.enabled }}
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: {{ include "agentregistry.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+spec:
+  environments:
+  {{- range .Values.discoveryConfig.environments }}
+  - name: {{ .name }}
+    discoveryEnabled: {{ .discoveryEnabled }}
+    deployEnabled: {{ .deployEnabled }}
+    namespaces:
+    {{- range .namespaces }}
+      - {{ . }}
+    {{- end }}
+    resourceTypes:
+    {{- range .resourceTypes }}
+      - {{ . }}
+    {{- end }}
+    {{- if .labels }}
+    labels:
+      {{- toYaml .labels | nindent 6 }}
+    {{- end }}
+    {{- if .cluster }}
+    cluster:
+      {{- toYaml .cluster | nindent 6 }}
+    {{- end }}
+    {{- if .registry }}
+    registry:
+      {{- toYaml .registry | nindent 6 }}
+    {{- end }}
+    {{- if .a2aEndpoint }}
+    a2aEndpoint: {{ .a2aEndpoint }}
+    {{- end }}
+    {{- if .provider }}
+    provider: {{ .provider }}
+    {{- end }}
+  {{- end }}
+{{- end }}
