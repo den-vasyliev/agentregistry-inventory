@@ -28,7 +28,7 @@
     <img src="https://img.shields.io/badge/▶_Watch_Demo-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube"/>
   </a>
   </p>
-
+<center><img src="docs/img/hackwin.jpeg"></center>
 </div>
 
 <a id="features"></a>
