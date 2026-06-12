@@ -1,0 +1,33 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: SkillCatalog
+metadata:
+  name: tweetclaw-openclaw-v1.6.31
+  namespace: agentregistry
+  labels:
+    category: social-automation
+spec:
+  name: tweetclaw-openclaw
+  version: "1.6.31"
+  title: "TweetClaw OpenClaw Skill"
+  description: "Search tweets, inspect replies, export followers, and prepare reviewed X/Twitter actions."
+  category: social-automation
+  websiteUrl: "https://github.com/Xquik-dev/tweetclaw/tree/master/skills/tweetclaw"
+  repository:
+    url: "https://github.com/Xquik-dev/tweetclaw"
+    source: github
+  packages:
+    - registryType: npm
+      identifier: "@xquik/tweetclaw"
+      version: "1.6.31"
+  _meta:
+    agentregistry.dev/runtime: openclaw
+    agentregistry.dev/install: "openclaw plugins install npm:@xquik/tweetclaw"
+    agentregistry.dev/tools:
+      - explore
+      - tweetclaw
+    agentregistry.dev/requires-review:
+      - post tweets
+      - post tweet replies
+      - media upload
+      - direct messages
+      - webhooks
