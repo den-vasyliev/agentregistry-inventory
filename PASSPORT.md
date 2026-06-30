@@ -2,19 +2,9 @@
 
 ## 1. Identity
 
-Agent Registry is a Kubernetes-native controller that provides a centralized
-registry to curate, discover, deploy, and manage agentic infrastructure — MCP
-servers, agents, skills, and model configs. It ships as a single Go binary that
-runs an in-cluster controller-runtime manager (reconciling six own CRDs and
-deploying kagent/kmcp resources), an embedded HTTP REST API with a static
-Next.js UI, and an embedded MCP server exposing registry tools, prompts, and
-resources. Catalog recommendation tools delegate inference to the connected MCP
-client via MCP **sampling** rather than bundling a model. The admin/write
-surface is authenticated and fail-closed; public catalog-read endpoints are
-open by design.
-
 | Field | Value |
 |---|---|
+| Description | Kubernetes-native controller and registry to curate, discover, deploy, and manage agentic infrastructure (MCP servers, agents, skills, models); single Go binary serving an HTTP API + static UI and an embedded MCP server |
 | Component | Agent Registry (controller) |
 | Module | `github.com/agentregistry-dev/agentregistry` |
 | Repository | `github.com/den-vasyliev/agentregistry-inventory` |
