@@ -50,6 +50,10 @@ spec:
             - name: AGENTREGISTRY_AUTH_ENABLED
               value: "true"
             {{- end }}
+            {{- if .Values.allowedDeployNamespaces }}
+            - name: AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES
+              value: "{{ join "," .Values.allowedDeployNamespaces }}"
+            {{- end }}
             {{- if .Values.azure.tenantId }}
             - name: AZURE_AD_TENANT_ID
               value: "{{ .Values.azure.tenantId }}"

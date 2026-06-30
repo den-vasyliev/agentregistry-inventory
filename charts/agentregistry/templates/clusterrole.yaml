@@ -79,15 +79,10 @@ rules:
       - patch
       - delete
 
-  # Secrets (for API tokens)
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
+  # NOTE: Secret access is intentionally NOT granted cluster-wide. The only
+  # Secret read by the controller is 'agentregistry-api-tokens' in the
+  # controller's own namespace, so it is granted via a namespaced Role
+  # (see role.yaml) following least privilege.
 
   # Leader election
   - apiGroups:

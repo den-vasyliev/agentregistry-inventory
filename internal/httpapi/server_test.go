@@ -234,16 +234,36 @@ func TestServer_GetEnvironments(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestServer_AdminHealthEndpoint_WithAuthDisabled(t *testing.T) {
+func TestServer_AdminHealthEndpoint_RequiresAuth(t *testing.T) {
+	// Admin routes are always authenticated (fail-closed), independent of the
+	// auth toggle. Without a valid token the admin health endpoint must 401.
 	server, _ := setupTestServerWithAuthDisabled(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/v0/health", nil)
 	rec := httptest.NewRecorder()
-
 	server.mux.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, "admin endpoint must reject unauthenticated requests")
+}
 
-	// Should succeed when auth is disabled
-	assert.Equal(t, http.StatusOK, rec.Code)
+func TestServer_AdminHealthEndpoint_WithValidToken(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.allowedTokens["valid-token"] = true
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/health", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	server.mux.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code, "admin endpoint should succeed with a valid token")
+}
+
+func TestServer_PublicEndpointOpen(t *testing.T) {
+	// Public /v0/* routes remain reachable without any token.
+	server, _ := setupTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/v0/servers", nil)
+	rec := httptest.NewRecorder()
+	server.mux.ServeHTTP(rec, req)
+	assert.NotEqual(t, http.StatusUnauthorized, rec.Code, "public endpoint must not require auth")
 }
 
 func TestConvertExternalToSpec(t *testing.T) {
@@ -322,22 +342,36 @@ func TestServer_AuthDisabled_ByDefault(t *testing.T) {
 	assert.False(t, server.authEnabled)
 }
 
-func TestAuthMiddleware_Disabled(t *testing.T) {
-	server, _ := setupTestServerWithAuthDisabled(t)
-	// Force authEnabled off (setupTestServerWithAuthDisabled sets env before NewServer, but
-	// NewServer reads it at construction; re-confirm it stuck)
-	server.authEnabled = false
+func TestAuthMiddleware_PublicPathOpen(t *testing.T) {
+	server, _ := setupTestServer(t)
+	// Public /v0/* routes are always open, regardless of auth toggle or tokens.
+	server.authEnabled = true // even with auth "enabled", public stays open
 
 	called := false
-	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v0/servers", nil)
 	ctx := humatest.NewContext(nil, req, httptest.NewRecorder())
 	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
-	assert.True(t, called)
+	assert.True(t, called, "public route should pass through without a token")
+}
+
+func TestAuthMiddleware_AdminEnforcedRegardlessOfToggle(t *testing.T) {
+	server, _ := setupTestServer(t)
+	// Admin auth is mandatory and fail-closed: even with the auth toggle off
+	// and no tokens loaded, /admin/* must be rejected without a valid token.
+	server.authEnabled = false
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
+	rec := httptest.NewRecorder()
+	ctx := humatest.NewContext(nil, req, rec)
+
+	called := false
+	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
+	assert.False(t, called, "admin route must not be reachable without a token")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestAuthMiddleware_MissingHeader(t *testing.T) {
 	server, _ := setupTestServer(t)
-	server.authEnabled = true
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
 	rec := httptest.NewRecorder()
@@ -351,7 +385,6 @@ func TestAuthMiddleware_MissingHeader(t *testing.T) {
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	server, _ := setupTestServer(t)
-	server.authEnabled = true
 	// allowedTokens is empty — any token is invalid
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
@@ -367,7 +400,6 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
 	server, _ := setupTestServer(t)
-	server.authEnabled = true
 	server.allowedTokens["super-secret-token"] = true
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
@@ -382,7 +414,6 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 
 func TestAuthMiddleware_MalformedHeader(t *testing.T) {
 	server, _ := setupTestServer(t)
-	server.authEnabled = true
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/v0/servers", nil)
 	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
@@ -393,6 +424,28 @@ func TestAuthMiddleware_MalformedHeader(t *testing.T) {
 	server.authMiddleware(ctx, func(_ huma.Context) { called = true })
 	assert.False(t, called)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestRequireAdminToken_MuxHandler(t *testing.T) {
+	server, _ := setupTestServer(t)
+	server.allowedTokens["good-token"] = true
+
+	wrapped := server.requireAdminToken(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	// No token → 401
+	rec := httptest.NewRecorder()
+	wrapped(rec, httptest.NewRequest(http.MethodPost, "/admin/v0/submit", nil))
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	// Valid token → passes through
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/admin/v0/submit", nil)
+	req.Header.Set("Authorization", "Bearer good-token")
+	wrapped(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestConvertExternalToSpec_FullPayload(t *testing.T) {

@@ -30,6 +30,7 @@ type MCPServer struct {
 	allowedTokens map[string]bool
 	mcpServer     *server.MCPServer
 	httpServer    *server.StreamableHTTPServer
+	samplingGuard *samplingGuard
 }
 
 // ServerOption is a functional option for configuring the MCP server
@@ -43,6 +44,7 @@ func NewMCPServer(c client.Client, cache cache.Cache, logger zerolog.Logger, aut
 		logger:        logger.With().Str("component", "mcp").Logger(),
 		authEnabled:   authEnabled,
 		allowedTokens: make(map[string]bool),
+		samplingGuard: newSamplingGuard(),
 	}
 
 	// Apply options
@@ -197,6 +199,12 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 	// Instead we rely on the detached context timeout below as the safety net: if no GET
 	// stream is open to deliver the sampling request, RequestSampling will fail fast or
 	// time out after 5 minutes rather than hanging indefinitely.
+	// Enforce rate limit + aggregate token budget before issuing the (costly)
+	// sampling round-trip, so a caller cannot drive unbounded model usage.
+	if err := s.samplingGuard.allow(samplingMaxTokens); err != nil {
+		return "", err
+	}
+
 	session := server.ClientSessionFromContext(ctx)
 	if session == nil {
 		return "", fmt.Errorf("no active session")
@@ -228,7 +236,7 @@ func (s *MCPServer) requestSampling(ctx context.Context, systemPrompt string, us
 				},
 			},
 			SystemPrompt: systemPrompt,
-			MaxTokens:    4096,
+			MaxTokens:    samplingMaxTokens,
 		},
 	})
 	if err != nil {

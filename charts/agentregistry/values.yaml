@@ -13,6 +13,31 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# Application CR (app.k8s.io/v1beta1) for GKE Marketplace / kubectl-friendly
+# grouping of all chart components under a single Application object.
+# Requires the Application CRD (cluster-application-controller) to be installed.
+application:
+  # Set to true to render the Application manifest.
+  create: false
+  keywords:
+    - agent
+    - mcp
+    - registry
+    - kubernetes
+    - controller
+  maintainers:
+    - name: Agent Registry Team
+      email: maintainers@agentregistry.dev
+  owners: []
+  links:
+    - description: Project source
+      url: https://github.com/den-vasyliev/agentregistry-inventory
+  notes: ""
+  # Extra annotations to set on the Application object (e.g. marketplace metadata).
+  annotations: {}
+  # assemblyPhase: Pending | Succeeded (leave empty to omit).
+  assemblyPhase: ""
+
 # Controller configuration
 controller:
   # Enable leader election for HA deployments
@@ -91,9 +116,23 @@ podDisruptionBudget:
 # Azure AD configuration for MSAL browser PKCE flow.
 # Injected as env vars so the Go binary can serve /ui/config.js at runtime.
 # No client secret required — PKCE is a public client flow.
-# Set to true to disable Bearer token auth on admin API and MCP endpoints.
-# Useful during initial setup or when auth is handled entirely by the gateway.
-disableAuth: true
+# Bearer-token auth toggle for the MCP endpoints and the UI auth-config flag.
+#
+# NOTE: The HTTP /admin/* API is ALWAYS authenticated and fail-closed regardless
+# of this setting — admin routes reject every request until tokens are present in
+# the 'agentregistry-api-tokens' Secret. This toggle only governs the MCP server's
+# Bearer-token enforcement and the authEnabled flag served to the UI.
+#
+# Defaults to false (auth enabled) so the deployment is secure out of the box.
+# Set to true only when auth is handled entirely by the gateway, or for a
+# throwaway dev/demo cluster.
+disableAuth: false
+
+# Namespaces that catalog items may be deployed into. By default only the
+# controller's own release namespace is allowed, preventing a caller from using
+# the controller's cluster-wide RBAC to schedule workloads into arbitrary
+# namespaces. Add namespaces here to widen the allowlist, e.g. ["team-a", "team-b"].
+allowedDeployNamespaces: []
 
 azure:
   tenantId: ""
@@ -111,9 +150,3 @@ httpRoute:
   gatewayName: mcp-gateway
   gatewayNamespace: ""
   sectionName: https
-
-# MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
-mcpRoute:
-  enabled: false
-  # Name of the token secret for agentgateway auth
-  authSecretName: agentregistry-mcp-token

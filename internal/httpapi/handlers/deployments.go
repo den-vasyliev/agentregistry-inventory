@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
+	"github.com/agentregistry-dev/agentregistry/internal/config"
 	"github.com/agentregistry-dev/agentregistry/internal/controller"
 )
 
@@ -279,10 +280,17 @@ func (h *DeploymentHandler) createDeployment(ctx context.Context, input *CreateD
 	// Always use kubernetes runtime
 	runtime := agentregistryv1alpha1.RuntimeTypeKubernetes
 
-	// Target namespace for the deployed resources (MCPServer, Agent, etc.)
+	// Target namespace for the deployed resources (MCPServer, Agent, etc.).
+	// Restrict to an allowlist so a caller cannot use the controller's
+	// cluster-wide RBAC to schedule workloads into arbitrary namespaces.
 	targetNamespace := input.Body.Namespace
 	if targetNamespace == "" {
-		targetNamespace = "agentregistry"
+		targetNamespace = config.GetNamespace()
+	}
+	if !config.IsDeploymentNamespaceAllowed(targetNamespace) {
+		return nil, huma.Error403Forbidden(
+			"Deployment into namespace " + targetNamespace + " is not allowed",
+		)
 	}
 
 	deployment := &agentregistryv1alpha1.RegistryDeployment{

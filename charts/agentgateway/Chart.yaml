@@ -1,9 +1,0 @@
-apiVersion: v2
-name: agentgateway
-description: Agent Gateway proxy for agentregistry — JWT auth + MCP authorization
-type: application
-version: 0.1.0
-appVersion: "0.3.0"
-home: https://agentgateway.dev
-sources:
-  - https://github.com/agentgateway/agentgateway

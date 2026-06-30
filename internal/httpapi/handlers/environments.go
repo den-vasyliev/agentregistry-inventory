@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -96,9 +97,11 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API, pathPrefix string, isA
 		tags = append(tags, "admin")
 	}
 
-	// List environments from DiscoveryConfig
+	// List environments from DiscoveryConfig.
+	// Operation IDs are suffixed with the path prefix so that registering both
+	// the public (/v0) and admin (/admin/v0) routes does not collide.
 	huma.Register(api, huma.Operation{
-		OperationID: "list-environments",
+		OperationID: "list-environments" + strings.ReplaceAll(pathPrefix, "/", "-"),
 		Method:      http.MethodGet,
 		Path:        pathPrefix + "/environments",
 		Summary:     "List available environments from DiscoveryConfig",
@@ -109,7 +112,7 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API, pathPrefix string, isA
 
 	// Discovery map for topology visualization
 	huma.Register(api, huma.Operation{
-		OperationID: "get-discovery-map",
+		OperationID: "get-discovery-map" + strings.ReplaceAll(pathPrefix, "/", "-"),
 		Method:      http.MethodGet,
 		Path:        pathPrefix + "/discovery/map",
 		Summary:     "Get discovery topology map for visualization",

@@ -10,7 +10,7 @@
   </p>
 
   <p>
-    <a href="https://golang.org/doc/install"><img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.25+"></a>
+    <a href="https://golang.org/doc/install"><img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26+"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
     <a href="https://github.com/den-vasyliev/agentregistry-inventory"><img src="https://img.shields.io/badge/coverage-40.2%25-yellow?style=flat-square" alt="Coverage"></a>
     <a href="https://discord.gg/HTYNjF2y2t"><img src="https://img.shields.io/discord/1435836734666707190?style=flat-square&label=Discord&logo=discord&logoColor=white&color=5865F2" alt="Discord"></a>
@@ -322,9 +322,7 @@ helm install agentregistry ./charts/agentregistry \
 
 ## 🔐 Authentication
 
-Auth is **disabled by default**. When enabled (`disableAuth: false`), the admin API and MCP server require a Bearer token from the `agentregistry-api-tokens` Kubernetes Secret.
-
-For production deployments with a gateway, use [agentgateway](charts/agentgateway/) to handle Azure AD JWT validation in front of the controller — keep `disableAuth: true` on the backend and let the gateway enforce auth.
+The admin API (`/admin/*`) is **always authenticated and fail-closed**: it requires a Bearer token from the `agentregistry-api-tokens` Kubernetes Secret and rejects every request when no tokens are configured, regardless of `disableAuth`. Public read endpoints (`/v0/*`) remain open. The `disableAuth` chart value (default `false`) governs Bearer-token enforcement on the MCP server and the auth flag served to the UI.
 
 ### Enable Bearer Token Auth
 

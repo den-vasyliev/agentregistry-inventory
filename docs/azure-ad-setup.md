@@ -58,11 +58,12 @@ azure:
 
 The Go binary reads these at startup and serves them via `/config.js`. MSAL loads the config on page load and redirects to Azure AD if no session exists.
 
-## Gateway (agentgateway)
+## Gateway (optional)
 
-For production, deploy [agentgateway](../charts/agentgateway/) in front of the controller to handle JWT validation. The controller backend runs with `disableAuth: true` and trusts the gateway to enforce auth.
-
-See [config/agentgateway/config.yaml](../config/agentgateway/config.yaml) for the full gateway config with JWT rules.
+The controller authenticates its admin API itself (Bearer tokens from the
+`agentregistry-api-tokens` Secret), so no auth gateway is required. If you want
+to front it with a gateway that validates Azure AD JWTs (e.g. [agentgateway](https://agentgateway.dev/)),
+deploy that gateway separately and point it at the controller's API/MCP ports.
 
 ## Local Development
 

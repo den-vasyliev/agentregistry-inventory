@@ -16,6 +16,10 @@ import (
 )
 
 func setupDeploymentTestClient(t *testing.T) client.Client {
+	// The deployment handler enforces a namespace allowlist. These tests deploy
+	// into "default"/"prod", so widen the allowlist for the duration of the test.
+	t.Setenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES", "default,prod,agentregistry")
+
 	scheme := runtime.NewScheme()
 	require.NoError(t, agentregistryv1alpha1.AddToScheme(scheme))
 	return fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -125,6 +129,35 @@ func TestDeploymentHandler_CreateDeployment_WithConfig(t *testing.T) {
 	assert.NotNil(t, resp.Body.Deployment.Config)
 	assert.Equal(t, "secret123", resp.Body.Deployment.Config["API_KEY"])
 	assert.Equal(t, "https://api.example.com", resp.Body.Deployment.Config["ENDPOINT"])
+}
+
+func TestDeploymentHandler_CreateDeployment_NamespaceNotAllowed(t *testing.T) {
+	// Explicitly restrict the allowlist to the controller namespace only.
+	t.Setenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES", "")
+	t.Setenv("POD_NAMESPACE", "")
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, agentregistryv1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	ctx := context.Background()
+	handler := NewDeploymentHandler(c, nil, zerolog.Nop())
+
+	input := &CreateDeploymentInput{}
+	input.Body.ResourceName = "evil"
+	input.Body.Version = "1.0.0"
+	input.Body.ResourceType = "mcp"
+	input.Body.Runtime = "kubernetes"
+	input.Body.Namespace = "kube-system" // not allowed
+
+	resp, err := handler.createDeployment(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "not allowed")
+
+	// Nothing should have been created.
+	var deployments agentregistryv1alpha1.RegistryDeploymentList
+	require.NoError(t, c.List(ctx, &deployments))
+	assert.Empty(t, deployments.Items)
 }
 
 func TestDeploymentHandler_CreateDeployment_InvalidRuntime(t *testing.T) {

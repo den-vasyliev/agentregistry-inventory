@@ -138,6 +138,6 @@ defer helper.Cleanup(t)
 
 ## Environment
 
-- **Go**: 1.25+
+- **Go**: 1.26+
 - **Node.js**: 18+
 - **Kubernetes**: 1.27+

@@ -89,6 +89,44 @@ func TestGetEnv(t *testing.T) {
 	}
 }
 
+func TestIsDeploymentNamespaceAllowed(t *testing.T) {
+	originalPod := os.Getenv("POD_NAMESPACE")
+	originalAllowed := os.Getenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES")
+	defer func() {
+		os.Setenv("POD_NAMESPACE", originalPod)
+		os.Setenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES", originalAllowed)
+	}()
+
+	os.Unsetenv("POD_NAMESPACE") // default namespace == "agentregistry"
+
+	// Default: only the controller namespace (and empty == default) allowed.
+	os.Unsetenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES")
+	if !IsDeploymentNamespaceAllowed("") {
+		t.Error("empty namespace should be allowed (defaults to controller ns)")
+	}
+	if !IsDeploymentNamespaceAllowed(DefaultNamespace) {
+		t.Errorf("controller namespace %q should be allowed by default", DefaultNamespace)
+	}
+	if IsDeploymentNamespaceAllowed("kube-system") {
+		t.Error("arbitrary namespace must be rejected by default")
+	}
+
+	// Operator-configured allowlist widens the set.
+	os.Setenv("AGENTREGISTRY_ALLOWED_DEPLOY_NAMESPACES", "team-a, team-b")
+	if !IsDeploymentNamespaceAllowed("team-a") {
+		t.Error("team-a should be allowed when in the allowlist")
+	}
+	if !IsDeploymentNamespaceAllowed("team-b") {
+		t.Error("team-b should be allowed (whitespace trimmed)")
+	}
+	if !IsDeploymentNamespaceAllowed(DefaultNamespace) {
+		t.Error("controller namespace should remain allowed alongside the allowlist")
+	}
+	if IsDeploymentNamespaceAllowed("team-c") {
+		t.Error("namespace outside the allowlist must be rejected")
+	}
+}
+
 func TestIsAuthEnabled(t *testing.T) {
 	// Save original value
 	original := os.Getenv("AGENTREGISTRY_AUTH_ENABLED")

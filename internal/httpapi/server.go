@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -81,42 +82,75 @@ func NewServer(c client.Client, cache cache.Cache, logger zerolog.Logger, opts .
 	return s
 }
 
-// authMiddleware checks for valid Bearer token on admin endpoints
+// isAdminPath reports whether the request path is an admin (mutating) route
+// that must always be authenticated.
+func isAdminPath(path string) bool {
+	return strings.HasPrefix(path, "/admin/")
+}
+
+// authMiddleware enforces Bearer-token authentication on admin endpoints.
+//
+// Authorization model:
+//   - Public /v0/* routes are always open (read-only catalog browsing).
+//   - /admin/* routes ALWAYS require a valid Bearer token. This is mandatory
+//     and fail-closed: it does not depend on AGENTREGISTRY_AUTH_ENABLED, and if
+//     no tokens are loaded every admin request is rejected.
+//
+// It is registered as a huma middleware (see registerRoutes) so it runs for
+// every huma-routed operation; the mux-level /admin/v0/submit handler is gated
+// separately by requireAdminToken.
 func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
-	// Skip auth if disabled
-	if !s.authEnabled {
+	// Public routes pass through untouched.
+	if !isAdminPath(ctx.URL().Path) {
 		next(ctx)
 		return
 	}
 
-	// Check for Authorization header
-	authHeader := ctx.Header("Authorization")
-	if authHeader == "" {
-		ctx.SetStatus(http.StatusUnauthorized)
-		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Missing Authorization header")
-		return
-	}
-
-	// Extract Bearer token
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		ctx.SetStatus(http.StatusUnauthorized)
-		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Invalid Authorization header format")
-		return
-	}
-
-	token := parts[1]
-
-	// Validate token
-	if !s.allowedTokens[token] {
-		s.logger.Warn().Str("token_prefix", token[:min(8, len(token))]).Msg("invalid token")
-		ctx.SetStatus(http.StatusUnauthorized)
-		huma.WriteErr(s.api, ctx, http.StatusUnauthorized, "Invalid token")
+	if status, msg := s.checkAdminToken(ctx.Header("Authorization")); status != http.StatusOK {
+		ctx.SetStatus(status)
+		huma.WriteErr(s.api, ctx, status, msg)
 		return
 	}
 
 	// Token valid, continue
 	next(ctx)
+}
+
+// checkAdminToken validates an Authorization header value against the loaded
+// admin token allowlist. It returns http.StatusOK on success, otherwise the
+// 401 status and a message. Admin auth is unconditional: an empty allowlist
+// rejects everything (fail-closed).
+func (s *Server) checkAdminToken(authHeader string) (int, string) {
+	if authHeader == "" {
+		return http.StatusUnauthorized, "Missing Authorization header"
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return http.StatusUnauthorized, "Invalid Authorization header format"
+	}
+
+	token := parts[1]
+	if !s.allowedTokens[token] {
+		s.logger.Warn().Str("token_prefix", token[:min(8, len(token))]).Msg("invalid admin token")
+		return http.StatusUnauthorized, "Invalid token"
+	}
+
+	return http.StatusOK, ""
+}
+
+// requireAdminToken wraps a raw http.HandlerFunc with the same mandatory admin
+// auth used by authMiddleware. Used for endpoints registered directly on the
+// mux (which bypass huma middleware), e.g. /admin/v0/submit.
+func (s *Server) requireAdminToken(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if status, msg := s.checkAdminToken(r.Header.Get("Authorization")); status != http.StatusOK {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, msg), status)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // loadTokensFromSecret loads API tokens from Kubernetes Secret
@@ -135,7 +169,7 @@ func (s *Server) loadTokensFromSecret() {
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			s.logger.Warn().Msg("Secret 'agentregistry-api-tokens' not found - admin API will reject all requests")
+			s.logger.Warn().Msg("Secret 'agentregistry-api-tokens' not found - admin API is fail-closed and will reject ALL /admin/* requests until tokens are configured")
 		} else {
 			s.logger.Error().Err(err).Msg("failed to read API tokens secret")
 		}
@@ -156,6 +190,11 @@ func (s *Server) loadTokensFromSecret() {
 
 // registerRoutes registers all HTTP routes
 func (s *Server) registerRoutes() {
+	// Enforce mandatory admin auth on every huma-routed operation. The
+	// middleware itself scopes enforcement to /admin/* paths and lets public
+	// /v0/* routes through.
+	s.api.UseMiddleware(s.authMiddleware)
+
 	// Create handlers with cache access
 	serverHandler := handlers.NewServerHandler(s.client, s.cache, s.logger)
 	agentHandler := handlers.NewAgentHandler(s.client, s.cache, s.logger)
@@ -182,9 +221,11 @@ func (s *Server) registerRoutes() {
 	// Register admin utility endpoints
 	s.registerAdminUtilityRoutes()
 
-	// Register submit endpoint
+	// Register submit endpoint. This handler is registered directly on the mux
+	// (not via huma), so it bypasses the huma auth middleware and must be
+	// wrapped explicitly with the same mandatory admin auth.
 	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
-	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
+	s.mux.HandleFunc("/admin/v0/submit", s.requireAdminToken(submitHandler.Submit))
 
 	// Version endpoint (public)
 	s.mux.HandleFunc("/v0/version", func(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +292,10 @@ type HealthStatus struct {
 }
 
 type ImportRequest struct {
-	Source         string            `json:"source"`
+	Source string `json:"source"`
+	// Headers is retained for backward compatibility but is intentionally
+	// ignored by the server: forwarding caller-controlled headers to an
+	// arbitrary fetch target is an SSRF/credential-leak risk.
 	Headers        map[string]string `json:"headers,omitempty"`
 	Update         bool              `json:"update,omitempty"`
 	SkipValidation bool              `json:"skip_validation,omitempty"`
@@ -357,36 +401,45 @@ func (s *Server) importFromSource(ctx context.Context, input *ImportInput) (*Imp
 		Bool("update", input.Body.Update).
 		Msg("import requested")
 
-	// Fetch data from source
+	// Validate the source URL (https-only) before fetching. Per-IP SSRF
+	// filtering happens in the safe client's dial control after DNS resolution.
+	if _, err := validateImportURL(input.Body.Source); err != nil {
+		return nil, huma.Error400BadRequest("Invalid source URL", err)
+	}
+
+	// Fetch data from source. We intentionally do NOT forward caller-supplied
+	// headers (input.Body.Headers) — they could be used to reach authenticated
+	// internal endpoints or smuggle credentials to arbitrary hosts.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, input.Body.Source, nil)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid source URL", err)
 	}
+	req.Header.Set("Accept", "application/json")
 
-	// Add custom headers if provided
-	for k, v := range input.Body.Headers {
-		req.Header.Set(k, v)
-	}
-
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := newSafeHTTPClient(30 * time.Second)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("Failed to fetch from source", err)
+		// Do not surface the underlying dial error verbatim — it can confirm
+		// the existence/reachability of internal hosts (SSRF oracle).
+		s.logger.Warn().Err(err).Str("source", input.Body.Source).Msg("import fetch failed")
+		return nil, huma.Error502BadGateway("Failed to fetch from source")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, huma.Error500InternalServerError(
-			fmt.Sprintf("Source returned status %d: %s", resp.StatusCode, string(body)),
-			nil,
+		// Do not reflect the upstream response body back to the caller.
+		return nil, huma.Error502BadGateway(
+			fmt.Sprintf("Source returned status %d", resp.StatusCode),
 		)
 	}
 
-	// Parse response - support both array of servers and object with servers field
-	body, err := io.ReadAll(resp.Body)
+	// Parse response - support both array of servers and object with servers
+	// field. Cap the body size to avoid unbounded memory use from a hostile
+	// or oversized source.
+	const maxImportBytes = 10 << 20 // 10 MiB
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxImportBytes))
 	if err != nil {
-		return nil, huma.Error500InternalServerError("Failed to read response body", err)
+		return nil, huma.Error502BadGateway("Failed to read response body")
 	}
 
 	var servers []ExternalServerJSON
@@ -733,16 +786,32 @@ func (r *serverRunnable) Start(ctx context.Context) error {
 	// Load API tokens now that the cache is started
 	r.server.loadTokensFromSecret()
 
-	// Set up CORS - allow configurable origins, default to same-origin only
+	// Set up CORS. Cross-origin requests are only enabled when explicit origins
+	// are configured via AGENTREGISTRY_CORS_ORIGINS; otherwise the API is
+	// same-origin only (empty allowlist => no cross-origin access). We never
+	// combine a wildcard "*" origin with credentialed requests, which the
+	// browser would reject anyway and which would be unsafe.
 	allowedOrigins := []string{}
+	allowCredentials := false
 	if origins := os.Getenv("AGENTREGISTRY_CORS_ORIGINS"); origins != "" {
-		allowedOrigins = strings.Split(origins, ",")
+		for o := range strings.SplitSeq(origins, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				allowedOrigins = append(allowedOrigins, o)
+			}
+		}
+		// Only allow credentials with a concrete origin allowlist. A "*" entry
+		// disables credentials to avoid an unsafe wildcard+credentials combo.
+		allowCredentials = len(allowedOrigins) > 0
+		if slices.Contains(allowedOrigins, "*") {
+			allowCredentials = false
+			r.server.logger.Warn().Msg("CORS configured with wildcard origin '*'; disabling AllowCredentials")
+		}
 	}
 	c := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "Accept"},
-		AllowCredentials: true,
+		AllowCredentials: allowCredentials,
 	})
 
 	// Use wrapped handler if UI is embedded, otherwise use mux directly
