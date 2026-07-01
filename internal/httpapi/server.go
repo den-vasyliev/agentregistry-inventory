@@ -107,8 +107,10 @@ func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 	}
 
 	if status, msg := s.checkAdminToken(ctx.Header("Authorization")); status != http.StatusOK {
-		ctx.SetStatus(status)
-		huma.WriteErr(s.api, ctx, status, msg)
+		// huma.WriteErr writes the status header itself; do NOT also call
+		// ctx.SetStatus or the header is written twice ("superfluous
+		// response.WriteHeader" warning).
+		_ = huma.WriteErr(s.api, ctx, status, msg)
 		return
 	}
 
