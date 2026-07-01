@@ -13,8 +13,8 @@
 | Commit | `e2454cc` |
 | Owner | den.vasyliev@gmail.com |
 | License | Apache-2.0 |
-| Audit status | Remediated — all HIGH/CRITICAL findings fixed; 0 HIGH/CRITICAL CVEs (2026-06-30) |
-| Code review | All findings remediated — 2026-06-30 |
+| Audit status | Remediated and re-verified — 0 HIGH/CRITICAL findings, 0 HIGH/CRITICAL CVEs (2026-07-01) |
+| Code review | All findings remediated; public/admin API split verified — 2026-07-01 |
 
 ## 2. Classification
 
@@ -80,8 +80,8 @@ ServiceAccount created by chart. On GKE, uses workload identity / GCP default cr
 
 | Port | Service | Deployed auth state |
 |---|---|---|
-| `:8080` | HTTP REST API (`/v0`, `/admin/v0`) + embedded static UI | `/admin/*` routes always authenticated and fail-closed (mandatory bearer token, independent of toggle); `/v0/*` public read open by design |
-| `:8083` | MCP server (HTTP) | Bearer-token middleware; chart default `disableAuth: false` (auth enabled). Write/mutating tools fail-closed when auth disabled |
+| `:8080` | HTTP REST API (`/v0`, `/admin/v0`) + embedded static UI | Reads are public under `/v0/*`; all mutating endpoints are served only under `/admin/*`, which is always authenticated and fail-closed (mandatory bearer token, independent of toggle). `/v0/submit` validates a manifest but performs no cluster write |
+| `:8083` | MCP server (HTTP) | Bearer-token middleware; chart default `disableAuth: false` (auth enabled). Write/mutating tools fail-closed when auth disabled; deploy tool honors the namespace allowlist |
 | `:8081` | Prometheus metrics | None |
 | `:8082` | Health / readiness probes | None |
 

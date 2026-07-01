@@ -15,7 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SubmitHandler handles resource submission from external repositories
+// SubmitHandler handles resource submission from external repositories.
+//
+// Submission is a public, non-mutating propose flow: it fetches and validates a
+// manifest but does not write to the cluster. The client is retained for the
+// planned PR-based submission flow (see Submit).
 type SubmitHandler struct {
 	client client.Client
 	logger zerolog.Logger
@@ -278,24 +282,6 @@ func validateManifest(m *AgentRegistryManifest) error {
 		return fmt.Errorf("version is required")
 	}
 	return nil
-}
-
-func sanitizeCRName(name string) string {
-	// Convert to lowercase and replace invalid characters
-	name = strings.ToLower(name)
-	name = strings.ReplaceAll(name, "/", "-")
-	name = strings.ReplaceAll(name, "_", "-")
-	name = strings.ReplaceAll(name, ".", "-")
-
-	// Truncate to 63 characters (K8s limit)
-	if len(name) > 63 {
-		name = name[:63]
-	}
-
-	// Remove trailing hyphens
-	name = strings.TrimSuffix(name, "-")
-
-	return name
 }
 
 func (h *SubmitHandler) respondError(w http.ResponseWriter, status int, message string) {

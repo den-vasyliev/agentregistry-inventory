@@ -539,7 +539,13 @@ func (s *MCPServer) handleDeployCatalogItem(ctx context.Context, request mcp.Cal
 	namespace := getStringArg(args, "namespace")
 
 	if namespace == "" {
-		namespace = "agentregistry"
+		namespace = config.GetNamespace()
+	}
+	// Restrict the deploy target to the allowlist, mirroring the HTTP
+	// createDeployment path, so a caller cannot use the controller's
+	// cluster-wide RBAC to schedule workloads into arbitrary namespaces.
+	if !config.IsDeploymentNamespaceAllowed(namespace) {
+		return errorResult(fmt.Sprintf("Deployment into namespace %s is not allowed", namespace)), nil
 	}
 
 	if resourceType != "mcp" && resourceType != "agent" {

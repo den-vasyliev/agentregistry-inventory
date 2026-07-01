@@ -126,29 +126,3 @@ func TestValidateManifest(t *testing.T) {
 		})
 	}
 }
-
-func TestSanitizeCRName(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"simple-name", "simple-name"},
-		{"Name/With/Slashes", "name-with-slashes"},
-		{"name_with_underscores", "name-with-underscores"},
-		{"name.with.dots", "name-with-dots"},
-		{"MixedCase", "mixedcase"},
-		// Truncation to 63 chars
-		{
-			"a-very-long-name-that-exceeds-the-kubernetes-limit-of-sixty-three-characters-total",
-			"a-very-long-name-that-exceeds-the-kubernetes-limit-of-sixty-thr",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := sanitizeCRName(tt.input)
-			assert.Equal(t, tt.want, got)
-			assert.LessOrEqual(t, len(got), 63)
-		})
-	}
-}
