@@ -16,8 +16,8 @@ ifeq ($(shell git describe --exact-match --tags 2>/dev/null),)
 NEXT_VERSION := $(shell echo $(BASE_VERSION) | awk -F. '{$$3=$$3+1; print $$1"."$$2"."$$3}')
 VERSION ?= v$(NEXT_VERSION)-$(GIT_COMMIT)-$(BUILD_TIMESTAMP)
 else
-# On a tag - use the tag as-is (strip v prefix if present)
-VERSION ?= $(shell echo $(LAST_TAG) | sed 's/^v//')
+# On a tag - use the tag as-is (keep the v prefix)
+VERSION ?= $(LAST_TAG)
 endif
 
 LDFLAGS := \
