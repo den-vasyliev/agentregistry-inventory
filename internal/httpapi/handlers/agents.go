@@ -179,20 +179,30 @@ func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 	}, func(ctx context.Context, input *AgentVersionDetailInput) (*Response[AgentResponse], error) {
 		return h.getAgentVersion(ctx, input, isAdmin)
 	})
-
-	// Create agent
+	// List all versions of an agent (read-only; available publicly).
 	huma.Register(api, huma.Operation{
-		OperationID: "push-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodPost,
-		Path:        pathPrefix + "/agents/push",
-		Summary:     "Push agent",
+		OperationID: "list-agent-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
+		Method:      http.MethodGet,
+		Path:        pathPrefix + "/agents/{agentName}/versions",
+		Summary:     "List all versions of an agent",
 		Tags:        tags,
-	}, func(ctx context.Context, input *CreateAgentInput) (*Response[AgentResponse], error) {
-		return h.createAgent(ctx, input)
+	}, func(ctx context.Context, input *AgentDetailInput) (*Response[AgentListResponse], error) {
+		return h.listAgentVersions(ctx, input)
 	})
 
-	// Admin-only endpoints
+	// Admin-only endpoints (mutations).
 	if isAdmin {
+		// Create agent (push)
+		huma.Register(api, huma.Operation{
+			OperationID: "push-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodPost,
+			Path:        pathPrefix + "/agents/push",
+			Summary:     "Push agent",
+			Tags:        tags,
+		}, func(ctx context.Context, input *CreateAgentInput) (*Response[AgentResponse], error) {
+			return h.createAgent(ctx, input)
+		})
+
 		// Create agent (POST /admin/v0/agents) - same as push but different path for UI compatibility
 		huma.Register(api, huma.Operation{
 			OperationID: "create-agent" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -202,17 +212,6 @@ func (h *AgentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			Tags:        tags,
 		}, func(ctx context.Context, input *CreateAgentInput) (*Response[AgentResponse], error) {
 			return h.createAgent(ctx, input)
-		})
-
-		// List all versions of an agent
-		huma.Register(api, huma.Operation{
-			OperationID: "list-agent-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodGet,
-			Path:        pathPrefix + "/agents/{agentName}/versions",
-			Summary:     "List all versions of an agent",
-			Tags:        tags,
-		}, func(ctx context.Context, input *AgentDetailInput) (*Response[AgentListResponse], error) {
-			return h.listAgentVersions(ctx, input)
 		})
 	}
 }

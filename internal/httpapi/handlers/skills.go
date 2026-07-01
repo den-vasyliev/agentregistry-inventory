@@ -152,19 +152,30 @@ func (h *SkillHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 		return h.getSkillVersion(ctx, input, isAdmin)
 	})
 
-	// Create skill
+	// List all versions of a skill (read-only; available publicly).
 	huma.Register(api, huma.Operation{
-		OperationID: "push-skill" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodPost,
-		Path:        pathPrefix + "/skills/push",
-		Summary:     "Push skill",
+		OperationID: "list-skill-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
+		Method:      http.MethodGet,
+		Path:        pathPrefix + "/skills/{skillName}/versions",
+		Summary:     "List all versions of a skill",
 		Tags:        tags,
-	}, func(ctx context.Context, input *CreateSkillInput) (*Response[SkillResponse], error) {
-		return h.createSkill(ctx, input)
+	}, func(ctx context.Context, input *SkillDetailInput) (*Response[SkillListResponse], error) {
+		return h.listSkillVersions(ctx, input)
 	})
 
-	// Admin-only endpoints
+	// Admin-only endpoints (mutations).
 	if isAdmin {
+		// Create skill (push)
+		huma.Register(api, huma.Operation{
+			OperationID: "push-skill" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodPost,
+			Path:        pathPrefix + "/skills/push",
+			Summary:     "Push skill",
+			Tags:        tags,
+		}, func(ctx context.Context, input *CreateSkillInput) (*Response[SkillResponse], error) {
+			return h.createSkill(ctx, input)
+		})
+
 		// Create skill (POST /admin/v0/skills) - same as push but different path for UI compatibility
 		huma.Register(api, huma.Operation{
 			OperationID: "create-skill" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -174,17 +185,6 @@ func (h *SkillHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin b
 			Tags:        tags,
 		}, func(ctx context.Context, input *CreateSkillInput) (*Response[SkillResponse], error) {
 			return h.createSkill(ctx, input)
-		})
-
-		// List all versions of a skill
-		huma.Register(api, huma.Operation{
-			OperationID: "list-skill-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodGet,
-			Path:        pathPrefix + "/skills/{skillName}/versions",
-			Summary:     "List all versions of a skill",
-			Tags:        tags,
-		}, func(ctx context.Context, input *SkillDetailInput) (*Response[SkillListResponse], error) {
-			return h.listSkillVersions(ctx, input)
 		})
 	}
 }

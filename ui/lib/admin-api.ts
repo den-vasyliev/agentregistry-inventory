@@ -1,5 +1,6 @@
 // Admin API client for the registry management UI
-// This client communicates with the /admin/v0 API endpoints
+// This client reads via the public /v0 API endpoints and performs writes
+// (create/delete/import) via the authenticated /admin/v0 endpoints.
 
 // Determine API base URL:
 // - NEXT_PUBLIC_API_URL set explicitly → use it (empty string = same origin for static export)
@@ -554,7 +555,7 @@ class AdminApiClient {
     if (params?.version) queryParams.append('version', params.version)
     if (params?.updated_since) queryParams.append('updated_since', params.updated_since)
 
-    const url = `${this.baseUrl}/admin/v0/servers${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const url = `${this.baseUrl}/v0/servers${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await this.fetchWithRetry(url, { headers: this.getHeaders() })
     if (!response.ok) {
       throw new Error(`Failed to fetch servers: ${response.status} ${response.statusText}`)
@@ -589,7 +590,7 @@ class AdminApiClient {
   async getServer(serverName: string, version: string = 'latest'): Promise<ServerResponse> {
     const encodedName = encodeURIComponent(serverName)
     const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers/${encodedName}/versions/${encodedVersion}`)
+    const response = await fetch(`${this.baseUrl}/v0/servers/${encodedName}/versions/${encodedVersion}`)
     if (!response.ok) {
       throw new Error('Failed to fetch server')
     }
@@ -599,7 +600,7 @@ class AdminApiClient {
   // Get all versions of a server
   async getServerVersions(serverName: string): Promise<ServerListResponse> {
     const encodedName = encodeURIComponent(serverName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/servers/${encodedName}/versions`)
+    const response = await fetch(`${this.baseUrl}/v0/servers/${encodedName}/versions`)
     if (!response.ok) {
       throw new Error('Failed to fetch server versions')
     }
@@ -659,7 +660,7 @@ class AdminApiClient {
 
   // Get registry statistics
   async getStats(): Promise<ServerStats> {
-    const response = await fetch(`${this.baseUrl}/admin/v0/stats`)
+    const response = await fetch(`${this.baseUrl}/v0/stats`)
     if (!response.ok) {
       throw new Error('Failed to fetch statistics')
     }
@@ -668,7 +669,7 @@ class AdminApiClient {
 
   // Health check
   async healthCheck(): Promise<{ status: string }> {
-    const response = await fetch(`${this.baseUrl}/admin/v0/health`)
+    const response = await fetch(`${this.baseUrl}/v0/health`)
     if (!response.ok) {
       throw new Error('Health check failed')
     }
@@ -701,7 +702,7 @@ class AdminApiClient {
     if (params?.version) queryParams.append('version', params.version)
     if (params?.updated_since) queryParams.append('updated_since', params.updated_since)
 
-    const url = `${this.baseUrl}/admin/v0/skills${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const url = `${this.baseUrl}/v0/skills${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await this.fetchWithRetry(url, { headers: this.getHeaders() })
     if (!response.ok) {
       throw new Error('Failed to fetch skills')
@@ -736,7 +737,7 @@ class AdminApiClient {
   async getSkill(skillName: string, version: string = 'latest'): Promise<SkillResponse> {
     const encodedName = encodeURIComponent(skillName)
     const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions/${encodedVersion}`)
+    const response = await fetch(`${this.baseUrl}/v0/skills/${encodedName}/versions/${encodedVersion}`)
     if (!response.ok) {
       throw new Error('Failed to fetch skill')
     }
@@ -746,7 +747,7 @@ class AdminApiClient {
   // Get all versions of a skill
   async getSkillVersions(skillName: string): Promise<SkillListResponse> {
     const encodedName = encodeURIComponent(skillName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/skills/${encodedName}/versions`)
+    const response = await fetch(`${this.baseUrl}/v0/skills/${encodedName}/versions`)
     if (!response.ok) {
       throw new Error('Failed to fetch skill versions')
     }
@@ -784,7 +785,7 @@ class AdminApiClient {
     if (params?.version) queryParams.append('version', params.version)
     if (params?.updated_since) queryParams.append('updated_since', params.updated_since)
 
-    const url = `${this.baseUrl}/admin/v0/agents${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const url = `${this.baseUrl}/v0/agents${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await this.fetchWithRetry(url, { headers: this.getHeaders() })
     if (!response.ok) {
       throw new Error('Failed to fetch agents')
@@ -819,7 +820,7 @@ class AdminApiClient {
   async getAgent(agentName: string, version: string = 'latest'): Promise<AgentResponse> {
     const encodedName = encodeURIComponent(agentName)
     const encodedVersion = encodeURIComponent(version)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions/${encodedVersion}`)
+    const response = await fetch(`${this.baseUrl}/v0/agents/${encodedName}/versions/${encodedVersion}`)
     if (!response.ok) {
       throw new Error('Failed to fetch agent')
     }
@@ -829,7 +830,7 @@ class AdminApiClient {
   // Get all versions of an agent
   async getAgentVersions(agentName: string): Promise<AgentListResponse> {
     const encodedName = encodeURIComponent(agentName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/agents/${encodedName}/versions`)
+    const response = await fetch(`${this.baseUrl}/v0/agents/${encodedName}/versions`)
     if (!response.ok) {
       throw new Error('Failed to fetch agent versions')
     }
@@ -865,7 +866,7 @@ class AdminApiClient {
     if (params?.search) queryParams.append('search', params.search)
     if (params?.provider) queryParams.append('provider', params.provider)
 
-    const url = `${this.baseUrl}/admin/v0/models${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const url = `${this.baseUrl}/v0/models${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await this.fetchWithRetry(url, { headers: this.getHeaders() })
     if (!response.ok) {
       throw new Error('Failed to fetch models')
@@ -897,7 +898,7 @@ class AdminApiClient {
   // Get a specific model
   async getModel(modelName: string): Promise<ModelResponse> {
     const encodedName = encodeURIComponent(modelName)
-    const response = await fetch(`${this.baseUrl}/admin/v0/models/${encodedName}`)
+    const response = await fetch(`${this.baseUrl}/v0/models/${encodedName}`)
     if (!response.ok) {
       throw new Error('Failed to fetch model')
     }
@@ -1015,7 +1016,7 @@ class AdminApiClient {
     const queryParams = new URLSearchParams()
     if (params?.resourceType) queryParams.append('resourceType', params.resourceType)
 
-    const url = `${this.baseUrl}/admin/v0/deployments${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const url = `${this.baseUrl}/v0/deployments${queryParams.toString() ? '?' + queryParams.toString() : ''}`
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error('Failed to fetch deployments')

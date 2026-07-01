@@ -131,49 +131,53 @@ func (h *DeploymentHandler) RegisterRoutes(api huma.API, pathPrefix string, isAd
 		return h.getDeployment(ctx, input)
 	})
 
-	// Create deployment
-	huma.Register(api, huma.Operation{
-		OperationID: "create-deployment" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodPost,
-		Path:        pathPrefix + "/deployments",
-		Summary:     "Create deployment",
-		Tags:        tags,
-	}, func(ctx context.Context, input *CreateDeploymentInput) (*Response[DeploymentResponse], error) {
-		return h.createDeployment(ctx, input)
-	})
+	// Admin-only endpoints (mutations). Registered only under /admin/v0 so that
+	// deployment create/update/delete require authentication.
+	if isAdmin {
+		// Create deployment
+		huma.Register(api, huma.Operation{
+			OperationID: "create-deployment" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodPost,
+			Path:        pathPrefix + "/deployments",
+			Summary:     "Create deployment",
+			Tags:        tags,
+		}, func(ctx context.Context, input *CreateDeploymentInput) (*Response[DeploymentResponse], error) {
+			return h.createDeployment(ctx, input)
+		})
 
-	// Update deployment config
-	huma.Register(api, huma.Operation{
-		OperationID: "update-deployment-config" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodPatch,
-		Path:        pathPrefix + "/deployments/{deploymentName}/config",
-		Summary:     "Update deployment configuration",
-		Tags:        tags,
-	}, func(ctx context.Context, input *UpdateDeploymentConfigInput) (*Response[DeploymentResponse], error) {
-		return h.updateDeploymentConfig(ctx, input)
-	})
+		// Update deployment config
+		huma.Register(api, huma.Operation{
+			OperationID: "update-deployment-config" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodPatch,
+			Path:        pathPrefix + "/deployments/{deploymentName}/config",
+			Summary:     "Update deployment configuration",
+			Tags:        tags,
+		}, func(ctx context.Context, input *UpdateDeploymentConfigInput) (*Response[DeploymentResponse], error) {
+			return h.updateDeploymentConfig(ctx, input)
+		})
 
-	// Delete deployment by name
-	huma.Register(api, huma.Operation{
-		OperationID: "delete-deployment" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodDelete,
-		Path:        pathPrefix + "/deployments/{deploymentName}",
-		Summary:     "Delete deployment",
-		Tags:        tags,
-	}, func(ctx context.Context, input *DeploymentDetailInput) (*Response[EmptyResponse], error) {
-		return h.deleteDeployment(ctx, input)
-	})
+		// Delete deployment by name
+		huma.Register(api, huma.Operation{
+			OperationID: "delete-deployment" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodDelete,
+			Path:        pathPrefix + "/deployments/{deploymentName}",
+			Summary:     "Delete deployment",
+			Tags:        tags,
+		}, func(ctx context.Context, input *DeploymentDetailInput) (*Response[EmptyResponse], error) {
+			return h.deleteDeployment(ctx, input)
+		})
 
-	// Delete deployment by server name and version (UI compatibility)
-	huma.Register(api, huma.Operation{
-		OperationID: "delete-deployment-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodDelete,
-		Path:        pathPrefix + "/deployments/{serverName}/versions/{version}",
-		Summary:     "Delete deployment by server name and version",
-		Tags:        tags,
-	}, func(ctx context.Context, input *DeleteDeploymentVersionInput) (*Response[EmptyResponse], error) {
-		return h.deleteDeploymentVersion(ctx, input)
-	})
+		// Delete deployment by server name and version (UI compatibility)
+		huma.Register(api, huma.Operation{
+			OperationID: "delete-deployment-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodDelete,
+			Path:        pathPrefix + "/deployments/{serverName}/versions/{version}",
+			Summary:     "Delete deployment by server name and version",
+			Tags:        tags,
+		}, func(ctx context.Context, input *DeleteDeploymentVersionInput) (*Response[EmptyResponse], error) {
+			return h.deleteDeploymentVersion(ctx, input)
+		})
+	}
 }
 
 func (h *DeploymentHandler) listDeployments(ctx context.Context, input *ListDeploymentsInput) (*Response[DeploymentListResponse], error) {

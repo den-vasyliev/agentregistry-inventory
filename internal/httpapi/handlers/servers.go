@@ -194,19 +194,30 @@ func (h *ServerHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin 
 		return h.getServerVersion(ctx, input, isAdmin)
 	})
 
-	// Create server (push)
+	// List all versions of a server (read-only; available publicly).
 	huma.Register(api, huma.Operation{
-		OperationID: "push-server" + strings.ReplaceAll(pathPrefix, "/", "-"),
-		Method:      http.MethodPost,
-		Path:        pathPrefix + "/servers/push",
-		Summary:     "Push MCP server",
+		OperationID: "list-server-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
+		Method:      http.MethodGet,
+		Path:        pathPrefix + "/servers/{serverName}/versions",
+		Summary:     "List all versions of an MCP server",
 		Tags:        tags,
-	}, func(ctx context.Context, input *CreateServerInput) (*Response[ServerResponse], error) {
-		return h.createServer(ctx, input)
+	}, func(ctx context.Context, input *ServerDetailInput) (*Response[ServerListResponse], error) {
+		return h.listServerVersions(ctx, input)
 	})
 
-	// Admin-only endpoints
+	// Admin-only endpoints (mutations).
 	if isAdmin {
+		// Create server (push)
+		huma.Register(api, huma.Operation{
+			OperationID: "push-server" + strings.ReplaceAll(pathPrefix, "/", "-"),
+			Method:      http.MethodPost,
+			Path:        pathPrefix + "/servers/push",
+			Summary:     "Push MCP server",
+			Tags:        tags,
+		}, func(ctx context.Context, input *CreateServerInput) (*Response[ServerResponse], error) {
+			return h.createServer(ctx, input)
+		})
+
 		// Create server (POST /admin/v0/servers) - same as push but different path for UI compatibility
 		huma.Register(api, huma.Operation{
 			OperationID: "create-server" + strings.ReplaceAll(pathPrefix, "/", "-"),
@@ -216,17 +227,6 @@ func (h *ServerHandler) RegisterRoutes(api huma.API, pathPrefix string, isAdmin 
 			Tags:        tags,
 		}, func(ctx context.Context, input *CreateServerInput) (*Response[ServerResponse], error) {
 			return h.createServer(ctx, input)
-		})
-
-		// List all versions of a server
-		huma.Register(api, huma.Operation{
-			OperationID: "list-server-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
-			Method:      http.MethodGet,
-			Path:        pathPrefix + "/servers/{serverName}/versions",
-			Summary:     "List all versions of an MCP server",
-			Tags:        tags,
-		}, func(ctx context.Context, input *ServerDetailInput) (*Response[ServerListResponse], error) {
-			return h.listServerVersions(ctx, input)
 		})
 	}
 }

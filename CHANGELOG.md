@@ -7,6 +7,29 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **Split the HTTP API into public reads and authenticated writes.** All
+  read-only endpoints are now served under the public `/v0/*` prefix; all
+  mutating endpoints (create/push/import/deploy/update/delete) are served
+  **only** under the authenticated `/admin/v0/*` prefix. Previously several
+  writes (catalog `push`, deployment create/update/delete) were reachable
+  unauthenticated via `/v0`; they now require an admin token.
+  - Read routes added to `/v0`: list-all-versions (servers/agents/skills),
+    `/v0/stats`, `/v0/health`.
+  - Clients that created resources via `POST /v0/...` must switch to
+    `POST /admin/v0/...` with a bearer token.
+- **Submission is now a public, non-mutating propose flow.** `POST /v0/submit`
+  (also `/admin/v0/submit`) fetches and validates a repository manifest but no
+  longer writes catalog resources to the cluster. Publishing remains an admin
+  operation via the push endpoints. (PR-based submission is a planned follow-up.)
+- Bundled UI now reads via `/v0/*` and only calls `/admin/v0/*` for writes.
+
+### Fixed
+
+- Removed a redundant `SetStatus` call in the admin auth middleware that caused a
+  `superfluous response.WriteHeader` warning on every 401.
+
 ### Security
 
 - Admin HTTP API (`/admin/*`) is now authenticated and **fail-closed**: a valid

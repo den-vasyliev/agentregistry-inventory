@@ -97,8 +97,9 @@ func isAdminPath(path string) bool {
 //     no tokens are loaded every admin request is rejected.
 //
 // It is registered as a huma middleware (see registerRoutes) so it runs for
-// every huma-routed operation; the mux-level /admin/v0/submit handler is gated
-// separately by requireAdminToken.
+// every huma-routed operation. Any mux-level admin write endpoint must be
+// wrapped separately by requireAdminToken (the huma middleware does not cover
+// handlers registered directly on the mux).
 func (s *Server) authMiddleware(ctx huma.Context, next func(huma.Context)) {
 	// Public routes pass through untouched.
 	if !isAdminPath(ctx.URL().Path) {
@@ -223,11 +224,13 @@ func (s *Server) registerRoutes() {
 	// Register admin utility endpoints
 	s.registerAdminUtilityRoutes()
 
-	// Register submit endpoint. This handler is registered directly on the mux
-	// (not via huma), so it bypasses the huma auth middleware and must be
-	// wrapped explicitly with the same mandatory admin auth.
+	// Register submit endpoint. Submission is a public PROPOSE flow: it fetches
+	// and validates a manifest from a repository but does not write to the
+	// cluster, so it needs no auth. Registered under /v0 (kept at /admin/v0 too
+	// for backward compatibility).
 	submitHandler := handlers.NewSubmitHandler(s.client, s.logger)
-	s.mux.HandleFunc("/admin/v0/submit", s.requireAdminToken(submitHandler.Submit))
+	s.mux.HandleFunc("/v0/submit", submitHandler.Submit)
+	s.mux.HandleFunc("/admin/v0/submit", submitHandler.Submit)
 
 	// Version endpoint (public)
 	s.mux.HandleFunc("/v0/version", func(w http.ResponseWriter, r *http.Request) {
@@ -320,7 +323,29 @@ type ImportResult struct {
 func (s *Server) registerAdminUtilityRoutes() {
 	tags := []string{"admin", "utility"}
 
-	// Health check
+	// Public read-only utility endpoints (health + stats). Registered under /v0
+	// so the UI and clients can read them without a token.
+	huma.Register(s.api, huma.Operation{
+		OperationID: "health",
+		Method:      http.MethodGet,
+		Path:        "/v0/health",
+		Summary:     "Health check",
+		Tags:        []string{"utility"},
+	}, func(ctx context.Context, input *struct{}) (*HealthResponse, error) {
+		return &HealthResponse{Body: HealthStatus{Status: "healthy"}}, nil
+	})
+
+	huma.Register(s.api, huma.Operation{
+		OperationID: "stats",
+		Method:      http.MethodGet,
+		Path:        "/v0/stats",
+		Summary:     "Get registry statistics",
+		Tags:        []string{"utility"},
+	}, func(ctx context.Context, input *struct{}) (*StatsResponse, error) {
+		return s.getStats(ctx)
+	})
+
+	// Health check (admin alias, kept for backward compatibility)
 	huma.Register(s.api, huma.Operation{
 		OperationID: "admin-health",
 		Method:      http.MethodGet,
@@ -333,7 +358,7 @@ func (s *Server) registerAdminUtilityRoutes() {
 		}, nil
 	})
 
-	// Stats
+	// Stats (admin alias, kept for backward compatibility)
 	huma.Register(s.api, huma.Operation{
 		OperationID: "admin-stats",
 		Method:      http.MethodGet,

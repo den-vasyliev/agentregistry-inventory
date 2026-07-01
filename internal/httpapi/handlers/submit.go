@@ -12,10 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	agentregistryv1alpha1 "github.com/agentregistry-dev/agentregistry/api/v1alpha1"
 )
 
 // SubmitHandler handles resource submission from external repositories
@@ -143,43 +140,35 @@ func (h *SubmitHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create catalog entry based on kind
-	var resourceName string
 	switch manifest.Kind {
-	case "mcp-server":
-		resourceName, err = h.createMCPServerCatalog(ctx, manifest, repoInfo)
-	case "agent":
-		resourceName, err = h.createAgentCatalog(ctx, manifest, repoInfo)
-	case "skill":
-		resourceName, err = h.createSkillCatalog(ctx, manifest, repoInfo)
+	case "mcp-server", "agent", "skill":
+		// supported
 	default:
 		h.respondError(w, http.StatusBadRequest, fmt.Sprintf("Unsupported resource kind: %s", manifest.Kind))
 		return
 	}
 
-	if err != nil {
-		h.logger.Error().Err(err).Msg("failed to create catalog entry")
-		h.respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create catalog entry: %v", err))
-		return
-	}
-
+	// Submission is a PROPOSE flow: it fetches and validates the manifest from a
+	// public repository but does NOT write anything to the cluster. Publishing to
+	// the catalog is a privileged operation handled by the admin push endpoints.
+	//
+	// TODO: open a pull request against the registry repo with the validated
+	// manifest instead of returning it inline.
 	h.logger.Info().
 		Str("kind", manifest.Kind).
 		Str("name", manifest.Name).
 		Str("version", manifest.Version).
-		Str("resourceName", resourceName).
-		Msg("submission created successfully")
+		Msg("submission validated (no cluster write)")
 
-	// Return success response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(SubmitResponse{
 		Success: true,
-		Message: "Resource submitted successfully",
+		Message: "Manifest validated. Submission does not modify the cluster; an admin must publish it (or a PR will be opened once integration is available).",
 		Name:    manifest.Name,
 		Kind:    manifest.Kind,
 		Version: manifest.Version,
-		Status:  "active",
+		Status:  "validated",
 	})
 }
 
@@ -289,175 +278,6 @@ func validateManifest(m *AgentRegistryManifest) error {
 		return fmt.Errorf("version is required")
 	}
 	return nil
-}
-
-func (h *SubmitHandler) createMCPServerCatalog(ctx context.Context, m *AgentRegistryManifest, repo *repoInfo) (string, error) {
-	// Generate a sanitized name for the CR
-	crName := sanitizeCRName(fmt.Sprintf("submit-%s-%s-%s", repo.Owner, m.Name, m.Version))
-
-	// Convert manifest packages to catalog packages
-	var packages []agentregistryv1alpha1.Package
-	for _, p := range m.Packages {
-		pkg := agentregistryv1alpha1.Package{
-			RegistryType: p.Type,
-			Transport: agentregistryv1alpha1.Transport{
-				Type: p.Transport,
-			},
-		}
-		if p.Image != "" {
-			pkg.Identifier = p.Image
-		} else {
-			pkg.Identifier = p.Identifier
-		}
-		packages = append(packages, pkg)
-	}
-
-	// Convert remotes
-	var remotes []agentregistryv1alpha1.Transport
-	for _, r := range m.Remotes {
-		remotes = append(remotes, agentregistryv1alpha1.Transport{
-			Type: r.Type,
-			URL:  r.URL,
-		})
-	}
-
-	catalog := &agentregistryv1alpha1.MCPServerCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-			Labels: map[string]string{
-				"agentregistry.dev/submitted":     "true",
-				"agentregistry.dev/review-status": "pending",
-			},
-			Annotations: map[string]string{
-				"agentregistry.dev/submitted-at":   time.Now().UTC().Format(time.RFC3339),
-				"agentregistry.dev/repository-url": repo.URL,
-			},
-		},
-		Spec: agentregistryv1alpha1.MCPServerCatalogSpec{
-			Name:        m.Name,
-			Version:     m.Version,
-			Title:       m.Title,
-			Description: m.Description,
-			Repository: &agentregistryv1alpha1.Repository{
-				URL:    repo.URL,
-				Source: repo.Host,
-			},
-			Packages: packages,
-			Remotes:  remotes,
-		},
-	}
-
-	if err := h.client.Create(ctx, catalog); err != nil {
-		return "", err
-	}
-
-	return crName, nil
-}
-
-func (h *SubmitHandler) createAgentCatalog(ctx context.Context, m *AgentRegistryManifest, repo *repoInfo) (string, error) {
-	crName := sanitizeCRName(fmt.Sprintf("submit-%s-%s-%s", repo.Owner, m.Name, m.Version))
-
-	// Extract image from packages
-	var image string
-	for _, p := range m.Packages {
-		if p.Type == "oci" && p.Image != "" {
-			image = p.Image
-			break
-		}
-	}
-
-	catalog := &agentregistryv1alpha1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-			Labels: map[string]string{
-				"agentregistry.dev/submitted":     "true",
-				"agentregistry.dev/review-status": "pending",
-			},
-			Annotations: map[string]string{
-				"agentregistry.dev/submitted-at":   time.Now().UTC().Format(time.RFC3339),
-				"agentregistry.dev/repository-url": repo.URL,
-			},
-		},
-		Spec: agentregistryv1alpha1.AgentCatalogSpec{
-			Name:        m.Name,
-			Version:     m.Version,
-			Title:       m.Title,
-			Description: m.Description,
-			Image:       image,
-			Repository: &agentregistryv1alpha1.Repository{
-				URL:    repo.URL,
-				Source: repo.Host,
-			},
-		},
-	}
-
-	// Add agent-specific fields
-	if m.Agent != nil {
-		catalog.Spec.Framework = m.Agent.Framework
-		catalog.Spec.Language = m.Agent.Language
-		catalog.Spec.ModelProvider = m.Agent.ModelProvider
-		catalog.Spec.ModelName = m.Agent.ModelName
-	}
-
-	if err := h.client.Create(ctx, catalog); err != nil {
-		return "", err
-	}
-
-	return crName, nil
-}
-
-func (h *SubmitHandler) createSkillCatalog(ctx context.Context, m *AgentRegistryManifest, repo *repoInfo) (string, error) {
-	crName := sanitizeCRName(fmt.Sprintf("submit-%s-%s-%s", repo.Owner, m.Name, m.Version))
-
-	// Convert packages
-	var packages []agentregistryv1alpha1.SkillPackage
-	for _, p := range m.Packages {
-		pkg := agentregistryv1alpha1.SkillPackage{
-			RegistryType: p.Type,
-		}
-		if p.Image != "" {
-			pkg.Identifier = p.Image
-		} else {
-			pkg.Identifier = p.Identifier
-		}
-		packages = append(packages, pkg)
-	}
-
-	catalog := &agentregistryv1alpha1.SkillCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crName,
-			Labels: map[string]string{
-				"agentregistry.dev/submitted":     "true",
-				"agentregistry.dev/review-status": "pending",
-			},
-			Annotations: map[string]string{
-				"agentregistry.dev/submitted-at":   time.Now().UTC().Format(time.RFC3339),
-				"agentregistry.dev/repository-url": repo.URL,
-			},
-		},
-		Spec: agentregistryv1alpha1.SkillCatalogSpec{
-			Name:        m.Name,
-			Version:     m.Version,
-			Title:       m.Title,
-			Description: m.Description,
-			Repository: &agentregistryv1alpha1.SkillRepository{
-				URL:    repo.URL,
-				Source: repo.Host,
-			},
-			Packages: packages,
-		},
-	}
-
-	// Add skill-specific fields
-	if m.Skill != nil {
-		catalog.Spec.Category = m.Skill.Category
-	}
-
-	if err := h.client.Create(ctx, catalog); err != nil {
-		return "", err
-	}
-
-	return crName, nil
 }
 
 func sanitizeCRName(name string) string {
